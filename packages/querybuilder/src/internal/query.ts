@@ -1965,6 +1965,13 @@ export const makeExpression = <
   readonly [ExpressionAst.TypeId]: Ast
 } => {
   const expression = Object.create(ExpressionProto)
+  Object.defineProperty(expression, "pipe", {
+    configurable: true,
+    writable: true,
+    value(...args: Array<(value: unknown) => unknown>) {
+      return pipeArguments(expression, args)
+    }
+  })
   expression[Expression.TypeId] = {
     runtime: state.runtime,
     dbType: state.dbType,
@@ -2005,6 +2012,13 @@ export const makePlan = <
   _insertState?: InsertState
 ): QueryPlan<Selection, Required, Available, Dialect, Grouped, ScopedNames, Outstanding, Assumptions, Capabilities, Statement, Target, InsertState> => {
   const plan = Object.create(PlanProto)
+  Object.defineProperty(plan, "pipe", {
+    configurable: true,
+    writable: true,
+    value(...args: Array<(value: unknown) => unknown>) {
+      return pipeArguments(plan, args)
+    }
+  })
   plan[RowSet.TypeId] = state
   plan[QueryAst.TypeId] = ast
   plan[QueryTypeId] = {

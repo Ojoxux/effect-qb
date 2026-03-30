@@ -34,6 +34,8 @@ export interface ColumnIndexOptions {
   readonly predicate?: DdlExpression
   readonly order?: "asc" | "desc"
   readonly nulls?: "first" | "last"
+  readonly operatorClass?: string
+  readonly collation?: string
 }
 
 /** Inline single-column unique-constraint metadata. */
@@ -228,6 +230,17 @@ const ColumnProto = {
   }
 }
 
+const attachPipe = <Value extends object>(value: Value): Value => {
+  Object.defineProperty(value, "pipe", {
+    configurable: true,
+    writable: true,
+    value(...args: Array<(input: unknown) => unknown>) {
+      return pipeArguments(value, args)
+    }
+  })
+  return value
+}
+
 /** Constructs a runtime column-definition object from schema and metadata. */
 export const makeColumnDefinition = <
   Select,
@@ -269,7 +282,7 @@ export const makeColumnDefinition = <
   Ref,
   Dependencies
 > => {
-  const column = Object.create(ColumnProto)
+  const column = attachPipe(Object.create(ColumnProto))
   column.schema = schema
   column.metadata = metadata
   column[Expression.TypeId] = {
@@ -358,7 +371,7 @@ export const remapColumnDefinition = <
 > => {
   const schema = options.schema ?? column.schema
   const metadata = options.metadata ?? column.metadata
-  const next = Object.create(ColumnProto)
+  const next = attachPipe(Object.create(ColumnProto))
   next.schema = schema
   next.metadata = metadata
   next[Expression.TypeId] = {
@@ -423,7 +436,7 @@ export const bindColumn = <
   const schema = column.metadata.brand === true
     ? Schema.brand(brandName)(column.schema)
     : column.schema
-  const bound = Object.create(ColumnProto)
+  const bound = attachPipe(Object.create(ColumnProto))
   bound.schema = schema
   bound.metadata = column.metadata
   bound[Expression.TypeId] = {

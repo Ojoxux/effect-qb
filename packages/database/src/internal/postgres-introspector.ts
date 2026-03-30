@@ -73,6 +73,14 @@ type IndexKeyRow = {
 type OpclassRow = {
   readonly oid: number
   readonly opcdefault: boolean
+  readonly schema_name: string
+  readonly opclass_name: string
+}
+
+type CollationRow = {
+  readonly oid: number
+  readonly schema_name: string
+  readonly collation_name: string
 }
 
 type EnumRow = {
@@ -156,9 +164,19 @@ const parseExpression = (sql: string, context: string) => {
   try {
     return SchemaExpression.normalize(SchemaExpression.parseExpression(sql))
   } catch (error) {
-    throw new Error(`Unsupported PostgreSQL expression in ${context}: ${(error as Error).message}`)
+    void context
+    void error
+    return SchemaExpression.fromSql(sql)
   }
 }
+
+const qualifiedName = (
+  schemaName: string,
+  objectName: string
+): string =>
+  schemaName === "pg_catalog"
+    ? objectName
+    : `${schemaName}.${objectName}`
 
 const makeColumnModel = (row: ColumnRow): ColumnModel => ({
   name: row.column_name,
@@ -316,16 +334,30 @@ export const introspectPostgresSchema = (
       const opclassRows = opclassOids.length === 0
         ? []
         : yield* sql.unsafe<OpclassRow>(`
-            select oid, opcdefault
+            select
+              op.oid,
+              op.opcdefault,
+              n.nspname as schema_name,
+              op.opcname as opclass_name
             from pg_opclass
-            where oid = any($1::oid[])
+            join pg_namespace n on n.oid = op.opcnamespace
+            where op.oid = any($1::oid[])
           `, [[...new Set(opclassOids)]])
-      const opclassDefaults = new Map(opclassRows.map((row) => [row.oid, row.opcdefault]))
+      const opclassByOid = new Map(opclassRows.map((row) => [row.oid, row] as const))
+      const collations = yield* sql.unsafe<CollationRow>(`
+        select
+          c.oid,
+          n.nspname as schema_name,
+          c.collname as collation_name
+        from pg_collation c
+        join pg_namespace n on n.oid = c.collnamespace
+      `)
+      const collationByOid = new Map(collations.map((row) => [row.oid, row] as const))
       const defaultCollationRow = yield* sql.unsafe<{ readonly oid: number }>(`
-        select oid
-        from pg_collation
-        where collname = 'default'
-          and collnamespace = 'pg_catalog'::regnamespace
+        select c.oid
+        from pg_collation c
+        where c.collname = 'default'
+          and c.collnamespace = 'pg_catalog'::regnamespace
         limit 1
       `)
       const defaultCollationOid = defaultCollationRow[0]?.oid ?? 0
@@ -452,18 +484,24 @@ export const introspectPostgresSchema = (
           const order = (optionBits & 1) === 1 ? "desc" : "asc"
           const nulls = (optionBits & 2) === 2 ? "first" : "last"
           const parsed = stripOrderingSuffix(entry.key_sql)
-          if (opclass !== undefined && opclassDefaults.get(opclass) === false) {
-            throw new Error(`Unsupported PostgreSQL index key definition '${entry.key_sql}' on ${index.index_name}`)
-          }
+          const opclassRow = opclass === undefined ? undefined : opclassByOid.get(opclass)
+          const operatorClass = opclassRow?.opcdefault === false
+            ? qualifiedName(opclassRow.schema_name, opclassRow.opclass_name)
+            : undefined
+          const collationName = collation === undefined || collation === 0
+            ? undefined
+            : (() => {
+                const collationRow = collationByOid.get(collation)
+                return collationRow === undefined
+                  ? undefined
+                  : qualifiedName(collationRow.schema_name, collationRow.collation_name)
+              })()
           if (attnum > 0) {
             const columnName = attnums.get(attnum)
             if (columnName === undefined) {
               throw new Error(`Unknown index column attnum '${attnum}' on ${key}`)
             }
             const columnCollation = attcollations.get(attnum) ?? defaultCollationOid
-            if (collation !== undefined && collation !== 0 && collation !== columnCollation) {
-              throw new Error(`Unsupported PostgreSQL index collation on ${index.index_name}`)
-            }
             if (!isSimpleIndexColumnReference(parsed.expressionSql, columnName)) {
               throw new Error(`Unsupported PostgreSQL index key definition '${entry.key_sql}' on ${index.index_name}`)
             }
@@ -471,17 +509,18 @@ export const introspectPostgresSchema = (
               kind: "column" as const,
               column: columnName,
               order: parsed.order ?? order,
-              nulls: parsed.nulls ?? nulls
+              nulls: parsed.nulls ?? nulls,
+              operatorClass,
+              collation: collation !== columnCollation ? collationName : undefined
             }
-          }
-          if (collation !== undefined && collation !== 0 && collation !== defaultCollationOid) {
-            throw new Error(`Unsupported PostgreSQL index collation on ${index.index_name}`)
           }
           return {
             kind: "expression" as const,
             expression: parseExpression(parsed.expressionSql, `index ${index.index_name}`),
             order: parsed.order ?? order,
-            nulls: parsed.nulls ?? nulls
+            nulls: parsed.nulls ?? nulls,
+            operatorClass,
+            collation: collation !== defaultCollationOid ? collationName : undefined
           }
         })
         const include = indkey

@@ -11,9 +11,21 @@ const SchemaExpressionProto = {
   }
 }
 
+const attachPipe = <Value extends object>(value: Value): Value => {
+  Object.defineProperty(value, "pipe", {
+    configurable: true,
+    writable: true,
+    value(...args: Array<(input: unknown) => unknown>) {
+      return pipeArguments(value, args)
+    }
+  })
+  return value
+}
+
 export interface SchemaExpression extends Pipeable {
   readonly [TypeId]: {
-    readonly ast: Expr
+    readonly ast?: Expr
+    readonly sql?: string
   }
 }
 
@@ -23,9 +35,17 @@ export const isSchemaExpression = (value: unknown): value is SchemaExpression =>
   typeof value === "object" && value !== null && TypeId in value
 
 export const fromAst = (ast: Expr): SchemaExpression => {
-  const expression = Object.create(SchemaExpressionProto)
+  const expression = attachPipe(Object.create(SchemaExpressionProto))
   expression[TypeId] = {
     ast
+  }
+  return expression
+}
+
+export const fromSql = (sql: string): SchemaExpression => {
+  const expression = attachPipe(Object.create(SchemaExpressionProto))
+  expression[TypeId] = {
+    sql: sql.trim()
   }
   return expression
 }
@@ -33,10 +53,23 @@ export const fromAst = (ast: Expr): SchemaExpression => {
 export const parseExpression = (sql: string): SchemaExpression =>
   fromAst(parse(sql, "expr"))
 
-export const toAst = (expression: SchemaExpression): Expr => expression[TypeId].ast
+export const toAst = (expression: SchemaExpression): Expr => {
+  const ast = expression[TypeId].ast
+  if (ast !== undefined) {
+    return ast
+  }
+  return parse(render(expression), "expr")
+}
 
 export const render = (expression: SchemaExpression): string =>
-  toSql.expr(expression[TypeId].ast)
+  expression[TypeId].sql ?? toSql.expr(toAst(expression))
 
 export const normalize = (expression: SchemaExpression): SchemaExpression =>
-  parseExpression(render(expression))
+  (() => {
+    const sql = render(expression)
+    try {
+      return parseExpression(sql)
+    } catch {
+      return fromSql(sql)
+    }
+  })()

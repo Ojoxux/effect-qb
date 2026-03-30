@@ -28,9 +28,127 @@ export type EffectDbConfig = {
   }
 }
 
+const asRecord = (value: unknown, label: string): Record<string, unknown> => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`)
+  }
+  return value as Record<string, unknown>
+}
+
+const assertAllowedKeys = (
+  value: Record<string, unknown>,
+  allowed: readonly string[],
+  label: string
+): void => {
+  const allowedKeys = new Set(allowed)
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) {
+      throw new Error(`Unexpected config key '${label}.${key}'`)
+    }
+  }
+}
+
+const assertOptionalString = (
+  value: unknown,
+  label: string
+): void => {
+  if (value !== undefined && typeof value !== "string") {
+    throw new Error(`${label} must be a string`)
+  }
+}
+
+const assertOptionalBoolean = (
+  value: unknown,
+  label: string
+): void => {
+  if (value !== undefined && typeof value !== "boolean") {
+    throw new Error(`${label} must be a boolean`)
+  }
+}
+
+const assertOptionalStringArray = (
+  value: unknown,
+  label: string
+): void => {
+  if (value === undefined) {
+    return
+  }
+  if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string")) {
+    throw new Error(`${label} must be an array of strings`)
+  }
+}
+
+const validatePartialPostgresConfig = (
+  value: unknown,
+  label = "config"
+): asserts value is Partial<EffectDbConfig> => {
+  const config = asRecord(value, label)
+  assertAllowedKeys(config, ["dialect", "db", "source", "filter", "migrations", "safety"], label)
+
+  if ("dialect" in config && config.dialect !== "postgres") {
+    throw new Error(`Unsupported dialect '${String(config.dialect)}'; only 'postgres' is supported`)
+  }
+
+  if (config.db !== undefined) {
+    const db = asRecord(config.db, `${label}.db`)
+    assertAllowedKeys(db, ["url", "urlEnv"], `${label}.db`)
+    assertOptionalString(db.url, `${label}.db.url`)
+    assertOptionalString(db.urlEnv, `${label}.db.urlEnv`)
+  }
+
+  if (config.source !== undefined) {
+    const source = asRecord(config.source, `${label}.source`)
+    assertAllowedKeys(source, ["include", "exclude"], `${label}.source`)
+    assertOptionalStringArray(source.include, `${label}.source.include`)
+    assertOptionalStringArray(source.exclude, `${label}.source.exclude`)
+  }
+
+  if (config.filter !== undefined) {
+    const filter = asRecord(config.filter, `${label}.filter`)
+    assertAllowedKeys(filter, ["schemas", "tables"], `${label}.filter`)
+    assertOptionalStringArray(filter.schemas, `${label}.filter.schemas`)
+    assertOptionalStringArray(filter.tables, `${label}.filter.tables`)
+  }
+
+  if (config.migrations !== undefined) {
+    const migrations = asRecord(config.migrations, `${label}.migrations`)
+    assertAllowedKeys(migrations, ["dir", "table"], `${label}.migrations`)
+    assertOptionalString(migrations.dir, `${label}.migrations.dir`)
+    assertOptionalString(migrations.table, `${label}.migrations.table`)
+  }
+
+  if (config.safety !== undefined) {
+    const safety = asRecord(config.safety, `${label}.safety`)
+    assertAllowedKeys(safety, ["nonDestructiveDefault"], `${label}.safety`)
+    assertOptionalBoolean(safety.nonDestructiveDefault, `${label}.safety.nonDestructiveDefault`)
+  }
+}
+
+const validateResolvedPostgresConfig = (
+  config: EffectDbConfig,
+  label = "config"
+): void => {
+  validatePartialPostgresConfig(config, label)
+
+  if (config.source.include.length === 0) {
+    throw new Error("Schema source discovery requires at least one include glob")
+  }
+
+  if (config.migrations.dir.trim().length === 0) {
+    throw new Error(`${label}.migrations.dir must be a non-empty string`)
+  }
+
+  if (config.migrations.table.trim().length === 0) {
+    throw new Error(`${label}.migrations.table must be a non-empty string`)
+  }
+}
+
 export const defineConfig = <Config extends EffectDbConfig>(
   config: Config
-): Config => config
+): Config => {
+  validatePartialPostgresConfig(config)
+  return config
+}
 
 export interface LoadedPostgresConfig {
   readonly config: EffectDbConfig
@@ -100,35 +218,37 @@ export const loadPostgresConfig = async (
   if (typeof loaded !== "object" || loaded === null) {
     throw new Error(`Config file '${configPath}' did not export an object`)
   }
+  validatePartialPostgresConfig(loaded, "config")
+
+  const partial = loaded as Partial<EffectDbConfig>
 
   const merged = {
     ...defaultConfig(),
-    ...(loaded as Partial<EffectDbConfig>),
+    ...partial,
     db: {
       ...defaultConfig().db,
-      ...((loaded as Partial<EffectDbConfig>).db ?? {})
+      ...(partial.db ?? {})
     },
     source: {
       ...defaultConfig().source,
-      ...((loaded as Partial<EffectDbConfig>).source ?? {})
+      ...(partial.source ?? {})
     },
+    filter: partial.filter === undefined
+      ? undefined
+      : {
+          ...(partial.filter ?? {})
+        },
     migrations: {
       ...defaultConfig().migrations,
-      ...((loaded as Partial<EffectDbConfig>).migrations ?? {})
+      ...(partial.migrations ?? {})
     },
     safety: {
       ...defaultConfig().safety,
-      ...((loaded as Partial<EffectDbConfig>).safety ?? {})
+      ...(partial.safety ?? {})
     }
   } satisfies EffectDbConfig
 
-  if (merged.dialect !== "postgres") {
-    throw new Error(`Unsupported dialect '${String((loaded as Record<string, unknown>).dialect)}'; only 'postgres' is supported`)
-  }
-
-  if (merged.source.include.length === 0) {
-    throw new Error("Schema source discovery requires at least one include glob")
-  }
+  validateResolvedPostgresConfig(merged)
 
   return {
     config: merged,

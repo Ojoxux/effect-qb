@@ -64,6 +64,77 @@ export default {
     }
   })
 
+  test("rejects unknown config keys", async () => {
+    const tempDir = await mkdtemp(join(repoRoot, "test/.tmp-postgres-config-"))
+    try {
+      await Bun.write(join(tempDir, "effectdb.config.ts"), `
+import { defineConfig } from "effect-db"
+
+export default defineConfig({
+  dialect: "postgres",
+  db: {
+    url: "postgres://example"
+  },
+  source: {
+    include: ["schema.ts"]
+  },
+  soruce: {
+    include: ["typo.ts"]
+  }
+})
+`)
+
+      await expect(loadPostgresConfig(tempDir)).rejects.toThrow("Unexpected config key 'config.soruce'")
+    } finally {
+      await rm(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  test("rejects invalid nested config shapes", async () => {
+    const tempDir = await mkdtemp(join(repoRoot, "test/.tmp-postgres-config-"))
+    try {
+      await Bun.write(join(tempDir, "effectdb.config.ts"), `
+export default {
+  dialect: "postgres",
+  db: {
+    url: "postgres://example"
+  },
+  source: {
+    include: "schema.ts"
+  }
+}
+`)
+
+      await expect(loadPostgresConfig(tempDir)).rejects.toThrow("config.source.include must be an array of strings")
+    } finally {
+      await rm(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  test("rejects empty migration table names after merging defaults", async () => {
+    const tempDir = await mkdtemp(join(repoRoot, "test/.tmp-postgres-config-"))
+    try {
+      await Bun.write(join(tempDir, "effectdb.config.ts"), `
+export default {
+  dialect: "postgres",
+  db: {
+    url: "postgres://example"
+  },
+  source: {
+    include: ["schema.ts"]
+  },
+  migrations: {
+    table: "   "
+  }
+}
+`)
+
+      await expect(loadPostgresConfig(tempDir)).rejects.toThrow("config.migrations.table must be a non-empty string")
+    } finally {
+      await rm(tempDir, { recursive: true, force: true })
+    }
+  })
+
   test("rejects missing explicit config paths", async () => {
     const tempDir = await mkdtemp(join(repoRoot, "test/.tmp-postgres-config-"))
     try {

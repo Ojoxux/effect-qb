@@ -37,6 +37,11 @@ const main = async () => {
     process.exit(exitCode)
   }
 
+  await Bun.write(join(distDir, "index.d.ts"), 'export * from "../src/index.ts"\n')
+  await Bun.write(join(distDir, "postgres", "pull.d.ts"), 'export * from "../../src/postgres/pull.ts"\n')
+  await Bun.write(join(distDir, "postgres", "push.d.ts"), 'export * from "../../src/postgres/push.ts"\n')
+  await Bun.write(join(distDir, "postgres", "migrate.d.ts"), 'export * from "../../src/postgres/migrate.ts"\n')
+
   const distStat = await stat(distDir)
   if (!distStat.isDirectory()) {
     throw new Error("build did not produce a dist directory")

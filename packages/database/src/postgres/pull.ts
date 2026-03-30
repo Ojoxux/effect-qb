@@ -877,8 +877,13 @@ const renderSqlExpressionCode = (
 const renderDdlExpressionCode = (
   sql: string,
   context: ExpressionRenderContext
-): string =>
-  renderSqlExpressionCode(parse(sql, "expr") as PgSqlExpr, context)
+): string => {
+  try {
+    return renderSqlExpressionCode(parse(sql, "expr") as PgSqlExpr, context)
+  } catch {
+    return `${PG_ALIAS}.SchemaExpression.fromSql(${renderStringLiteral(sql)})`
+  }
+}
 
 const renderTableScopedDdlExpressionCode = (
   table: TableModel,
@@ -957,13 +962,17 @@ const indexShapeSignature = (option: Extract<TableOptionSpec, { readonly kind: "
           kind: key.kind,
           column: key.column,
           order: key.order ?? null,
-          nulls: key.nulls ?? null
+          nulls: key.nulls ?? null,
+          operatorClass: key.operatorClass ?? null,
+          collation: key.collation ?? null
         }
       : {
           kind: key.kind,
           expression: normalizeDdlExpressionSql(key.expression),
           order: key.order ?? null,
-          nulls: key.nulls ?? null
+          nulls: key.nulls ?? null,
+          operatorClass: key.operatorClass ?? null,
+          collation: key.collation ?? null
         })
   })
 }
@@ -1323,8 +1332,8 @@ const renderIndexKey = (
   context: RenderContext
 ): string =>
   key.kind === "column"
-    ? `{ column: ${renderStringLiteral(key.column)}${key.order ? `, order: ${renderStringLiteral(key.order)}` : ""}${key.nulls ? `, nulls: ${renderStringLiteral(key.nulls)}` : ""} }`
-    : `{ expression: ${renderDdlExpressionCode(renderDdlExpressionSql(key.expression), renderExpressionContext(table, context))}${key.order ? `, order: ${renderStringLiteral(key.order)}` : ""}${key.nulls ? `, nulls: ${renderStringLiteral(key.nulls)}` : ""} }`
+    ? `{ column: ${renderStringLiteral(key.column)}${key.order ? `, order: ${renderStringLiteral(key.order)}` : ""}${key.nulls ? `, nulls: ${renderStringLiteral(key.nulls)}` : ""}${key.operatorClass ? `, operatorClass: ${renderStringLiteral(key.operatorClass)}` : ""}${key.collation ? `, collation: ${renderStringLiteral(key.collation)}` : ""} }`
+    : `{ expression: ${renderDdlExpressionCode(renderDdlExpressionSql(key.expression), renderExpressionContext(table, context))}${key.order ? `, order: ${renderStringLiteral(key.order)}` : ""}${key.nulls ? `, nulls: ${renderStringLiteral(key.nulls)}` : ""}${key.operatorClass ? `, operatorClass: ${renderStringLiteral(key.operatorClass)}` : ""}${key.collation ? `, collation: ${renderStringLiteral(key.collation)}` : ""} }`
 
 const renderIndexOption = (
   table: TableModel,
@@ -1401,12 +1410,16 @@ const inlineIndexColumn = (
   readonly column: string
   readonly order?: "asc" | "desc"
   readonly nulls?: "first" | "last"
+  readonly operatorClass?: string
+  readonly collation?: string
 } | undefined => {
   const keys = option.keys ?? (option.columns ?? []).map((column) => ({
     kind: "column" as const,
     column,
     order: undefined as "asc" | "desc" | undefined,
-    nulls: undefined as "first" | "last" | undefined
+    nulls: undefined as "first" | "last" | undefined,
+    operatorClass: undefined as string | undefined,
+    collation: undefined as string | undefined
   }))
   if (keys.length !== 1) {
     return undefined
@@ -1416,7 +1429,9 @@ const inlineIndexColumn = (
     ? {
         column: key.column,
         order: key.order,
-        nulls: key.nulls
+        nulls: key.nulls,
+        operatorClass: key.operatorClass,
+        collation: key.collation
       }
     : undefined
 }
@@ -1506,7 +1521,9 @@ const renderInlineColumnOption = (
         (option.include === undefined || option.include.length === 0) &&
         option.predicate === undefined &&
         inlineColumn.order === undefined &&
-        inlineColumn.nulls === undefined
+        inlineColumn.nulls === undefined &&
+        inlineColumn.operatorClass === undefined &&
+        inlineColumn.collation === undefined
       if (simple) {
         return `${COLUMN_ALIAS}.index`
       }
@@ -1525,6 +1542,12 @@ const renderInlineColumnOption = (
       }
       if (inlineColumn.nulls !== undefined) {
         parts.push(`nulls: ${renderStringLiteral(inlineColumn.nulls)}`)
+      }
+      if (inlineColumn.operatorClass !== undefined) {
+        parts.push(`operatorClass: ${renderStringLiteral(inlineColumn.operatorClass)}`)
+      }
+      if (inlineColumn.collation !== undefined) {
+        parts.push(`collation: ${renderStringLiteral(inlineColumn.collation)}`)
       }
       return `${COLUMN_ALIAS}.index({ ${parts.join(", ")} })`
     }
@@ -1895,7 +1918,12 @@ const collectExpressionReferences = (
     readonly enumKeys: ReadonlySet<string>
   }
 ): void => {
-  const expression = parse(sql, "expr") as PgSqlExpr
+  let expression: PgSqlExpr
+  try {
+    expression = parse(sql, "expr") as PgSqlExpr
+  } catch {
+    return
+  }
   visitExpression(expression, (current) => {
     if (current.type === "call") {
       const name = ((current.function as { readonly name?: string }).name ?? "").toLowerCase()

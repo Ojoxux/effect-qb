@@ -36,21 +36,18 @@ If you only want the typed DSL and SQL rendering:
 
 ```bash
 bun add effect-qb
-npm install effect-qb
 ```
 
 If you want to execute plans with the built-in Postgres executor:
 
 ```bash
 bun add effect-qb effect @effect/sql @effect/sql-pg
-npm install effect-qb effect @effect/sql @effect/sql-pg
 ```
 
 If you want to execute plans with the built-in MySQL executor:
 
 ```bash
 bun add effect-qb effect @effect/sql @effect/sql-mysql2
-npm install effect-qb effect @effect/sql @effect/sql-mysql2
 ```
 
 The built-in executors require an ambient `@effect/sql` `SqlClient`. If your app already uses Effect and `@effect/sql`, you likely already have the extra runtime packages installed.

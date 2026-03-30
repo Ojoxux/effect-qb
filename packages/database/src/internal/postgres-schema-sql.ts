@@ -8,6 +8,9 @@ const quote = (value: string): string =>
 const qualify = (schemaName: string | undefined, name: string): string =>
   `${quote(schemaName ?? "public")}.${quote(name)}`
 
+const qualifyIdentifier = (value: string): string =>
+  value.split(".").map(quote).join(".")
+
 const renderAction = (action: ReferentialAction): string => {
   switch (action) {
     case "noAction":
@@ -101,7 +104,7 @@ export const renderIndexDefinition = (
     const base = key.kind === "column"
       ? quote(key.column)
       : `(${SchemaExpression.renderDdlExpressionSql(key.expression)})`
-    return `${base}${key.order ? ` ${key.order}` : ""}${key.nulls ? ` nulls ${key.nulls}` : ""}`
+    return `${base}${key.collation ? ` collate ${qualifyIdentifier(key.collation)}` : ""}${key.operatorClass ? ` ${qualifyIdentifier(key.operatorClass)}` : ""}${key.order ? ` ${key.order}` : ""}${key.nulls ? ` nulls ${key.nulls}` : ""}`
   }).join(", ")
   return `create${option.unique ? " unique" : ""} index ${quote(name)} on ${qualify(table.schemaName, table.name)}${option.method ? ` using ${option.method}` : ""} (${renderedKeys})${option.include && option.include.length > 0 ? ` include (${option.include.map(quote).join(", ")})` : ""}${option.predicate ? ` where ${SchemaExpression.renderDdlExpressionSql(option.predicate)}` : ""}`
 }

@@ -749,7 +749,7 @@ export function loadUsers() {
     }
   })
 
-  test("rejects computed schema declarations", async () => {
+  test("discovers wrapped top-level schema declarations", async () => {
     const tempDir = await mkdtemp(join(repoRoot, "test/.tmp-schema-discovery-computed-"))
     try {
       await Bun.write(join(tempDir, "computed.ts"), `
@@ -760,9 +760,16 @@ export const users = (() => Table.make("users", {
 }))()
 `)
 
-      await expect(discoverSourceSchema(repoRoot, {
+      const discovered = await discoverSourceSchema(repoRoot, {
         include: [`${relative(repoRoot, tempDir).replaceAll("\\", "/")}/**/*.ts`]
-      })).rejects.toThrow("Non-canonical schema declaration 'users'")
+      })
+
+      expect(discovered.declarations).toHaveLength(1)
+      expect(discovered.declarations[0]?.kind).toBe("tableFactory")
+      expect(discovered.bindings[0]?.kind).toBe("table")
+      expect(discovered.model.tables.map((table) => `${table.schemaName ?? "public"}.${table.name}`)).toEqual([
+        "public.users"
+      ])
     } finally {
       await rm(tempDir, { recursive: true, force: true })
     }

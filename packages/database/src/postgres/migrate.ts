@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { mkdir } from "node:fs/promises"
 import { join, resolve } from "node:path"
 
@@ -10,6 +11,7 @@ import type { loadPostgresConfig } from "../internal/postgres-config.js"
 
 const MIGRATION_UP_MARKER = "-- effect-db:up"
 const MIGRATION_DOWN_MARKER = "-- effect-db:down"
+const MIGRATION_CHECKSUM_PREFIX = "sha256"
 
 const quoteIdentifier = (value: string): string =>
   `"${value.replaceAll("\"", "\"\"")}"`
@@ -30,19 +32,28 @@ const migrationTableSql = (tableName: string): string =>
   `create table if not exists ${qualifyIdentifier(tableName)} (
     id bigint generated always as identity primary key,
     name text not null unique,
+    checksum text not null,
     applied_at timestamptz not null default now()
   )`
+
+const normalizeMigrationContents = (contents: string): string =>
+  contents.replaceAll("\r\n", "\n")
+
+const migrationChecksumOf = (contents: string): string =>
+  `${MIGRATION_CHECKSUM_PREFIX}:${createHash("sha256").update(normalizeMigrationContents(contents)).digest("hex")}`
 
 export interface MigrationFile {
   readonly name: string
   readonly path: string
   readonly sql: string
   readonly downSql?: string
+  readonly checksum: string
 }
 
 export interface AppliedMigrationRow {
   readonly id: number
   readonly name: string
+  readonly checksum: string | null
 }
 
 type LoadedConfig = Awaited<ReturnType<typeof loadPostgresConfig>>
@@ -177,7 +188,8 @@ export const readPendingMigrationFiles = async (
       name,
       path,
       sql: parsed.sql,
-      downSql: parsed.downSql
+      downSql: parsed.downSql,
+      checksum: migrationChecksumOf(contents)
     })
   }
   return pending
@@ -201,7 +213,8 @@ export const readMigrationFiles = async (
       name,
       path,
       sql: sections.sql,
-      downSql: sections.downSql
+      downSql: sections.downSql,
+      checksum: migrationChecksumOf(contents)
     })
   }
   return parsed
@@ -211,83 +224,180 @@ export const ensureMigrationTable = (
   tableName: string
 ): Effect.Effect<void, unknown, SqlClient.SqlClient> =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
-    Effect.asVoid(sql.unsafe(migrationTableSql(tableName))))
+    Effect.zipRight(
+      Effect.asVoid(sql.unsafe(migrationTableSql(tableName))),
+      Effect.asVoid(sql.unsafe(`alter table ${qualifyIdentifier(tableName)} add column if not exists checksum text`))
+    ))
+
+export const withMigrationLock = <A>(
+  tableName: string,
+  effect: Effect.Effect<A, unknown, SqlClient.SqlClient>
+): Effect.Effect<A, unknown, SqlClient.SqlClient> =>
+  Effect.flatMap(SqlClient.SqlClient, (sql) =>
+    sql.withTransaction(Effect.gen(function*() {
+      yield* Effect.asVoid(sql.unsafe(
+        "select pg_advisory_xact_lock(hashtext($1), 0)",
+        [tableName]
+      ))
+      yield* ensureMigrationTable(tableName)
+      return yield* effect
+    })))
 
 export const readAppliedMigrationNames = (
   tableName: string
 ): Effect.Effect<ReadonlySet<string>, unknown, SqlClient.SqlClient> =>
-  Effect.flatMap(SqlClient.SqlClient, (sql) =>
-    Effect.map(
-      sql.unsafe<{ readonly name: string }>(`select name from ${qualifyIdentifier(tableName)} order by name`),
-      (rows) => new Set(rows.map((row) => row.name))
-    ))
+  Effect.map(
+    readAppliedMigrationRows(tableName),
+    (rows) => new Set(rows.map((row) => row.name))
+  )
 
 export const readAppliedMigrationRows = (
   tableName: string
 ): Effect.Effect<ReadonlyArray<AppliedMigrationRow>, unknown, SqlClient.SqlClient> =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
     Effect.map(
-      sql.unsafe<AppliedMigrationRow>(`select id, name from ${qualifyIdentifier(tableName)} order by id`),
+      sql.unsafe<AppliedMigrationRow>(`select id, name, checksum from ${qualifyIdentifier(tableName)} order by id`),
       (rows) => rows
     ))
+
+const fileByName = (
+  files: ReadonlyArray<MigrationFile>
+): ReadonlyMap<string, MigrationFile> =>
+  new Map(files.map((file) => [file.name, file] as const))
+
+export const verifyAppliedMigrationChecksums = (
+  rows: ReadonlyArray<AppliedMigrationRow>,
+  files: ReadonlyArray<MigrationFile>
+): void => {
+  const filesByName = fileByName(files)
+  for (const row of rows) {
+    const file = filesByName.get(row.name)
+    if (file === undefined || row.checksum === null) {
+      continue
+    }
+    if (row.checksum !== file.checksum) {
+      throw new Error(
+        `Migration checksum mismatch for '${row.name}': applied ${row.checksum} but current file is ${file.checksum}`
+      )
+    }
+  }
+}
+
+export const synchronizeAppliedMigrationChecksums = (
+  tableName: string,
+  rows: ReadonlyArray<AppliedMigrationRow>,
+  files: ReadonlyArray<MigrationFile>
+): Effect.Effect<ReadonlyArray<AppliedMigrationRow>, unknown, SqlClient.SqlClient> => {
+  const filesByName = fileByName(files)
+  const pendingUpdates = rows
+    .map((row) => {
+      if (row.checksum !== null) {
+        return undefined
+      }
+      const file = filesByName.get(row.name)
+      return file === undefined
+        ? undefined
+        : {
+            id: row.id,
+            name: row.name,
+            checksum: file.checksum
+          }
+    })
+    .filter((update): update is { readonly id: number; readonly name: string; readonly checksum: string } => update !== undefined)
+
+  if (pendingUpdates.length === 0) {
+    verifyAppliedMigrationChecksums(rows, files)
+    return Effect.succeed(rows)
+  }
+
+  return Effect.flatMap(SqlClient.SqlClient, (sql) =>
+    Effect.zipRight(
+      Effect.forEach(
+        pendingUpdates,
+        (update) =>
+          sql.unsafe(
+            `update ${qualifyIdentifier(tableName)} set checksum = $1 where id = $2`,
+            [update.checksum, update.id]
+          ),
+        { discard: true }
+      ),
+      Effect.sync(() => {
+        const updatedRows = rows.map((row) => {
+          const update = pendingUpdates.find((candidate) => candidate.id === row.id)
+          return update === undefined
+            ? row
+            : {
+                ...row,
+                checksum: update.checksum
+              }
+        })
+        verifyAppliedMigrationChecksums(updatedRows, files)
+        return updatedRows
+      })
+    ))
+}
+
+export const loadAppliedMigrationRows = (
+  tableName: string,
+  files: ReadonlyArray<MigrationFile>
+): Effect.Effect<ReadonlyArray<AppliedMigrationRow>, unknown, SqlClient.SqlClient> =>
+  Effect.flatMap(
+    readAppliedMigrationRows(tableName),
+    (rows) => synchronizeAppliedMigrationChecksums(tableName, rows, files)
+  )
 
 export const applyMigrationFiles = (
   tableName: string,
   files: ReadonlyArray<{
     readonly name: string
     readonly sql: string
+    readonly checksum: string
   }>
-  ): Effect.Effect<void, unknown, SqlClient.SqlClient> =>
+): Effect.Effect<void, unknown, SqlClient.SqlClient> =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
-    sql.withTransaction(
-      Effect.forEach(files, (file) =>
-        Effect.zipRight(
-          sql.unsafe(file.sql),
-          sql.unsafe(
-            `insert into ${qualifyIdentifier(tableName)} (name) values ($1)`,
-            [file.name]
-          )
-        ), {
-          discard: true
-        })
-    ))
+    Effect.forEach(files, (file) =>
+      Effect.zipRight(
+        sql.unsafe(file.sql),
+        sql.unsafe(
+          `insert into ${qualifyIdentifier(tableName)} (name, checksum) values ($1, $2)`,
+          [file.name, file.checksum]
+        )
+      ), {
+        discard: true
+      }))
 
 export const rollbackMigrationFiles = (
   tableName: string,
   files: ReadonlyArray<MigrationFile>
 ): Effect.Effect<void, unknown, SqlClient.SqlClient> =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
-    sql.withTransaction(
-      Effect.forEach(files, (file) => {
-        if (file.downSql === undefined) {
-          return Effect.fail(new Error(`Migration '${file.name}' does not have a rollback section`))
-        }
-        return Effect.zipRight(
-          sql.unsafe(file.downSql),
-          sql.unsafe(
-            `delete from ${qualifyIdentifier(tableName)} where name = $1`,
-            [file.name]
-          )
+    Effect.forEach(files, (file) => {
+      if (file.downSql === undefined) {
+        return Effect.fail(new Error(`Migration '${file.name}' does not have a rollback section`))
+      }
+      return Effect.zipRight(
+        sql.unsafe(file.downSql),
+        sql.unsafe(
+          `delete from ${qualifyIdentifier(tableName)} where name = $1`,
+          [file.name]
         )
-      }, {
-        discard: true
-      })
-    ))
+      )
+    }, {
+      discard: true
+    }))
 
 export const deleteAppliedMigrationNames = (
   tableName: string,
   names: readonly string[]
 ): Effect.Effect<void, unknown, SqlClient.SqlClient> =>
   Effect.flatMap(SqlClient.SqlClient, (sql) =>
-    sql.withTransaction(
-      Effect.forEach(names, (name) =>
-        sql.unsafe(
-          `delete from ${qualifyIdentifier(tableName)} where name = $1`,
-          [name]
-        ), {
-          discard: true
-        })
-    ))
+    Effect.forEach(names, (name) =>
+      sql.unsafe(
+        `delete from ${qualifyIdentifier(tableName)} where name = $1`,
+        [name]
+      ), {
+        discard: true
+      }))
 
 export const migrationFileLabel = (path: string): string =>
   path.slice(path.lastIndexOf("/") + 1)
@@ -300,10 +410,13 @@ export const loadPostgresMigrationState = async (
   databaseUrl: string
 ) => {
   const files = await readMigrationFiles(migrationDirFromConfig(loaded.cwd, loaded.config.migrations.dir))
-  const appliedRows = await runPostgresUrl(databaseUrl, Effect.gen(function*() {
-    yield* ensureMigrationTable(loaded.config.migrations.table)
-    return yield* readAppliedMigrationRows(loaded.config.migrations.table)
-  }))
+  const appliedRows = await runPostgresUrl(
+    databaseUrl,
+    withMigrationLock(
+      loaded.config.migrations.table,
+      loadAppliedMigrationRows(loaded.config.migrations.table, files)
+    )
+  )
   const appliedNames = new Set(appliedRows.map((row) => row.name))
   const pending = files.filter((file) => !appliedNames.has(file.name))
   return {

@@ -16,14 +16,13 @@ import {
   deleteAppliedMigrationNames,
   applyMigrationFiles,
   applyStatements,
-  ensureMigrationTable,
+  loadAppliedMigrationRows,
   loadPostgresMigrationState,
   migrationDirFromConfig,
   migrationFileLabel,
-  readAppliedMigrationNames,
   readMigrationFiles,
-  readPendingMigrationFiles,
   rollbackMigrationFiles,
+  withMigrationLock,
   writeMigrationFile
 } from "./postgres/migrate.js"
 import { planPostgresPull, applyPullPlan, summarizePullPlan } from "./postgres/pull.js"
@@ -232,20 +231,22 @@ const migrateUp = Command.make(
           readonly name: string
           readonly path: string
           readonly sql: string
+          readonly checksum: string
         }>
       }> => {
         const loaded = await loadPostgresConfig(process.cwd(), Option.getOrUndefined(config))
         const databaseUrl = resolveDatabaseUrl(loaded.config, Option.getOrUndefined(url))
-        const pending = await runPostgresUrl(databaseUrl, Effect.gen(function*() {
-          yield* ensureMigrationTable(loaded.config.migrations.table)
-          const applied = yield* readAppliedMigrationNames(loaded.config.migrations.table)
-          return yield* Effect.promise(() =>
-            readPendingMigrationFiles(
-              migrationDirFromConfig(loaded.cwd, loaded.config.migrations.dir),
-              applied
-            )
-          )
-        }))
+        const files = await readMigrationFiles(
+          migrationDirFromConfig(loaded.cwd, loaded.config.migrations.dir)
+        )
+        const pending = await runPostgresUrl(
+          databaseUrl,
+          withMigrationLock(loaded.config.migrations.table, Effect.gen(function*() {
+            const appliedRows = yield* loadAppliedMigrationRows(loaded.config.migrations.table, files)
+            const applied = new Set(appliedRows.map((row) => row.name))
+            return files.filter((file) => !applied.has(file.name))
+          }))
+        )
         return { loaded, databaseUrl, pending }
       })
       if (pending.length === 0) {
@@ -254,10 +255,17 @@ const migrateUp = Command.make(
       yield* effectFromPromise(() =>
         runPostgresUrl(
           databaseUrl,
-          Effect.zipRight(
-            ensureMigrationTable(loaded.config.migrations.table),
-            applyMigrationFiles(loaded.config.migrations.table, pending)
-          )
+          withMigrationLock(loaded.config.migrations.table, Effect.gen(function*() {
+            const files = yield* Effect.promise(() =>
+              readMigrationFiles(migrationDirFromConfig(loaded.cwd, loaded.config.migrations.dir))
+            )
+            const appliedRows = yield* loadAppliedMigrationRows(loaded.config.migrations.table, files)
+            const applied = new Set(appliedRows.map((row) => row.name))
+            const currentPending = files.filter((file) => !applied.has(file.name))
+            if (currentPending.length > 0) {
+              yield* applyMigrationFiles(loaded.config.migrations.table, currentPending)
+            }
+          }))
         )
       )
       yield* logLines([
@@ -341,7 +349,10 @@ const migrateDown = Command.make(
         yield* effectFromPromise(() =>
           runPostgresUrl(
             databaseUrl,
-            rollbackMigrationFiles(loaded.config.migrations.table, selected)
+            withMigrationLock(
+              loaded.config.migrations.table,
+              rollbackMigrationFiles(loaded.config.migrations.table, selected)
+            )
           )
         )
         yield* log(`rolled back ${selected.length} migration(s)`)
@@ -383,7 +394,10 @@ const migrateRepair = Command.make(
         yield* effectFromPromise(() =>
           runPostgresUrl(
             databaseUrl,
-            deleteAppliedMigrationNames(loaded.config.migrations.table, orphanNames)
+            withMigrationLock(
+              loaded.config.migrations.table,
+              deleteAppliedMigrationNames(loaded.config.migrations.table, orphanNames)
+            )
           )
         )
         yield* log(`repaired ${orphanNames.length} migration record(s)`)
@@ -401,7 +415,7 @@ const root = Command.make("effectdb", {}, () => Effect.void).pipe(
 
 const cli = Command.run(root, {
   name: "effectdb",
-  version: "0.13.0"
+  version: "0.14.0"
 })
 
 cli(Bun.argv).pipe(

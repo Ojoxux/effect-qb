@@ -1,6 +1,7 @@
 export {
   TypeId,
   fromAst,
+  fromSql,
   isSchemaExpression,
   normalize,
   parseExpression,

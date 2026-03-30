@@ -22,6 +22,17 @@ const DerivedProto = {
   }
 }
 
+const attachPipe = <Value extends object>(value: Value): Value => {
+  Object.defineProperty(value, "pipe", {
+    configurable: true,
+    writable: true,
+    value(...args: Array<(input: unknown) => unknown>) {
+      return pipeArguments(value, args)
+    }
+  })
+  return value
+}
+
 const setPath = (
   target: Record<string, unknown>,
   path: readonly string[],
@@ -88,7 +99,7 @@ export const makeDerivedSource = <
   alias: Alias
 ): DerivedSource<PlanValue, Alias> => {
   const columns = reboundedColumns(plan, alias)
-  const derived = Object.create(DerivedProto) as Record<string, unknown>
+  const derived = attachPipe(Object.create(DerivedProto)) as Record<string, unknown>
   Object.assign(derived, columns)
   derived.kind = "derived"
   derived.name = alias
@@ -109,7 +120,7 @@ export const makeCteSource = <
   recursive = false
 ): CteSource<PlanValue, Alias> => {
   const columns = reboundedColumns(plan, alias)
-  const cte = Object.create(DerivedProto) as Record<string, unknown>
+  const cte = attachPipe(Object.create(DerivedProto)) as Record<string, unknown>
   Object.assign(cte, columns)
   cte.kind = "cte"
   cte.name = alias
@@ -130,7 +141,7 @@ export const makeLateralSource = <
   alias: Alias
 ): LateralSource<PlanValue, Alias> => {
   const columns = reboundedColumns(plan, alias)
-  const lateral = Object.create(DerivedProto) as Record<string, unknown>
+  const lateral = attachPipe(Object.create(DerivedProto)) as Record<string, unknown>
   Object.assign(lateral, columns)
   lateral.kind = "lateral"
   lateral.name = alias

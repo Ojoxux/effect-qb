@@ -243,6 +243,55 @@ const isTableClassReference = (
     && target.expression.name.text === "Table"
 }
 
+type InferredDeclarationKind =
+  | Pick<Extract<SourceDeclaration, { readonly kind: "tableFactory" }>, "kind">
+  | Pick<Extract<SourceDeclaration, { readonly kind: "tableSchema" }>, "kind" | "schemaBuilderIdentifier">
+  | Pick<Extract<SourceDeclaration, { readonly kind: "enumFactory" }>, "kind">
+  | Pick<Extract<SourceDeclaration, { readonly kind: "enumSchema" }>, "kind" | "schemaBuilderIdentifier">
+
+const inferWrappedDeclarationKind = (
+  expression: ts.Expression,
+  importInfo: DiscoveryImportInfo,
+  schemaBuilders: ReadonlySet<string>
+): InferredDeclarationKind | undefined => {
+  const matches: InferredDeclarationKind[] = []
+  const visit = (node: ts.Node): void => {
+    if (!ts.isExpression(node)) {
+      ts.forEachChild(node, visit)
+      return
+    }
+    if (isTableMakeRoot(node, importInfo)) {
+      matches.push({ kind: "tableFactory" })
+      return
+    }
+    const tableSchemaBuilderIdentifier = isSchemaTableRoot(node, new Set(schemaBuilders))
+    if (tableSchemaBuilderIdentifier !== undefined) {
+      matches.push({
+        kind: "tableSchema",
+        schemaBuilderIdentifier: tableSchemaBuilderIdentifier
+      })
+      return
+    }
+    if (isEnumFactoryRoot(node, importInfo)) {
+      matches.push({ kind: "enumFactory" })
+      return
+    }
+    const enumSchemaBuilderIdentifier = isSchemaEnumRoot(node, new Set(schemaBuilders))
+    if (enumSchemaBuilderIdentifier !== undefined) {
+      matches.push({
+        kind: "enumSchema",
+        schemaBuilderIdentifier: enumSchemaBuilderIdentifier
+      })
+      return
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(expression)
+  return matches.length === 1
+    ? matches[0]
+    : undefined
+}
+
 const expressionContainsDiscoveryConstruct = (
   expression: ts.Expression,
   importInfo: DiscoveryImportInfo,
@@ -365,16 +414,10 @@ const discoverInFile = (
   for (const statement of sourceFile.statements) {
     if (ts.isVariableStatement(statement)) {
       if (statement.declarationList.declarations.length !== 1) {
-        if (statementContainsDiscoveryConstruct(statement, importInfo, schemaBuilders)) {
-          throw new Error(`Non-canonical schema declaration in '${filePath}'`)
-        }
         continue
       }
       const declaration = statement.declarationList.declarations[0]!
       if (!ts.isIdentifier(declaration.name) || declaration.initializer === undefined) {
-        if (statementContainsDiscoveryConstruct(statement, importInfo, schemaBuilders)) {
-          throw new Error(`Non-canonical schema declaration in '${filePath}'`)
-        }
         continue
       }
       const identifier = declaration.name.text
@@ -427,7 +470,16 @@ const discoverInFile = (
         continue
       }
       if (expressionContainsDiscoveryConstruct(declaration.initializer, importInfo, schemaBuilders)) {
-        throw new Error(`Non-canonical schema declaration '${identifier}' in '${filePath}'`)
+        const inferred = inferWrappedDeclarationKind(declaration.initializer, importInfo, schemaBuilders)
+        if (inferred !== undefined) {
+          declarations.push({
+            ...inferred,
+            filePath,
+            identifier,
+            start: statement.getStart(sourceFile),
+            end: statement.getEnd()
+          } as SourceDeclaration)
+        }
       }
       continue
     }
@@ -441,9 +493,6 @@ const discoverInFile = (
           end: statement.getEnd()
         })
         continue
-      }
-      if (statementContainsDiscoveryConstruct(statement, importInfo, schemaBuilders)) {
-        throw new Error(`Non-canonical schema declaration in '${filePath}'`)
       }
     }
   }

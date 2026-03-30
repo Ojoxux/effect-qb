@@ -4,6 +4,7 @@ const packageJsonPaths = [
   `${cwd}/packages/querybuilder/package.json`,
   `${cwd}/packages/database/package.json`
 ] as const
+const databaseCliPath = `${cwd}/packages/database/src/cli.ts`
 
 type Semver = {
   readonly major: number
@@ -171,6 +172,18 @@ const setPackageVersion = async (version: Semver) => {
   }
 }
 
+const setCliVersion = async (version: Semver) => {
+  const raw = await Bun.file(databaseCliPath).text()
+  const next = raw.replace(
+    /version: "\d+\.\d+\.\d+"/,
+    `version: "${formatSemver(version)}"`
+  )
+  if (next === raw) {
+    throw new Error("Failed to update CLI version")
+  }
+  await Bun.write(databaseCliPath, next)
+}
+
 const parseCommit = (hash: string, subject: string, body: string): Commit => {
   const match = /^(?<type>[a-z]+)(?:\((?<scope>[^)]+)\))?(?<breaking>!)?: (?<description>.+)$/.exec(subject)
   const bodyHasBreaking = /(?:^|\n)BREAKING[- ]CHANGE:/m.test(body)
@@ -275,11 +288,6 @@ const insertChangelogSection = (existing: string, section: string): string => {
   return `${prefix}${section}\n\n${suffix}`
 }
 
-const ensureGitIdentity = async () => {
-  await run(["git", "config", "user.name", "Ramazan Elsunkaev"])
-  await run(["git", "config", "user.email", "relsunkaev@outlook.com"])
-}
-
 const main = async () => {
   const args = new Set(process.argv.slice(2))
   const push = args.has("--push")
@@ -317,17 +325,22 @@ const main = async () => {
   if (currentPackageVersion !== nextPackageVersion) {
     await setPackageVersion(nextVersion)
   }
+  await setCliVersion(nextVersion)
 
   const existingChangelog = await Bun.file(changelogPath).text().catch(() => "# Changelog\n\nAll notable changes to this project are documented here.\n\n## Unreleased\n\n")
   await Bun.write(changelogPath, insertChangelogSection(existingChangelog, changelogSection))
 
-  await ensureGitIdentity()
-  await run(["git", "add", "package.json", "packages/querybuilder/package.json", "packages/database/package.json", "CHANGELOG.md"])
+  const branch = (await run(["git", "branch", "--show-current"])).stdout.trim()
+  if (!branch) {
+    throw new Error("Release requires a checked-out branch")
+  }
+
+  await run(["git", "add", "package.json", "packages/querybuilder/package.json", "packages/database/package.json", "packages/database/src/cli.ts", "CHANGELOG.md"])
   await run(["git", "commit", "-m", `chore(release): v${formatSemver(nextVersion)}`])
   await run(["git", "tag", "-a", `v${formatSemver(nextVersion)}`, "-m", `v${formatSemver(nextVersion)}`])
 
   if (push) {
-    await run(["git", "push", "origin", "HEAD:main", "--tags"])
+    await run(["git", "push", "origin", `HEAD:${branch}`, "--tags"])
   }
 }
 

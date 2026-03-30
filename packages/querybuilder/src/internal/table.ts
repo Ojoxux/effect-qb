@@ -224,6 +224,17 @@ const TableProto = {
   }
 }
 
+const attachPipe = <Value extends object>(value: Value): Value => {
+  Object.defineProperty(value, "pipe", {
+    configurable: true,
+    writable: true,
+    value(...args: Array<(input: unknown) => unknown>) {
+      return pipeArguments(value, args)
+    }
+  })
+  return value
+}
+
 type BuildArtifacts<
   Name extends string,
   Fields extends TableFieldMap,
@@ -281,7 +292,7 @@ const makeTable = <
     : ("public" as SchemaName)
   const artifacts = buildArtifacts(name, fields, declaredOptions, resolvedSchemaName)
   const dialect = resolveFieldDialect(fields)
-  const table = Object.create(TableProto)
+  const table = attachPipe(Object.create(TableProto))
   table.name = name
   table.columns = artifacts.columns
   table.schemas = artifacts.schemas
@@ -532,7 +543,7 @@ export const alias = <
   const columns = Object.fromEntries(
     Object.entries(state.fields).map(([key, column]) => [key, bindColumn(aliasName, key, column as AnyColumnDefinition, state.baseName, state.schemaName)])
   ) as BoundColumns<AliasName, Fields>
-  const aliased = Object.create(TableProto)
+  const aliased = attachPipe(Object.create(TableProto))
   aliased.name = aliasName
   aliased.columns = columns
   aliased.schemas = deriveSchemas(aliasName, state.fields, state.primaryKey)

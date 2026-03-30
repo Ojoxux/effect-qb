@@ -21,12 +21,16 @@ export type IndexKeySpec =
       readonly column: string
       readonly order?: "asc" | "desc"
       readonly nulls?: "first" | "last"
+      readonly operatorClass?: string
+      readonly collation?: string
     }
   | {
       readonly kind: "expression"
       readonly expression: DdlExpressionLike
       readonly order?: "asc" | "desc"
       readonly nulls?: "first" | "last"
+      readonly operatorClass?: string
+      readonly collation?: string
     }
 
 /** Normalized table-level option record. */
@@ -182,7 +186,9 @@ export const collectInlineOptions = <Fields extends TableFieldMap>(
           kind: "column",
           column: columnName,
           order: column.metadata.index.order,
-          nulls: column.metadata.index.nulls
+          nulls: column.metadata.index.nulls,
+          operatorClass: column.metadata.index.operatorClass,
+          collation: column.metadata.index.collation
         }],
         name: column.metadata.index.name,
         method: column.metadata.index.method,

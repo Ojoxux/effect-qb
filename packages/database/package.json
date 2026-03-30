@@ -2,6 +2,19 @@
   "name": "effect-db",
   "version": "0.14.0",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/relsunkaev/effect-qb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/relsunkaev/effect-qb/issues"
+  },
+  "homepage": "https://github.com/relsunkaev/effect-qb#readme",
+  "engines": {
+    "node": ">=20",
+    "bun": ">=1.3.5"
+  },
   "bin": {
     "effectdb": "./dist/cli.js"
   },
@@ -17,19 +30,19 @@
   },
   "exports": {
     ".": {
-      "types": "./src/index.ts",
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
     "./postgres/pull": {
-      "types": "./src/postgres/pull.ts",
+      "types": "./dist/postgres/pull.d.ts",
       "import": "./dist/postgres/pull.js"
     },
     "./postgres/push": {
-      "types": "./src/postgres/push.ts",
+      "types": "./dist/postgres/push.d.ts",
       "import": "./dist/postgres/push.js"
     },
     "./postgres/migrate": {
-      "types": "./src/postgres/migrate.ts",
+      "types": "./dist/postgres/migrate.d.ts",
       "import": "./dist/postgres/migrate.js"
     },
     "./package.json": "./package.json"

@@ -144,11 +144,15 @@ type RichIndexKeyInput =
       readonly column: string
       readonly order?: "asc" | "desc"
       readonly nulls?: "first" | "last"
+      readonly operatorClass?: string
+      readonly collation?: string
     }
   | {
       readonly expression: DdlExpressionLike
       readonly order?: "asc" | "desc"
       readonly nulls?: "first" | "last"
+      readonly operatorClass?: string
+      readonly collation?: string
     }
 
 type RichIndexInput<Columns extends string | readonly string[] = string | readonly string[]> = {
@@ -208,17 +212,21 @@ const normalizeIndexKeys = (
   keys: readonly [RichIndexKeyInput, ...RichIndexKeyInput[]]
 ): readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]] =>
   keys.map((key) => "expression" in key
-    ? {
+      ? {
         kind: "expression",
         expression: key.expression,
         order: key.order,
-        nulls: key.nulls
+        nulls: key.nulls,
+        operatorClass: key.operatorClass,
+        collation: key.collation
       }
     : {
         kind: "column",
         column: key.column,
         order: key.order,
-        nulls: key.nulls
+        nulls: key.nulls,
+        operatorClass: key.operatorClass,
+        collation: key.collation
       }) as unknown as readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]]
 
 export const primaryKey: {

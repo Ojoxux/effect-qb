@@ -165,6 +165,33 @@ const runCli = async (...args: readonly string[]): Promise<{
   })
 }
 
+const runCliUnlocked = async (...args: readonly string[]): Promise<{
+  readonly exitCode: number
+  readonly stdout: string
+  readonly stderr: string
+}> => {
+  const proc = Bun.spawn([
+    process.execPath,
+    cliEntry,
+    ...args
+  ], {
+    cwd: repoRoot,
+    stdout: "pipe",
+    stderr: "pipe",
+    env: process.env
+  })
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited
+  ])
+  return {
+    exitCode,
+    stdout,
+    stderr
+  }
+}
+
 const schemaFile = (workspace: string) => join(workspace, "schema.ts")
 const configFile = (workspace: string) => join(workspace, "effectdb.config.ts")
 const readSchema = (workspace: string) => readFile(schemaFile(workspace), "utf8")
@@ -645,6 +672,96 @@ alter table "${schemaName}"."users" drop column "nickname";
     expect(statusAfterRepair.stdout).toContain("applied migrations (1):")
     expect(statusAfterRepair.stdout).toContain("pending migrations (1):")
     expect(statusAfterRepair.stdout).not.toContain("9999_orphan.sql")
+  } finally {
+    await dropSchema(schemaName).catch(() => undefined)
+    await rm(workspace, { recursive: true, force: true })
+  }
+}, 30000)
+
+test("postgres cli records and verifies migration checksums", async () => {
+  const { workspace, schemaName } = await makeWorkspace()
+  try {
+    await dropSchema(schemaName)
+
+    const config = configFile(workspace)
+
+    const initialPush = await runCli("push", "--config", config)
+    expect(initialPush.exitCode).toBe(0)
+
+    await mkdir(join(workspace, "migrations"), { recursive: true })
+    const migrationPath = join(workspace, "migrations", "0001_add_slug.sql")
+    await Bun.write(
+      migrationPath,
+      `alter table "${schemaName}"."users" add column "slug" text;\n`
+    )
+
+    const migrateUp = await runCli("migrate", "up", "--config", config)
+    expect(migrateUp.exitCode).toBe(0)
+
+    const ledgerRows = await execPostgres<{
+      readonly name: string
+      readonly checksum: string | null
+    }>(`
+      select name, checksum
+      from "${schemaName}"."effect_qb_migrations"
+      order by id
+    `)
+    expect(ledgerRows).toEqual([{ name: "0001_add_slug.sql", checksum: ledgerRows[0]?.checksum ?? null }])
+    expect(ledgerRows[0]?.checksum).toMatch(/^sha256:/)
+
+    await Bun.write(
+      migrationPath,
+      `alter table "${schemaName}"."users" add column "slug" varchar(64);\n`
+    )
+
+    const status = await runCli("migrate", "status", "--config", config)
+    expect(status.exitCode).not.toBe(0)
+    expect(`${status.stdout}\n${status.stderr}`).toContain("Migration checksum mismatch for '0001_add_slug.sql'")
+  } finally {
+    await dropSchema(schemaName).catch(() => undefined)
+    await rm(workspace, { recursive: true, force: true })
+  }
+}, 30000)
+
+test("postgres cli serializes concurrent migrate up runners", async () => {
+  const { workspace, schemaName } = await makeWorkspace()
+  try {
+    await dropSchema(schemaName)
+
+    const config = configFile(workspace)
+
+    const initialPush = await runCli("push", "--config", config)
+    expect(initialPush.exitCode).toBe(0)
+
+    await mkdir(join(workspace, "migrations"), { recursive: true })
+    await Bun.write(join(workspace, "migrations", "0001_add_slug.sql"), `
+select pg_sleep(1);
+alter table "${schemaName}"."users" add column "slug" text;
+`)
+
+    const [first, second] = await Promise.all([
+      runCliUnlocked("migrate", "up", "--config", config),
+      runCliUnlocked("migrate", "up", "--config", config)
+    ])
+
+    expect(first.exitCode).toBe(0)
+    expect(second.exitCode).toBe(0)
+    expect(`${first.stdout}\n${second.stdout}`).toContain("applied 1 migration(s)")
+    expect(`${first.stdout}\n${second.stdout}`).toContain("no pending migrations")
+
+    const ledgerRows = await execPostgres<{
+      readonly count: number
+    }>(`
+      select count(*)::int as count
+      from "${schemaName}"."effect_qb_migrations"
+    `)
+    expect(ledgerRows).toEqual([{ count: 1 }])
+
+    expect(await listColumns(schemaName, "users")).toEqual([
+      { column_name: "id" },
+      { column_name: "email" },
+      { column_name: "slug" }
+    ])
   } finally {
     await dropSchema(schemaName).catch(() => undefined)
     await rm(workspace, { recursive: true, force: true })
@@ -1207,7 +1324,7 @@ test("postgres cli canonicalizes pulled enums, schemas, and sequences in new fil
   }
 })
 
-test("postgres cli pull fails for unsupported index key definitions", async () => {
+test("postgres cli pull preserves non-default index operator classes", async () => {
   const { workspace, schemaName } = await makeWorkspace()
   try {
     await dropSchema(schemaName)
@@ -1223,16 +1340,20 @@ test("postgres cli pull fails for unsupported index key definitions", async () =
     `)
 
     const pull = await runCli("pull", "--config", config)
-    expect(pull.exitCode).not.toBe(0)
-    expect(`${pull.stdout}\n${pull.stderr}`).toContain(`Unsupported PostgreSQL index key definition`)
-    expect(`${pull.stdout}\n${pull.stderr}`).toContain(`users_email_pattern_idx`)
+    expect(pull.exitCode).toBe(0)
+
+    const pulledSchema = await readSchema(workspace)
+    expect(pulledSchema).toContain(`users_email_pattern_idx`)
+    expect(pulledSchema).toContain(`operatorClass: "text_pattern_ops"`)
+
+    await assertIdempotentPullPush(config)
   } finally {
     await dropSchema(schemaName).catch(() => undefined)
     await rm(workspace, { recursive: true, force: true })
   }
 }, 30000)
 
-test("postgres cli pull fails for unsupported index collations", async () => {
+test("postgres cli pull preserves non-default index collations", async () => {
   const { workspace, schemaName } = await makeWorkspace()
   try {
     await dropSchema(schemaName)
@@ -1248,9 +1369,13 @@ test("postgres cli pull fails for unsupported index collations", async () => {
     `)
 
     const pull = await runCli("pull", "--config", config)
-    expect(pull.exitCode).not.toBe(0)
-    expect(`${pull.stdout}\n${pull.stderr}`).toContain(`Unsupported PostgreSQL index collation`)
-    expect(`${pull.stdout}\n${pull.stderr}`).toContain(`users_email_c_idx`)
+    expect(pull.exitCode).toBe(0)
+
+    const pulledSchema = await readSchema(workspace)
+    expect(pulledSchema).toContain(`users_email_c_idx`)
+    expect(pulledSchema).toContain(`collation: "C"`)
+
+    await assertIdempotentPullPush(config)
   } finally {
     await dropSchema(schemaName).catch(() => undefined)
     await rm(workspace, { recursive: true, force: true })
@@ -1488,7 +1613,7 @@ test("postgres cli pull creates source definitions for missing enums", async () 
   }
 }, 30000)
 
-test("postgres cli pull fails for unsupported check constraint expressions", async () => {
+test("postgres cli pull preserves raw check constraint expressions it cannot normalize", async () => {
   const { workspace, schemaName } = await makeWorkspace()
   try {
     await dropSchema(schemaName)
@@ -1505,15 +1630,20 @@ test("postgres cli pull fails for unsupported check constraint expressions", asy
     `)
 
     const pull = await runCli("pull", "--config", config)
-    expect(pull.exitCode).not.toBe(0)
-    expect(`${pull.stdout}\n${pull.stderr}`).toContain(`Unsupported PostgreSQL expression in check constraint users_email_c_check`)
+    expect(pull.exitCode).toBe(0)
+
+    const pulledSchema = await readSchema(workspace)
+    expect(pulledSchema).toContain(`users_email_c_check`)
+    expect(pulledSchema).toContain(`Pg.SchemaExpression.fromSql(`)
+
+    await assertIdempotentPullPush(config)
   } finally {
     await dropSchema(schemaName).catch(() => undefined)
     await rm(workspace, { recursive: true, force: true })
   }
 }, 30000)
 
-test("postgres cli pull fails for unsupported default expressions", async () => {
+test("postgres cli pull preserves raw default expressions it cannot normalize", async () => {
   const { workspace, schemaName } = await makeWorkspace()
   try {
     await dropSchema(schemaName)
@@ -1529,15 +1659,20 @@ test("postgres cli pull fails for unsupported default expressions", async () => 
     `)
 
     const pull = await runCli("pull", "--config", config)
-    expect(pull.exitCode).not.toBe(0)
-    expect(`${pull.stdout}\n${pull.stderr}`).toContain(`Unsupported PostgreSQL expression in default for users.nickname`)
+    expect(pull.exitCode).toBe(0)
+
+    const pulledSchema = await readSchema(workspace)
+    expect(pulledSchema).toContain(`nickname: Column.text().pipe(`)
+    expect(pulledSchema).toContain(`Column.default(Pg.SchemaExpression.fromSql(`)
+
+    await assertIdempotentPullPush(config)
   } finally {
     await dropSchema(schemaName).catch(() => undefined)
     await rm(workspace, { recursive: true, force: true })
   }
 }, 30000)
 
-test("postgres cli pull fails for unsupported generated expressions", async () => {
+test("postgres cli pull preserves raw generated expressions it cannot normalize", async () => {
   const { workspace, schemaName } = await makeWorkspace()
   try {
     await dropSchema(schemaName)
@@ -1553,8 +1688,13 @@ test("postgres cli pull fails for unsupported generated expressions", async () =
     `)
 
     const pull = await runCli("pull", "--config", config)
-    expect(pull.exitCode).not.toBe(0)
-    expect(`${pull.stdout}\n${pull.stderr}`).toContain(`Unsupported PostgreSQL expression in generated expression for users.email_c`)
+    expect(pull.exitCode).toBe(0)
+
+    const pulledSchema = await readSchema(workspace)
+    expect(pulledSchema).toContain(`email_c: Column.text().pipe(`)
+    expect(pulledSchema).toContain(`Column.generated(Pg.SchemaExpression.fromSql(`)
+
+    await assertIdempotentPullPush(config)
   } finally {
     await dropSchema(schemaName).catch(() => undefined)
     await rm(workspace, { recursive: true, force: true })

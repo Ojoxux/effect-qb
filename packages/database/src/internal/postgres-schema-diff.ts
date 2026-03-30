@@ -175,13 +175,17 @@ const indexSignature = (
           kind: key.kind,
           column: key.column,
           order: key.order ?? null,
-          nulls: key.nulls ?? null
+          nulls: key.nulls ?? null,
+          operatorClass: key.operatorClass ?? null,
+          collation: key.collation ?? null
         }
       : {
           kind: key.kind,
           expression: normalizeDdlExpressionSql(key.expression),
           order: key.order ?? null,
-          nulls: key.nulls ?? null
+          nulls: key.nulls ?? null,
+          operatorClass: key.operatorClass ?? null,
+          collation: key.collation ?? null
       })
   })
 
@@ -241,13 +245,17 @@ const indexShapeSignature = (
           kind: key.kind,
           column: key.column,
           order: key.order ?? null,
-          nulls: key.nulls ?? null
+          nulls: key.nulls ?? null,
+          operatorClass: key.operatorClass ?? null,
+          collation: key.collation ?? null
         }
       : {
           kind: key.kind,
           expression: normalizeDdlExpressionSql(key.expression),
           order: key.order ?? null,
-          nulls: key.nulls ?? null
+          nulls: key.nulls ?? null,
+          operatorClass: key.operatorClass ?? null,
+          collation: key.collation ?? null
       })
   })
 
