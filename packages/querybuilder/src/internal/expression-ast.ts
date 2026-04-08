@@ -34,6 +34,15 @@ export interface CastNode<
   readonly target: Target
 }
 
+/** Explicit collation captured by the internal expression AST. */
+export interface CollateNode<
+  Value extends Expression.Any = Expression.Any
+> {
+  readonly kind: "collate"
+  readonly value: Value
+  readonly collation: readonly [string, ...string[]]
+}
+
 /** General SQL function call captured by the internal expression AST. */
 export interface FunctionCallNode<
   Name extends string = string,
@@ -339,6 +348,7 @@ export type Any =
   | ColumnNode
   | LiteralNode
   | CastNode
+  | CollateNode
   | FunctionCallNode
   | ExcludedNode
   | UnaryNode

@@ -200,7 +200,10 @@ const normalizeBytes = (value: unknown): Uint8Array => {
   if (value instanceof Uint8Array) {
     return new Uint8Array(value)
   }
-  if (typeof Buffer !== "undefined" && value instanceof Buffer) {
+  const BufferConstructor = (globalThis as {
+    readonly Buffer?: abstract new (...args: never[]) => Uint8Array
+  }).Buffer
+  if (BufferConstructor !== undefined && value instanceof BufferConstructor) {
     return new Uint8Array(value)
   }
   throw new Error("Expected a byte array value")

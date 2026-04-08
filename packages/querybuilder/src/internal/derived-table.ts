@@ -26,8 +26,8 @@ const attachPipe = <Value extends object>(value: Value): Value => {
   Object.defineProperty(value, "pipe", {
     configurable: true,
     writable: true,
-    value(...args: Array<(input: unknown) => unknown>) {
-      return pipeArguments(value, args)
+    value: function(this: unknown) {
+      return pipeArguments(value, arguments)
     }
   })
   return value

@@ -1,8 +1,9 @@
 import type * as Expression from "../internal/scalar.js"
-import { postgresDsl } from "./internal/dsl.js"
+import type { ExpressionInput } from "../internal/query.js"
+import { cast as postgresCast } from "./internal/dsl.js"
 
-type CastInput = Parameters<typeof postgresDsl.cast>[0]
-type CastTarget = Parameters<typeof postgresDsl.cast>[1]
+type CastInput = ExpressionInput
+type CastTarget = Expression.DbType.Any
 type CastExpression<Target extends CastTarget> = Expression.Scalar<
   Expression.RuntimeOfDbType<Target>,
   Target,
@@ -22,8 +23,8 @@ const to: {
   ): <Value extends CastInput>(value: Value) => CastExpression<Target>
 } = ((...args: [CastInput, CastTarget] | [CastTarget]) =>
   args.length === 1
-    ? ((value: CastInput) => postgresDsl.cast(value as never, args[0] as never))
-    : postgresDsl.cast(args[0] as never, args[1] as never)) as unknown as typeof to
+    ? ((value: CastInput) => postgresCast(value as never, args[0] as never))
+    : postgresCast(args[0] as never, args[1] as never)) as unknown as typeof to
 
 /** Postgres cast helpers. */
 export const cast = { to }

@@ -491,6 +491,75 @@ describe("executor behavior", () => {
     })
   })
 
+  test("fromDriver enforces declared string length limits", () => {
+    const users = Table.make("users", {
+      shortName: C.varchar(3),
+      code: C.char(2)
+    })
+
+    const plan = Q.select({
+      shortName: users.shortName,
+      code: users.code
+    }).pipe(
+      Q.from(users)
+    )
+
+    const executor = Executor.make({
+      driver: Executor.driver("postgres", () => Effect.succeed([
+        {
+          shortName: "toolong",
+          code: "abcd"
+        }
+      ]))
+    })
+
+    expect(Effect.runSync(Effect.flip(executor.execute(plan)))).toMatchObject({
+      _tag: "RowDecodeError",
+      stage: "schema",
+      projection: {
+        alias: "shortName"
+      },
+      dbType: {
+        dialect: "postgres",
+        kind: "varchar"
+      },
+      raw: "toolong"
+    })
+  })
+
+  test("fromDriver enforces char length limits", () => {
+    const users = Table.make("users", {
+      code: C.char(2)
+    })
+
+    const plan = Q.select({
+      code: users.code
+    }).pipe(
+      Q.from(users)
+    )
+
+    const executor = Executor.make({
+      driver: Executor.driver("postgres", () => Effect.succeed([
+        {
+          code: "abcd"
+        }
+      ]))
+    })
+
+    expect(Effect.runSync(Effect.flip(executor.execute(plan)))).toMatchObject({
+      _tag: "RowDecodeError",
+      stage: "schema",
+      projection: {
+        alias: "code"
+      },
+      dbType: {
+        dialect: "postgres",
+        kind: "char"
+      },
+      raw: "abcd"
+    })
+  })
+
   test("fromDriver applies schema transforms after JSON normalization", () => {
     const users = Table.make("users", {
       id: C.uuid().pipe(C.primaryKey),

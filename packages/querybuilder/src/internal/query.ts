@@ -100,12 +100,12 @@ const PlanProto = {
 }
 
 /** Internal symbol used to preserve query-only phantom metadata through inference. */
-const QueryTypeId: unique symbol = Symbol.for("effect-qb/Query/internal")
+export const QueryTypeId: unique symbol = Symbol.for("effect-qb/Query/internal")
 
 type InsertSourceState = "ready" | "missing"
 
 /** Internal phantom state tracked on query plans. */
-interface QueryState<
+export interface QueryState<
   Outstanding extends string,
   AvailableNames extends string,
   Grouped extends string,
@@ -545,6 +545,9 @@ export type TableFunctionSource<
   readonly args: readonly Expression.Any[]
   readonly columns: DerivedSelectionOf<Selection, Alias>
 }
+
+/** Broad structural shape for table-function sources when used as composable inputs. */
+export type AnyTableFunctionSource = TableFunctionSource<Record<string, Expression.Any>, string, string, string>
 
 /** Accepts either a physical table or a derived table source. */
 type DerivedSourceShape = {
@@ -1968,8 +1971,8 @@ export const makeExpression = <
   Object.defineProperty(expression, "pipe", {
     configurable: true,
     writable: true,
-    value(...args: Array<(value: unknown) => unknown>) {
-      return pipeArguments(expression, args)
+    value: function(this: unknown) {
+      return pipeArguments(expression, arguments)
     }
   })
   expression[Expression.TypeId] = {
@@ -2015,8 +2018,8 @@ export const makePlan = <
   Object.defineProperty(plan, "pipe", {
     configurable: true,
     writable: true,
-    value(...args: Array<(value: unknown) => unknown>) {
-      return pipeArguments(plan, args)
+    value: function(this: unknown) {
+      return pipeArguments(plan, arguments)
     }
   })
   plan[RowSet.TypeId] = state

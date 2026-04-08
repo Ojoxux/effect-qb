@@ -78,10 +78,10 @@ const assertOptionalStringArray = (
   }
 }
 
-const validatePartialPostgresConfig = (
+function validatePartialPostgresConfig(
   value: unknown,
   label = "config"
-): asserts value is Partial<EffectDbConfig> => {
+): asserts value is Partial<EffectDbConfig> {
   const config = asRecord(value, label)
   assertAllowedKeys(config, ["dialect", "db", "source", "filter", "migrations", "safety"], label)
 

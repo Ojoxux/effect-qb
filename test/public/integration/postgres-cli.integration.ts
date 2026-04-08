@@ -1613,7 +1613,7 @@ test("postgres cli pull creates source definitions for missing enums", async () 
   }
 }, 30000)
 
-test("postgres cli pull preserves raw check constraint expressions it cannot normalize", async () => {
+test("postgres cli pull renders collated check constraint expressions with the query DSL", async () => {
   const { workspace, schemaName } = await makeWorkspace()
   try {
     await dropSchema(schemaName)
@@ -1634,7 +1634,7 @@ test("postgres cli pull preserves raw check constraint expressions it cannot nor
 
     const pulledSchema = await readSchema(workspace)
     expect(pulledSchema).toContain(`users_email_c_check`)
-    expect(pulledSchema).toContain(`Pg.SchemaExpression.fromSql(`)
+    expect(pulledSchema).toContain(`Pg.Query.neq(Pg.Query.collate(t.email, "C"), Pg.Cast.to(Pg.Query.literal(""), Pg.Type.text()))`)
 
     await assertIdempotentPullPush(config)
   } finally {
@@ -1643,7 +1643,7 @@ test("postgres cli pull preserves raw check constraint expressions it cannot nor
   }
 }, 30000)
 
-test("postgres cli pull preserves raw default expressions it cannot normalize", async () => {
+test("postgres cli pull renders collated default expressions with the query DSL", async () => {
   const { workspace, schemaName } = await makeWorkspace()
   try {
     await dropSchema(schemaName)
@@ -1663,7 +1663,7 @@ test("postgres cli pull preserves raw default expressions it cannot normalize", 
 
     const pulledSchema = await readSchema(workspace)
     expect(pulledSchema).toContain(`nickname: Column.text().pipe(`)
-    expect(pulledSchema).toContain(`Column.default(Pg.SchemaExpression.fromSql(`)
+    expect(pulledSchema).toContain(`Column.default(Pg.Query.collate(Pg.Query.literal("foo"), "C"))`)
 
     await assertIdempotentPullPush(config)
   } finally {
@@ -1672,7 +1672,7 @@ test("postgres cli pull preserves raw default expressions it cannot normalize", 
   }
 }, 30000)
 
-test("postgres cli pull preserves raw generated expressions it cannot normalize", async () => {
+test("postgres cli pull renders collated generated expressions with the query DSL", async () => {
   const { workspace, schemaName } = await makeWorkspace()
   try {
     await dropSchema(schemaName)
@@ -1692,7 +1692,7 @@ test("postgres cli pull preserves raw generated expressions it cannot normalize"
 
     const pulledSchema = await readSchema(workspace)
     expect(pulledSchema).toContain(`email_c: Column.text().pipe(`)
-    expect(pulledSchema).toContain(`Column.generated(Pg.SchemaExpression.fromSql(`)
+    expect(pulledSchema).toContain(`Column.generated(Pg.Query.collate(t.email, "C"))`)
 
     await assertIdempotentPullPush(config)
   } finally {

@@ -3,6 +3,17 @@ import * as Postgres from "effect-qb/postgres"
 import { Column as C, Query as Q, Table } from "effect-qb/postgres"
 import type { BrandedErrorOf, BrandedHintOf } from "../../helpers/branded-error.ts"
 
+type IsExact<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends
+    (<T>() => T extends B ? 1 : 2)
+    ? (<T>() => T extends B ? 1 : 2) extends
+        (<T>() => T extends A ? 1 : 2)
+      ? true
+      : false
+    : false
+
+type Assert<T extends true> = T
+
 const users = Table.make("users", {
   id: C.uuid().pipe(C.primaryKey),
   email: C.text()
@@ -48,8 +59,13 @@ const valuesPlan = Postgres.Query.select({
 )
 
 type ValuesRow = Q.ResultRow<typeof valuesPlan>
+type ValuesStatement = Q.StatementOfPlan<typeof valuesPlan>
 const valuesId: ValuesRow["id"] = 1
 const valuesEmail: ValuesRow["email"] = "alice@example.com"
+type _AssertValuesStatement = Assert<IsExact<ValuesStatement, "select">>
+// @ts-expect-error values row ids stay numeric literals
+const badValuesId: ValuesRow["id"] = "wrong"
+void badValuesId
 void valuesId
 void valuesEmail
 
@@ -66,8 +82,13 @@ const unnestPlan = Postgres.Query.select({
 )
 
 type UnnestRow = Q.ResultRow<typeof unnestPlan>
+type UnnestStatement = Q.StatementOfPlan<typeof unnestPlan>
 const unnestId: UnnestRow["id"] = 1
 const unnestEmail: UnnestRow["email"] = "bob@example.com"
+type _AssertUnnestStatement = Assert<IsExact<UnnestStatement, "select">>
+// @ts-expect-error unnest row ids stay numeric literals
+const badUnnestId: UnnestRow["id"] = "wrong"
+void badUnnestId
 void unnestId
 void unnestEmail
 
@@ -79,7 +100,12 @@ const seriesPlan = Postgres.Query.select({
 )
 
 type SeriesRow = Q.ResultRow<typeof seriesPlan>
+type SeriesStatement = Q.StatementOfPlan<typeof seriesPlan>
 const seriesValue: SeriesRow["value"] = 1
+type _AssertSeriesStatement = Assert<IsExact<SeriesStatement, "select">>
+// @ts-expect-error generateSeries rows stay numeric literals
+const badSeriesValue: SeriesRow["value"] = "wrong"
+void badSeriesValue
 void seriesValue
 
 const scalarPlan = Postgres.Query.select({
@@ -123,8 +149,13 @@ const mysqlValuesPlan = Mysql.Query.select({
 )
 
 type MysqlValuesRow = Mysql.Query.ResultRow<typeof mysqlValuesPlan>
+type MysqlValuesStatement = Mysql.Query.StatementOfPlan<typeof mysqlValuesPlan>
 const mysqlValuesId: MysqlValuesRow["id"] = 1
 const mysqlValuesEmail: MysqlValuesRow["email"] = "alice@example.com"
+type _AssertMysqlValuesStatement = Assert<IsExact<MysqlValuesStatement, "select">>
+// @ts-expect-error mysql values row ids stay numeric literals
+const badMysqlValuesId: MysqlValuesRow["id"] = "wrong"
+void badMysqlValuesId
 void mysqlValuesId
 void mysqlValuesEmail
 
@@ -141,8 +172,13 @@ const mysqlUnnestPlan = Mysql.Query.select({
 )
 
 type MysqlUnnestRow = Mysql.Query.ResultRow<typeof mysqlUnnestPlan>
+type MysqlUnnestStatement = Mysql.Query.StatementOfPlan<typeof mysqlUnnestPlan>
 const mysqlUnnestId: MysqlUnnestRow["id"] = 1
 const mysqlUnnestEmail: MysqlUnnestRow["email"] = "bob@example.com"
+type _AssertMysqlUnnestStatement = Assert<IsExact<MysqlUnnestStatement, "select">>
+// @ts-expect-error mysql unnest row ids stay numeric literals
+const badMysqlUnnestId: MysqlUnnestRow["id"] = "wrong"
+void badMysqlUnnestId
 void mysqlUnnestId
 void mysqlUnnestEmail
 

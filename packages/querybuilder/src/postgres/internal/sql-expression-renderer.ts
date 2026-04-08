@@ -1260,6 +1260,8 @@ export const renderExpression = (
         : `excluded.${dialect.quoteIdentifier(ast.columnName)}`
     case "cast":
       return `cast(${renderExpression(ast.value, state, dialect)} as ${renderCastType(dialect, ast.target)})`
+    case "collate":
+      return `(${renderExpression(ast.value, state, dialect)} collate ${ast.collation.map((segment) => dialect.quoteIdentifier(segment)).join(".")})`
     case "function":
       return renderFunctionCall(ast.name, Array.isArray(ast.args) ? ast.args : [], state, dialect)
     case "eq":

@@ -6,6 +6,17 @@ import * as Executor from "#internal/executor.ts"
 import * as RootQuery from "#internal/query.ts"
 import * as Renderer from "#internal/renderer.ts"
 
+type IsExact<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends
+    (<T>() => T extends B ? 1 : 2)
+    ? (<T>() => T extends B ? 1 : 2) extends
+        (<T>() => T extends A ? 1 : 2)
+      ? true
+      : false
+    : false
+
+type Assert<T extends true> = T
+
 const pgUsers = Postgres.Table.make("users", {
   id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
   email: Postgres.Column.text()
@@ -68,6 +79,39 @@ const myPlan = Mysql.Query.select({
 }).pipe(
   Mysql.Query.from(myUsers)
 )
+
+const pgValuesSource = Postgres.Query.values([
+  { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") },
+  { id: Postgres.Query.literal(2), email: Postgres.Query.literal("bob@example.com") }
+] as const).pipe(Postgres.Query.as("seed"))
+
+const pgValuesPlan = Postgres.Query.select({
+  id: pgValuesSource.id,
+  email: pgValuesSource.email
+}).pipe(
+  Postgres.Query.from(pgValuesSource)
+)
+
+type PgValuesRequired = RootQuery.RequiredOfPlan<typeof pgValuesPlan>
+type PgValuesAvailable = RootQuery.AvailableOfPlan<typeof pgValuesPlan>
+type PgValuesDialect = RootQuery.PlanDialectOf<typeof pgValuesPlan>
+type _AssertPgValuesRequired = Assert<IsExact<PgValuesRequired, never>>
+type _AssertPgValuesAvailableKeys = Assert<IsExact<keyof PgValuesAvailable, "seed">>
+type _AssertPgValuesDialect = Assert<IsExact<PgValuesDialect, "postgres">>
+
+const pgSeriesSource = Postgres.Query.generateSeries(1, 3, 1, "series")
+const pgSeriesPlan = Postgres.Query.select({
+  value: pgSeriesSource.value
+}).pipe(
+  Postgres.Query.from(pgSeriesSource)
+)
+
+type PgSeriesRequired = RootQuery.RequiredOfPlan<typeof pgSeriesPlan>
+type PgSeriesAvailable = RootQuery.AvailableOfPlan<typeof pgSeriesPlan>
+type PgSeriesDialect = RootQuery.PlanDialectOf<typeof pgSeriesPlan>
+type _AssertPgSeriesRequired = Assert<IsExact<PgSeriesRequired, never>>
+type _AssertPgSeriesAvailableKeys = Assert<IsExact<keyof PgSeriesAvailable, "series">>
+type _AssertPgSeriesDialect = Assert<IsExact<PgSeriesDialect, "postgres">>
 
 const pgRendered = Postgres.Renderer.make().render(pgPlan)
 const myRendered = Mysql.Renderer.make().render(myPlan)

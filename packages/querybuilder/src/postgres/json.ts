@@ -7,7 +7,7 @@ import type {
   JsonSetAtPath,
   JsonValueAtPath
 } from "../internal/json/types.js"
-import { postgresDsl } from "./internal/dsl.js"
+import { json as postgresJson, jsonb as postgresJsonb } from "./internal/dsl.js"
 
 type PostgresJsonExpression<Runtime = unknown> = Expression.Scalar<
   Runtime,
@@ -200,7 +200,7 @@ const jsonGetDirect = <
   base: Base,
   target: Target & ExactJsonPathGuard<Target>
 ): JsonGetResultExpression<Base, Target, "json.get"> =>
-  postgresDsl.json.get(base as never, target as never) as unknown as JsonGetResultExpression<Base, Target, "json.get">
+  postgresJson.get(base as never, target as never) as unknown as JsonGetResultExpression<Base, Target, "json.get">
 
 const jsonTextDirect = <
   Base extends PostgresJsonExpression<any>,
@@ -209,11 +209,11 @@ const jsonTextDirect = <
   base: Base,
   target: Target & ExactJsonPathGuard<Target>
 ): JsonTextResultExpression<Base, Target> =>
-  postgresDsl.json.text(base as never, target as never) as unknown as JsonTextResultExpression<Base, Target>
+  postgresJson.text(base as never, target as never) as unknown as JsonTextResultExpression<Base, Target>
 
 const json = {
-  key: postgresDsl.json.key,
-  index: postgresDsl.json.index,
+  key: postgresJson.key,
+  index: postgresJson.index,
   path: exactPath,
   get: ((...args: [PostgresJsonExpression<any>, ExactJsonPathInput] | [ExactJsonPathInput]) =>
     args.length === 1
@@ -230,14 +230,14 @@ const json = {
   >(
     base: Base,
     target: Target & ExactJsonPathGuard<Target> & JsonValuePathGuard<Expression.RuntimeOf<Base>, Target, "json.access">
-  ) => postgresDsl.json.access(base, target),
+  ) => postgresJson.access(base, target),
   traverse: <
     Base extends PostgresJsonExpression<any>,
     Target extends ExactJsonPathInput
   >(
     base: Base,
     target: Target & ExactJsonPathGuard<Target> & JsonValuePathGuard<Expression.RuntimeOf<Base>, Target, "json.traverse">
-  ) => postgresDsl.json.traverse(base, target),
+  ) => postgresJson.traverse(base, target),
   text: ((...args: [PostgresJsonExpression<any>, ExactJsonPathInput] | [ExactJsonPathInput]) =>
     args.length === 1
       ? ((base: PostgresJsonExpression<any>) => jsonTextDirect(base as never, args[0] as never))
@@ -253,21 +253,21 @@ const json = {
   >(
     base: Base,
     target: Target & ExactJsonPathGuard<Target> & JsonValuePathGuard<Expression.RuntimeOf<Base>, Target, "json.accessText">
-  ) => postgresDsl.json.accessText(base, target),
+  ) => postgresJson.accessText(base, target),
   traverseText: <
     Base extends PostgresJsonExpression<any>,
     Target extends ExactJsonPathInput
   >(
     base: Base,
     target: Target & ExactJsonPathGuard<Target> & JsonValuePathGuard<Expression.RuntimeOf<Base>, Target, "json.traverseText">
-  ) => postgresDsl.json.traverseText(base, target),
-  buildObject: postgresDsl.json.buildObject,
-  buildArray: postgresDsl.json.buildArray,
-  toJson: postgresDsl.json.toJson,
-  typeOf: postgresDsl.json.typeOf,
-  length: postgresDsl.json.length,
-  keys: postgresDsl.json.keys,
-  stripNulls: postgresDsl.json.stripNulls,
+  ) => postgresJson.traverseText(base, target),
+  buildObject: postgresJson.buildObject,
+  buildArray: postgresJson.buildArray,
+  toJson: postgresJson.toJson,
+  typeOf: postgresJson.typeOf,
+  length: postgresJson.length,
+  keys: postgresJson.keys,
+  stripNulls: postgresJson.stripNulls,
   delete: <
     Base extends PostgresJsonExpression<any>,
     Target extends JsonPath.CanonicalSegment | JsonPath.Path<any>
@@ -277,7 +277,7 @@ const json = {
   ): JsonResultExpression<
     JsonDeleteOutputOf<Expression.RuntimeOf<Base>, Target, "json.delete">,
     Expression.DbTypeOf<Base>
-  > => postgresDsl.json.delete(base as any, target as any) as unknown as JsonResultExpression<
+  > => postgresJson.delete(base as any, target as any) as unknown as JsonResultExpression<
     JsonDeleteOutputOf<Expression.RuntimeOf<Base>, Target, "json.delete">,
     Expression.DbTypeOf<Base>
   >,
@@ -290,103 +290,103 @@ const json = {
   ): JsonResultExpression<
     JsonDeleteOutputOf<Expression.RuntimeOf<Base>, Target, "json.remove">,
     Expression.DbTypeOf<Base>
-  > => postgresDsl.json.remove(base as any, target as any) as unknown as JsonResultExpression<
+  > => postgresJson.remove(base as any, target as any) as unknown as JsonResultExpression<
     JsonDeleteOutputOf<Expression.RuntimeOf<Base>, Target, "json.remove">,
     Expression.DbTypeOf<Base>
   >
 }
 
 const jsonb = {
-  key: postgresDsl.jsonb.key,
-  index: postgresDsl.jsonb.index,
-  wildcard: postgresDsl.jsonb.wildcard,
-  slice: postgresDsl.jsonb.slice,
-  descend: postgresDsl.jsonb.descend,
-  path: postgresDsl.jsonb.path,
+  key: postgresJsonb.key,
+  index: postgresJsonb.index,
+  wildcard: postgresJsonb.wildcard,
+  slice: postgresJsonb.slice,
+  descend: postgresJsonb.descend,
+  path: postgresJsonb.path,
   get: <
     Base extends PostgresJsonExpression<any>,
     Target extends JsonPath.CanonicalSegment | JsonPath.Path<any>
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.get">,
     target: Target & JsonValuePathGuard<Expression.RuntimeOf<Base>, Target, "json.get">
-  ) => postgresDsl.jsonb.get(base as Base, target),
+  ) => postgresJsonb.get(base as Base, target),
   access: <
     Base extends PostgresJsonExpression<any>,
     Target extends JsonPath.CanonicalSegment | JsonPath.Path<any>
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.access">,
     target: Target & JsonValuePathGuard<Expression.RuntimeOf<Base>, Target, "json.access">
-  ) => postgresDsl.jsonb.access(base as Base, target),
+  ) => postgresJsonb.access(base as Base, target),
   traverse: <
     Base extends PostgresJsonExpression<any>,
     Target extends JsonPath.CanonicalSegment | JsonPath.Path<any>
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.traverse">,
     target: Target & JsonValuePathGuard<Expression.RuntimeOf<Base>, Target, "json.traverse">
-  ) => postgresDsl.jsonb.traverse(base as Base, target),
+  ) => postgresJsonb.traverse(base as Base, target),
   text: <
     Base extends PostgresJsonExpression<any>,
     Target extends JsonPath.CanonicalSegment | JsonPath.Path<any>
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.text">,
     target: Target & JsonValuePathGuard<Expression.RuntimeOf<Base>, Target, "json.text">
-  ) => postgresDsl.jsonb.text(base as Base, target),
+  ) => postgresJsonb.text(base as Base, target),
   accessText: <
     Base extends PostgresJsonExpression<any>,
     Target extends JsonPath.CanonicalSegment | JsonPath.Path<any>
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.accessText">,
     target: Target & JsonValuePathGuard<Expression.RuntimeOf<Base>, Target, "json.accessText">
-  ) => postgresDsl.jsonb.accessText(base as Base, target),
+  ) => postgresJsonb.accessText(base as Base, target),
   traverseText: <
     Base extends PostgresJsonExpression<any>,
     Target extends JsonPath.CanonicalSegment | JsonPath.Path<any>
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.traverseText">,
     target: Target & JsonValuePathGuard<Expression.RuntimeOf<Base>, Target, "json.traverseText">
-  ) => postgresDsl.jsonb.traverseText(base as Base, target),
+  ) => postgresJsonb.traverseText(base as Base, target),
   contains: <
     Left extends PostgresJsonExpression<any>,
-    Right extends Parameters<typeof postgresDsl.jsonb.contains>[1]
+    Right extends Parameters<typeof postgresJsonb.contains>[1]
   >(
     left: Left & JsonbBaseGuard<Left, "jsonb.contains">,
     right: Right
-  ) => postgresDsl.jsonb.contains(left as Left, right),
+  ) => postgresJsonb.contains(left as Left, right),
   containedBy: <
     Left extends PostgresJsonExpression<any>,
-    Right extends Parameters<typeof postgresDsl.jsonb.containedBy>[1]
+    Right extends Parameters<typeof postgresJsonb.containedBy>[1]
   >(
     left: Left & JsonbBaseGuard<Left, "jsonb.containedBy">,
     right: Right
-  ) => postgresDsl.jsonb.containedBy(left as Left, right),
+  ) => postgresJsonb.containedBy(left as Left, right),
   hasKey: <
     Base extends PostgresJsonExpression<any>,
     Key extends string
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.hasKey">,
     key: Key
-  ) => postgresDsl.jsonb.hasKey(base as Base, key),
+  ) => postgresJsonb.hasKey(base as Base, key),
   keyExists: <
     Base extends PostgresJsonExpression<any>,
     Key extends string
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.keyExists">,
     key: Key
-  ) => postgresDsl.jsonb.keyExists(base as Base, key),
+  ) => postgresJsonb.keyExists(base as Base, key),
   hasAnyKeys: <
     Base extends PostgresJsonExpression<any>,
     Keys extends readonly [string, ...string[]]
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.hasAnyKeys">,
     ...keys: Keys
-  ) => postgresDsl.jsonb.hasAnyKeys(base as Base, ...keys),
+  ) => postgresJsonb.hasAnyKeys(base as Base, ...keys),
   hasAllKeys: <
     Base extends PostgresJsonExpression<any>,
     Keys extends readonly [string, ...string[]]
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.hasAllKeys">,
     ...keys: Keys
-  ) => postgresDsl.jsonb.hasAllKeys(base as Base, ...keys),
+  ) => postgresJsonb.hasAllKeys(base as Base, ...keys),
   delete: <
     Base extends PostgresJsonExpression<any>,
     Target extends JsonPath.CanonicalSegment | JsonPath.Path<any>
@@ -396,7 +396,7 @@ const jsonb = {
   ): JsonResultExpression<
     JsonDeleteOutputOf<Expression.RuntimeOf<Base>, Target, "json.delete">,
     Expression.DbTypeOf<Base>
-  > => postgresDsl.jsonb.delete(base as any, target as any) as unknown as JsonResultExpression<
+  > => postgresJsonb.delete(base as any, target as any) as unknown as JsonResultExpression<
     JsonDeleteOutputOf<Expression.RuntimeOf<Base>, Target, "json.delete">,
     Expression.DbTypeOf<Base>
   >,
@@ -409,30 +409,30 @@ const jsonb = {
   ): JsonResultExpression<
     JsonDeleteOutputOf<Expression.RuntimeOf<Base>, Target, "json.remove">,
     Expression.DbTypeOf<Base>
-  > => postgresDsl.jsonb.remove(base as any, target as any) as unknown as JsonResultExpression<
+  > => postgresJsonb.remove(base as any, target as any) as unknown as JsonResultExpression<
     JsonDeleteOutputOf<Expression.RuntimeOf<Base>, Target, "json.remove">,
     Expression.DbTypeOf<Base>
   >,
   set: <
     Base extends PostgresJsonExpression<any>,
     Target extends JsonPath.CanonicalSegment | JsonPath.Path<any>,
-    Next extends Parameters<typeof postgresDsl.jsonb.set>[2]
+    Next extends Parameters<typeof postgresJsonb.set>[2]
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.set">,
     target: Target & JsonSetPathGuard<Expression.RuntimeOf<Base>, Target, Next, "json.set">,
     next: Next,
-    options?: Parameters<typeof postgresDsl.jsonb.set>[3]
+    options?: Parameters<typeof postgresJsonb.set>[3]
   ): JsonResultExpression<
     JsonSetOutputOf<Expression.RuntimeOf<Base>, Target, Next, "json.set">,
     Expression.DbTypeOf<Base>
-  > => postgresDsl.jsonb.set(base as any, target as any, next, options) as unknown as JsonResultExpression<
+  > => postgresJsonb.set(base as any, target as any, next, options) as unknown as JsonResultExpression<
     JsonSetOutputOf<Expression.RuntimeOf<Base>, Target, Next, "json.set">,
     Expression.DbTypeOf<Base>
   >,
   insert: <
     Base extends PostgresJsonExpression<any>,
     Target extends JsonPath.CanonicalSegment | JsonPath.Path<any>,
-    Next extends Parameters<typeof postgresDsl.jsonb.insert>[2],
+    Next extends Parameters<typeof postgresJsonb.insert>[2],
     InsertAfter extends boolean = false
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.insert">,
@@ -444,47 +444,47 @@ const jsonb = {
   ): JsonResultExpression<
     JsonInsertOutputOf<Expression.RuntimeOf<Base>, Target, Next, InsertAfter, "json.insert">,
     Expression.DbTypeOf<Base>
-  > => postgresDsl.jsonb.insert(base as any, target as any, next, options) as unknown as JsonResultExpression<
+  > => postgresJsonb.insert(base as any, target as any, next, options) as unknown as JsonResultExpression<
     JsonInsertOutputOf<Expression.RuntimeOf<Base>, Target, Next, InsertAfter, "json.insert">,
     Expression.DbTypeOf<Base>
   >,
-  concat: postgresDsl.jsonb.concat,
-  merge: postgresDsl.jsonb.merge,
-  buildObject: postgresDsl.jsonb.buildObject,
-  buildArray: postgresDsl.jsonb.buildArray,
-  toJsonb: postgresDsl.jsonb.toJsonb,
+  concat: postgresJsonb.concat,
+  merge: postgresJsonb.merge,
+  buildObject: postgresJsonb.buildObject,
+  buildArray: postgresJsonb.buildArray,
+  toJsonb: postgresJsonb.toJsonb,
   typeOf: <
     Base extends PostgresJsonExpression<any>
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.typeOf">
-  ) => postgresDsl.jsonb.typeOf(base as Base),
+  ) => postgresJsonb.typeOf(base as Base),
   length: <
     Base extends PostgresJsonExpression<any>
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.length">
-  ) => postgresDsl.jsonb.length(base as Base),
+  ) => postgresJsonb.length(base as Base),
   keys: <
     Base extends PostgresJsonExpression<any>
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.keys">
-  ) => postgresDsl.jsonb.keys(base as Base),
+  ) => postgresJsonb.keys(base as Base),
   stripNulls: <
     Base extends PostgresJsonExpression<any>
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.stripNulls">
-  ) => postgresDsl.jsonb.stripNulls(base as Base),
+  ) => postgresJsonb.stripNulls(base as Base),
   pathExists: <
     Base extends PostgresJsonExpression<any>
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.pathExists">,
-    query: Parameters<typeof postgresDsl.jsonb.pathExists>[1]
-  ) => postgresDsl.jsonb.pathExists(base as Base, query),
+    query: Parameters<typeof postgresJsonb.pathExists>[1]
+  ) => postgresJsonb.pathExists(base as Base, query),
   pathMatch: <
     Base extends PostgresJsonExpression<any>
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.pathMatch">,
-    query: Parameters<typeof postgresDsl.jsonb.pathMatch>[1]
-  ) => postgresDsl.jsonb.pathMatch(base as Base, query)
+    query: Parameters<typeof postgresJsonb.pathMatch>[1]
+  ) => postgresJsonb.pathMatch(base as Base, query)
 }
 
 /** Postgres shared JSON helpers for exact paths and functions that work on both json and jsonb. */

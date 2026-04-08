@@ -119,6 +119,20 @@ describe("postgres dialect behavior", () => {
     expect(rendered.params).toEqual(["a", "b", "c", "done", "x", "mix", "MIX"])
   })
 
+  test("renders explicit collations with postgres syntax", () => {
+    const plan = Postgres.Query.select({
+      cEmail: Postgres.Query.collate(Postgres.Query.literal("alice@example.com"), "C"),
+      cQualified: Postgres.Query.collate(Postgres.Query.literal("alice@example.com"), ["pg_catalog", "default"])
+    })
+
+    const rendered = Postgres.Renderer.make().render(plan)
+
+    expect(rendered.sql).toBe(
+      'select ($1 collate "C") as "cEmail", ($2 collate "pg_catalog"."default") as "cQualified"'
+    )
+    expect(rendered.params).toEqual(["alice@example.com", "alice@example.com"])
+  })
+
   test("renders explicit casts with postgres syntax", () => {
     const { users } = makePostgresSocialGraph()
 

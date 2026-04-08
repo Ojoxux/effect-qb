@@ -57,6 +57,14 @@ export const runPostgres = <A, E>(effect: Effect.Effect<A, E, SqlClient.SqlClien
 export const runMysql = <A, E>(effect: Effect.Effect<A, E, SqlClient.SqlClient>) =>
   Effect.runPromise(Effect.provide(effect, mysqlLayer))
 
+export const createDeferred = <A = void>() => {
+  let resolve!: (value: A | PromiseLike<A>) => void
+  const promise = new Promise<A>((res) => {
+    resolve = res
+  })
+  return { promise, resolve }
+}
+
 export const execPostgres = <Row extends Record<string, unknown> = Record<string, unknown>>(
   statement: string,
   params?: ReadonlyArray<unknown>

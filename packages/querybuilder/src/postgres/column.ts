@@ -54,6 +54,11 @@ const renderNumericDdlType = (
     : `${kind}(${options.precision},${options.scale})`
 }
 
+const boundedString = (length?: number): Schema.Schema<string> =>
+  length === undefined
+    ? Schema.String
+    : Schema.String.pipe(Schema.maxLength(length))
+
 export const custom = <SchemaType extends Schema.Schema.Any, Db extends Expression.DbType.Any>(
   schema: SchemaType,
   dbType: Db
@@ -105,7 +110,7 @@ export const varbit = () => primitive(Schema.String, postgresDatatypes.varbit())
 export const xml = () => primitive(Schema.String, postgresDatatypes.xml())
 export const pg_lsn = () => primitive(Schema.String, postgresDatatypes.pg_lsn())
 export const char = (length = 1) =>
-  makeColumnDefinition(Schema.String, {
+  makeColumnDefinition(boundedString(length), {
     dbType: postgresDatatypes.char(),
     nullable: false,
     hasDefault: false,
@@ -117,7 +122,7 @@ export const char = (length = 1) =>
     identity: undefined
   })
 export const varchar = (length?: number) =>
-  makeColumnDefinition(Schema.String, {
+  makeColumnDefinition(boundedString(length), {
     dbType: postgresDatatypes.varchar(),
     nullable: false,
     hasDefault: false,

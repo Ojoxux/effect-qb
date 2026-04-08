@@ -1,12 +1,19 @@
-import { afterAll, beforeAll, expect, test } from "bun:test"
+import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test"
+import * as Effect from "effect/Effect"
+import * as SqlClient from "@effect/sql/SqlClient"
 import * as Schema from "effect/Schema"
 
 import { Column as C, Executor, Query as Q, Table } from "#mysql"
-import { execMysql, runMysql } from "./helpers.ts"
+import { createDeferred, execMysql, runMysql } from "./helpers.ts"
 
-const tableName = "integration_mysql_events"
+const eventsTableName = "integration_mysql_events"
+const usersTableName = "integration_mysql_users"
+const postsTableName = "integration_mysql_posts"
+const auditLogsTableName = "integration_mysql_audit_logs"
+const queueItemsTableName = "integration_mysql_queue_items"
+const lockRowsTableName = "integration_mysql_lock_rows"
 
-const events = Table.make(tableName, {
+const events = Table.make(eventsTableName, {
   id: C.text().pipe(C.primaryKey),
   happenedOn: C.date().pipe(C.schema(Schema.DateFromString)),
   happenedAt: C.datetime(),
@@ -16,10 +23,79 @@ const events = Table.make(tableName, {
   }))
 })
 
-beforeAll(async () => {
-  await execMysql(`drop table if exists \`${tableName}\``)
+const users = Table.make(usersTableName, {
+  id: C.text().pipe(C.primaryKey),
+  email: C.text(),
+  displayName: C.text()
+})
+
+const posts = Table.make(postsTableName, {
+  id: C.text().pipe(C.primaryKey),
+  userId: C.text(),
+  title: C.text(),
+  publishedAt: C.text()
+})
+
+const auditLogs = Table.make(auditLogsTableName, {
+  id: C.text().pipe(C.primaryKey),
+  note: C.text()
+})
+
+const queueItems = Table.make(queueItemsTableName, {
+  id: C.text().pipe(C.primaryKey),
+  priority: C.text(),
+  status: C.text()
+})
+
+const lockRows = Table.make(lockRowsTableName, {
+  id: C.text().pipe(C.primaryKey),
+  note: C.text()
+})
+
+const resetMutableTables = async () => {
+  await execMysql(`delete from \`${auditLogsTableName}\``)
+  await execMysql(`delete from \`${queueItemsTableName}\``)
   await execMysql(`
-    create table \`${tableName}\` (
+    insert into \`${queueItemsTableName}\` (\`id\`, \`priority\`, \`status\`)
+    values
+      ('job-1', '1', 'pending'),
+      ('job-2', '2', 'pending')
+  `)
+}
+
+const makeJoinedPostsPlan = () => {
+  const publishedPosts = Q.select({
+    userId: posts.userId,
+    title: posts.title,
+    publishedAt: posts.publishedAt
+  }).pipe(
+    Q.from(posts),
+    Q.where(Q.isNotNull(posts.publishedAt)),
+    Q.with("published_posts")
+  )
+
+  return Q.select({
+    userId: users.id,
+    email: users.email,
+    title: publishedPosts.title
+  }).pipe(
+    Q.from(users),
+    Q.innerJoin(publishedPosts, Q.eq(users.id, publishedPosts.userId)),
+    Q.orderBy(users.id),
+    Q.orderBy(publishedPosts.publishedAt, "desc")
+  )
+}
+
+beforeAll(async () => {
+  await execMysql(`drop table if exists \`${eventsTableName}\``)
+  await execMysql(`drop table if exists \`${postsTableName}\``)
+  await execMysql(`drop table if exists \`${usersTableName}\``)
+  await execMysql(`drop table if exists \`${auditLogsTableName}\``)
+  await execMysql(`drop table if exists \`${queueItemsTableName}\``)
+  await execMysql(`drop table if exists \`${lockRowsTableName}\``)
+
+  await execMysql(`
+    create table \`${eventsTableName}\` (
       \`id\` varchar(64) primary key,
       \`happenedOn\` date not null,
       \`happenedAt\` datetime not null,
@@ -28,7 +104,42 @@ beforeAll(async () => {
     )
   `)
   await execMysql(`
-    insert into \`${tableName}\` (\`id\`, \`happenedOn\`, \`happenedAt\`, \`amount\`, \`payload\`)
+    create table \`${usersTableName}\` (
+      \`id\` varchar(64) primary key,
+      \`email\` varchar(255) not null,
+      \`displayName\` varchar(255) not null
+    )
+  `)
+  await execMysql(`
+    create table \`${postsTableName}\` (
+      \`id\` varchar(64) primary key,
+      \`userId\` varchar(64) not null,
+      \`title\` varchar(255) not null,
+      \`publishedAt\` varchar(32) not null
+    )
+  `)
+  await execMysql(`
+    create table \`${auditLogsTableName}\` (
+      \`id\` varchar(64) primary key,
+      \`note\` varchar(255) not null
+    )
+  `)
+  await execMysql(`
+    create table \`${queueItemsTableName}\` (
+      \`id\` varchar(64) primary key,
+      \`priority\` varchar(32) not null,
+      \`status\` varchar(32) not null
+    )
+  `)
+  await execMysql(`
+    create table \`${lockRowsTableName}\` (
+      \`id\` varchar(64) primary key,
+      \`note\` varchar(255) not null
+    )
+  `)
+
+  await execMysql(`
+    insert into \`${eventsTableName}\` (\`id\`, \`happenedOn\`, \`happenedAt\`, \`amount\`, \`payload\`)
     values (
       'mysql-1',
       '2026-03-18',
@@ -37,10 +148,37 @@ beforeAll(async () => {
       '{"visits":"42"}'
     )
   `)
+  await execMysql(`
+    insert into \`${usersTableName}\` (\`id\`, \`email\`, \`displayName\`)
+    values
+      ('mysql-user-1', 'alice@example.com', 'Alice'),
+      ('mysql-user-2', 'bob@example.com', 'Bob')
+  `)
+  await execMysql(`
+    insert into \`${postsTableName}\` (\`id\`, \`userId\`, \`title\`, \`publishedAt\`)
+    values
+      ('mysql-post-1', 'mysql-user-1', 'alice draft', '2026-03-18T09:00:00Z'),
+      ('mysql-post-2', 'mysql-user-1', 'alice latest', '2026-03-18T12:00:00Z'),
+      ('mysql-post-3', 'mysql-user-2', 'bob note', '2026-03-18T11:00:00Z')
+  `)
+  await execMysql(`
+    insert into \`${lockRowsTableName}\` (\`id\`, \`note\`)
+    values ('mysql-lock-1', 'locked')
+  `)
+  await resetMutableTables()
+})
+
+beforeEach(async () => {
+  await resetMutableTables()
 })
 
 afterAll(async () => {
-  await execMysql(`drop table if exists \`${tableName}\``)
+  await execMysql(`drop table if exists \`${lockRowsTableName}\``)
+  await execMysql(`drop table if exists \`${queueItemsTableName}\``)
+  await execMysql(`drop table if exists \`${auditLogsTableName}\``)
+  await execMysql(`drop table if exists \`${postsTableName}\``)
+  await execMysql(`drop table if exists \`${usersTableName}\``)
+  await execMysql(`drop table if exists \`${eventsTableName}\``)
 })
 
 test("mysql executor decodes live temporal, numeric, and json values", async () => {
@@ -66,4 +204,165 @@ test("mysql executor decodes live temporal, numeric, and json values", async () 
   expect(row.payload).toEqual({
     visits: 42
   })
+})
+
+test("mysql executor reads joined rows through a live cte", async () => {
+  const rows = await runMysql(Executor.make().execute(makeJoinedPostsPlan()))
+
+  expect(rows).toEqual([
+    {
+      userId: "mysql-user-1",
+      email: "alice@example.com",
+      title: "alice latest"
+    },
+    {
+      userId: "mysql-user-1",
+      email: "alice@example.com",
+      title: "alice draft"
+    },
+    {
+      userId: "mysql-user-2",
+      email: "bob@example.com",
+      title: "bob note"
+    }
+  ])
+})
+
+test("mysql executor keeps outer mutations after a nested transaction rollback and updates one queued row", async () => {
+  const executor = Executor.make()
+  const auditId = "mysql-audit-1"
+
+  const insertAudit = Q.insert(auditLogs, {
+    id: auditId,
+    note: "outer"
+  })
+  const updateAudit = Q.update(auditLogs, {
+    note: "inner"
+  }).pipe(
+    Q.where(Q.eq(auditLogs.id, auditId))
+  )
+  const promoteOnePending = Q.update(queueItems, {
+    status: "running"
+  }).pipe(
+    Q.where(Q.eq(queueItems.status, "pending")),
+    Q.orderBy(queueItems.priority),
+    Q.limit(1)
+  )
+  const readAudit = Q.select({
+    note: auditLogs.note
+  }).pipe(
+    Q.from(auditLogs),
+    Q.where(Q.eq(auditLogs.id, auditId))
+  )
+  const readQueue = Q.select({
+    id: queueItems.id,
+    priority: queueItems.priority,
+    status: queueItems.status
+  }).pipe(
+    Q.from(queueItems),
+    Q.orderBy(queueItems.priority)
+  )
+
+  await runMysql(Effect.gen(function*() {
+    const sql = yield* SqlClient.SqlClient
+    yield* sql.withTransaction(
+      Effect.gen(function*() {
+        yield* executor.execute(insertAudit)
+        yield* executor.execute(promoteOnePending)
+        yield* Effect.catchAll(
+          sql.withTransaction(
+            Effect.gen(function*() {
+              yield* executor.execute(updateAudit)
+              return yield* Effect.fail(new Error("rollback savepoint"))
+            })
+          ),
+          () => Effect.void
+        )
+
+        const auditRows = yield* executor.execute(readAudit)
+        expect(auditRows).toEqual([
+          {
+            note: "outer"
+          }
+        ])
+
+        const queueRows = yield* executor.execute(readQueue)
+        expect(queueRows).toEqual([
+          {
+            id: "job-1",
+            priority: "1",
+            status: "running"
+          },
+          {
+            id: "job-2",
+            priority: "2",
+            status: "pending"
+          }
+        ])
+      })
+    )
+  }))
+
+  const persistedAudit = await runMysql(executor.execute(readAudit))
+  expect(persistedAudit).toEqual([
+    {
+      note: "outer"
+    }
+  ])
+})
+
+test("mysql lock nowait failures are normalized from live row locks", async () => {
+  const executor = Executor.make()
+  const lockPlan = Q.select({
+    id: lockRows.id,
+    note: lockRows.note
+  }).pipe(
+    Q.from(lockRows),
+    Q.where(Q.eq(lockRows.id, "mysql-lock-1")),
+    Q.lock("update")
+  )
+  const nowaitPlan = Q.select({
+    id: lockRows.id
+  }).pipe(
+    Q.from(lockRows),
+    Q.where(Q.eq(lockRows.id, "mysql-lock-1")),
+    Q.lock("update", { nowait: true })
+  )
+
+  const locked = createDeferred<void>()
+  const release = createDeferred<void>()
+
+  const holder = runMysql(Effect.gen(function*() {
+    const sql = yield* SqlClient.SqlClient
+    return yield* sql.withTransaction(
+      Effect.gen(function*() {
+        const rows = yield* executor.execute(lockPlan)
+        expect(rows).toHaveLength(1)
+        locked.resolve()
+        yield* Effect.promise(() => release.promise)
+      })
+    )
+  }))
+
+  await locked.promise
+
+  const contender = await runMysql(Effect.either(Effect.gen(function*() {
+    const sql = yield* SqlClient.SqlClient
+    return yield* sql.withTransaction(executor.execute(nowaitPlan))
+  })))
+
+  release.resolve()
+  await holder
+
+  expect(contender._tag).toBe("Left")
+  if (contender._tag !== "Left") {
+    throw new Error("Expected MySQL lock failure")
+  }
+
+  expect(contender.left._tag).toBe("@mysql/server/lock-nowait")
+  expect("query" in contender.left).toBe(true)
+  if (!("query" in contender.left) || !contender.left.query) {
+    throw new Error("Expected rendered query details on MySQL lock failure")
+  }
+  expect(contender.left.query.sql).toContain("for update nowait")
 })

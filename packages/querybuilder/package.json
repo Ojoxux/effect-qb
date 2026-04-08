@@ -22,15 +22,15 @@
   ],
   "exports": {
     "./postgres": {
-      "types": "./dist/postgres.d.ts",
+      "types": "./src/postgres.ts",
       "import": "./dist/postgres.js"
     },
     "./postgres/metadata": {
-      "types": "./dist/postgres/metadata.d.ts",
+      "types": "./src/postgres/metadata.ts",
       "import": "./dist/postgres/metadata.js"
     },
     "./mysql": {
-      "types": "./dist/mysql.d.ts",
+      "types": "./src/mysql.ts",
       "import": "./dist/mysql.js"
     },
     "./package.json": "./package.json"

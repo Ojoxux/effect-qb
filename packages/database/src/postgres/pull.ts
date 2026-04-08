@@ -874,6 +874,230 @@ const renderSqlExpressionCode = (
   }
 }
 
+const trimEnclosingParentheses = (value: string): string => {
+  let current = value.trim()
+  while (current.startsWith("(") && current.endsWith(")")) {
+    let depth = 0
+    let inSingleQuote = false
+    let inDoubleQuote = false
+    let enclosesWholeValue = true
+    for (let index = 0; index < current.length; index += 1) {
+      const char = current[index]!
+      const next = current[index + 1]
+      if (inSingleQuote) {
+        if (char === "'" && next === "'") {
+          index += 1
+          continue
+        }
+        if (char === "'") {
+          inSingleQuote = false
+        }
+        continue
+      }
+      if (inDoubleQuote) {
+        if (char === "\"" && next === "\"") {
+          index += 1
+          continue
+        }
+        if (char === "\"") {
+          inDoubleQuote = false
+        }
+        continue
+      }
+      if (char === "'") {
+        inSingleQuote = true
+        continue
+      }
+      if (char === "\"") {
+        inDoubleQuote = true
+        continue
+      }
+      if (char === "(") {
+        depth += 1
+        continue
+      }
+      if (char === ")") {
+        depth -= 1
+        if (depth === 0 && index < current.length - 1) {
+          enclosesWholeValue = false
+          break
+        }
+      }
+    }
+    if (!enclosesWholeValue || depth !== 0) {
+      break
+    }
+    current = current.slice(1, -1).trim()
+  }
+  return current
+}
+
+const scanTopLevelExpression = <Value>(
+  sql: string,
+  onMatch: (sql: string, index: number) => Value | undefined
+): Value | undefined => {
+  let depth = 0
+  let inSingleQuote = false
+  let inDoubleQuote = false
+  for (let index = 0; index < sql.length; index += 1) {
+    const char = sql[index]!
+    const next = sql[index + 1]
+    if (inSingleQuote) {
+      if (char === "'" && next === "'") {
+        index += 1
+        continue
+      }
+      if (char === "'") {
+        inSingleQuote = false
+      }
+      continue
+    }
+    if (inDoubleQuote) {
+      if (char === "\"" && next === "\"") {
+        index += 1
+        continue
+      }
+      if (char === "\"") {
+        inDoubleQuote = false
+      }
+      continue
+    }
+    if (char === "'") {
+      inSingleQuote = true
+      continue
+    }
+    if (char === "\"") {
+      inDoubleQuote = true
+      continue
+    }
+    if (char === "(") {
+      depth += 1
+      continue
+    }
+    if (char === ")") {
+      depth -= 1
+      continue
+    }
+    if (depth === 0) {
+      const matched = onMatch(sql, index)
+      if (matched !== undefined) {
+        return matched
+      }
+    }
+  }
+  return undefined
+}
+
+const isIdentifierBoundary = (value: string | undefined): boolean =>
+  value === undefined || !/[A-Za-z0-9_$]/.test(value)
+
+const parseQualifiedIdentifier = (
+  value: string
+): readonly [string, ...string[]] | undefined => {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) {
+    return undefined
+  }
+  const parts: string[] = []
+  let index = 0
+  while (index < trimmed.length) {
+    if (trimmed[index] === "\"") {
+      index += 1
+      let part = ""
+      while (index < trimmed.length) {
+        const char = trimmed[index]!
+        const next = trimmed[index + 1]
+        if (char === "\"" && next === "\"") {
+          part += "\""
+          index += 2
+          continue
+        }
+        if (char === "\"") {
+          index += 1
+          break
+        }
+        part += char
+        index += 1
+      }
+      parts.push(part)
+    } else {
+      const match = /^[A-Za-z_][A-Za-z0-9_$]*/.exec(trimmed.slice(index))
+      if (match === null) {
+        return undefined
+      }
+      parts.push(match[0])
+      index += match[0].length
+    }
+    if (index === trimmed.length) {
+      break
+    }
+    if (trimmed[index] !== ".") {
+      return undefined
+    }
+    index += 1
+  }
+  return parts.length === 0 ? undefined : parts as unknown as readonly [string, ...string[]]
+}
+
+const tryRenderCollateExpressionCode = (
+  sql: string,
+  context: ExpressionRenderContext
+): string | undefined => {
+  const trimmed = trimEnclosingParentheses(sql)
+
+  const binary = scanTopLevelExpression(trimmed, (value, index) => {
+    const operator = ["<=", ">=", "<>", "!=", "=", "<", ">"].find((candidate) => value.startsWith(candidate, index))
+    if (operator === undefined) {
+      return undefined
+    }
+    const left = value.slice(0, index).trim()
+    const right = value.slice(index + operator.length).trim()
+    if (left.length === 0 || right.length === 0) {
+      return undefined
+    }
+    const method = operator === "="
+      ? "eq"
+      : operator === "<>" || operator === "!="
+        ? "neq"
+        : operator === "<"
+          ? "lt"
+          : operator === "<="
+            ? "lte"
+            : operator === ">"
+              ? "gt"
+              : "gte"
+    return `${PG_ALIAS}.Query.${method}(${renderDdlExpressionCode(left, context)}, ${renderDdlExpressionCode(right, context)})`
+  })
+  if (binary !== undefined) {
+    return binary
+  }
+
+  const collate = scanTopLevelExpression(trimmed, (value, index) => {
+    if (!value.slice(index, index + 7).match(/^collate$/i)) {
+      return undefined
+    }
+    const previous = value[index - 1]
+    const next = value[index + 7]
+    if (!isIdentifierBoundary(previous) || !isIdentifierBoundary(next)) {
+      return undefined
+    }
+    const expressionSql = value.slice(0, index).trim()
+    const collationParts = parseQualifiedIdentifier(value.slice(index + 7).trim())
+    if (expressionSql.length === 0 || collationParts === undefined) {
+      return undefined
+    }
+    const renderedCollation = collationParts.length === 1
+      ? renderStringLiteral(collationParts[0]!)
+      : `[${collationParts.map((part) => renderStringLiteral(part)).join(", ")}]`
+    return `${PG_ALIAS}.Query.collate(${renderDdlExpressionCode(expressionSql, context)}, ${renderedCollation})`
+  })
+  if (collate !== undefined) {
+    return collate
+  }
+
+  return undefined
+}
+
 const renderDdlExpressionCode = (
   sql: string,
   context: ExpressionRenderContext
@@ -881,6 +1105,10 @@ const renderDdlExpressionCode = (
   try {
     return renderSqlExpressionCode(parse(sql, "expr") as PgSqlExpr, context)
   } catch {
+    const collateExpression = tryRenderCollateExpressionCode(sql, context)
+    if (collateExpression !== undefined) {
+      return collateExpression
+    }
     return `${PG_ALIAS}.SchemaExpression.fromSql(${renderStringLiteral(sql)})`
   }
 }
