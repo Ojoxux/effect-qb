@@ -92,6 +92,7 @@ bun install
   - [Execution Model](#execution-model)
   - [Renderer](#renderer)
   - [Executor](#executor)
+  - [Streaming](#streaming)
   - [Query-sensitive Error Channels](#query-sensitive-error-channels)
   - [Transaction Helpers](#transaction-helpers)
 - [Error Handling](#error-handling)
@@ -1070,9 +1071,10 @@ The runtime model is intentionally small:
 
 1. build a typed plan
 2. render SQL plus bind params
-3. normalize raw driver values into canonical `effect-qb` runtime values
-4. apply schema-backed transforms where they exist
-5. remap flat aliases into nested objects
+3. execute rows as an `Effect` or `Stream`
+4. normalize raw driver values into canonical `effect-qb` runtime values
+5. apply schema-backed transforms where they exist
+6. remap flat aliases into nested objects
 
 Schema-backed columns and preserved projections can enforce runtime transforms during execution. Arbitrary query plans still do not become one big derived query schema automatically.
 
@@ -1148,14 +1150,16 @@ const postsPerUser = Q.select({
 
 const executor = PostgresExecutor.make()
 const rowsEffect = executor.execute(postsPerUser)
+const rowsStream = executor.stream(postsPerUser)
 
 type Rows = Q.ResultRows<typeof postsPerUser>
+type Row = Q.ResultRow<typeof postsPerUser>
 type Error = PostgresExecutor.PostgresQueryError<typeof postsPerUser>
 ```
 
 Pass `{ renderer }`, `{ driver }`, or both when you need to customize execution.
 
-Execution is:
+`execute(...)` and `stream(...)` share the same runtime pipeline:
 
 1. render the plan
 2. normalize raw driver values into canonical runtime values
@@ -1163,6 +1167,41 @@ Execution is:
 4. remap flat aliases into nested objects
 
 There is no automatically derived whole-query schema.
+
+### Streaming
+
+```ts
+import * as Stream from "effect/Stream"
+import { Column as C, Function as F, Json as J, Query as Q, Executor as PostgresExecutor, Table } from "effect-qb/postgres"
+
+const users = Table.make("users", {
+  id: C.uuid().pipe(C.primaryKey),
+  email: C.text()
+})
+
+const posts = Table.make("posts", {
+  id: C.uuid().pipe(C.primaryKey),
+  userId: C.uuid(),
+  title: C.text().pipe(C.nullable)
+})
+
+const postsPerUser = Q.select({
+  userId: users.id,
+  email: users.email,
+  postCount: F.count(posts.id)
+}).pipe(
+  Q.from(users),
+  Q.leftJoin(posts, Q.eq(users.id, posts.userId)),
+  Q.groupBy(users.id, users.email),
+  Q.orderBy(users.email)
+)
+
+const executor = PostgresExecutor.make()
+const rowStream = executor.stream(postsPerUser)
+const collected = Stream.runCollect(rowStream)
+```
+
+Streaming is available for read plans. It uses the same row normalization, schema-backed transforms, and nested remapping as `execute(...)`, but keeps database resources open until the stream is consumed or interrupted.
 
 ### Query-sensitive Error Channels
 
@@ -1176,6 +1215,7 @@ Those types are narrower than the raw dialect error catalogs. For example, known
 ### Transaction Helpers
 
 ```ts
+import * as Stream from "effect/Stream"
 import { Column as C, Function as F, Json as J, Query as Q, Executor as PostgresExecutor, Table } from "effect-qb/postgres"
 
 const users = Table.make("users", {
@@ -1202,12 +1242,14 @@ const postsPerUser = Q.select({
 
 const executor = PostgresExecutor.make()
 const rowsEffect = executor.execute(postsPerUser)
+const rowsStream = Stream.runCollect(executor.stream(postsPerUser))
 
 const transactional = PostgresExecutor.withTransaction(rowsEffect)
+const transactionalStream = PostgresExecutor.withTransaction(rowsStream)
 const savepoint = PostgresExecutor.withSavepoint(rowsEffect)
 ```
 
-These preserve the original effect type parameters and add the ambient SQL transaction boundary.
+These preserve the original effect type parameters and add the ambient SQL transaction boundary. For streams, wrap stream consumption in the transaction helper rather than trying to transact the stream value itself.
 
 ## Error Handling
 
