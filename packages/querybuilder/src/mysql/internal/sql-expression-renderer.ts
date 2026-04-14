@@ -55,6 +55,20 @@ const renderDdlExpression = (
     ? SchemaExpression.render(expression)
     : renderExpression(expression, state, dialect)
 
+const renderMysqlMutationLimit = (
+  expression: Expression.Any,
+  state: RenderState,
+  dialect: SqlDialect
+): string => {
+  const ast = (expression as Expression.Any & {
+    readonly [ExpressionAst.TypeId]: ExpressionAst.Any
+  })[ExpressionAst.TypeId]
+  if (ast.kind === "literal" && typeof ast.value === "number" && Number.isInteger(ast.value) && ast.value >= 0) {
+    return String(ast.value)
+  }
+  return renderExpression(expression, state, dialect)
+}
+
 const renderColumnDefinition = (
   dialect: SqlDialect,
   state: RenderState,
@@ -966,7 +980,7 @@ export const renderQueryAst = (
         sql += ` order by ${updateAst.orderBy.map((entry: QueryAst.OrderByClause) => `${renderExpression(entry.value, state, dialect)} ${entry.direction}`).join(", ")}`
       }
       if (dialect.name === "mysql" && updateAst.limit) {
-        sql += ` limit ${renderExpression(updateAst.limit, state, dialect)}`
+        sql += ` limit ${renderMysqlMutationLimit(updateAst.limit, state, dialect)}`
       }
       const returning = renderSelectionList(updateAst.select as Record<string, unknown>, state, dialect, false)
       projections = returning.projections
@@ -1012,7 +1026,7 @@ export const renderQueryAst = (
         sql += ` order by ${deleteAst.orderBy.map((entry: QueryAst.OrderByClause) => `${renderExpression(entry.value, state, dialect)} ${entry.direction}`).join(", ")}`
       }
       if (dialect.name === "mysql" && deleteAst.limit) {
-        sql += ` limit ${renderExpression(deleteAst.limit, state, dialect)}`
+        sql += ` limit ${renderMysqlMutationLimit(deleteAst.limit, state, dialect)}`
       }
       const returning = renderSelectionList(deleteAst.select as Record<string, unknown>, state, dialect, false)
       projections = returning.projections

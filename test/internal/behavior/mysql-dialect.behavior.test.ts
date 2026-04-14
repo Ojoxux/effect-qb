@@ -804,12 +804,11 @@ describe("mysql dialect behavior", () => {
     const rendered = Mysql.Renderer.make().render(plan)
 
     expect(rendered.sql).toBe(
-      "update low_priority `users` inner join `posts` on (`posts`.`userId` = `users`.`id`) set `email` = ? where (`posts`.`title` = ?) order by `posts`.`id` asc limit ? returning `users`.`id` as `id`, `users`.`email` as `email`"
+      "update low_priority `users` inner join `posts` on (`posts`.`userId` = `users`.`id`) set `email` = ? where (`posts`.`title` = ?) order by `posts`.`id` asc limit 2 returning `users`.`id` as `id`, `users`.`email` as `email`"
     )
     expect(rendered.params).toEqual([
       "author@example.com",
-      "hello",
-      2
+      "hello"
     ])
   })
 
@@ -858,11 +857,10 @@ describe("mysql dialect behavior", () => {
     const rendered = Mysql.Renderer.make().render(plan)
 
     expect(rendered.sql).toBe(
-      "delete quick `users` from `users` inner join `posts` on (`posts`.`userId` = `users`.`id`) where (`posts`.`title` = ?) order by `posts`.`id` desc limit ? returning `users`.`id` as `id`"
+      "delete quick `users` from `users` inner join `posts` on (`posts`.`userId` = `users`.`id`) where (`posts`.`title` = ?) order by `posts`.`id` desc limit 3 returning `users`.`id` as `id`"
     )
     expect(rendered.params).toEqual([
-      "hello",
-      3
+      "hello"
     ])
   })
 

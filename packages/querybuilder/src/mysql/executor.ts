@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect"
 import * as SqlClient from "@effect/sql/SqlClient"
+import * as Stream from "effect/Stream"
 
 import * as CoreExecutor from "../internal/executor.js"
 import * as CoreQuery from "../internal/query.js"
@@ -45,18 +46,54 @@ export interface QueryExecutor<Context = never> {
   execute<PlanValue extends CoreQuery.QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
     plan: CoreQuery.DialectCompatiblePlan<PlanValue, "mysql">
   ): Effect.Effect<CoreQuery.ResultRows<PlanValue>, MysqlQueryError<PlanValue>, Context>
+  stream<PlanValue extends CoreQuery.QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
+    plan: Exclude<CoreQuery.CapabilitiesOfPlan<PlanValue>, "read" | "locking"> extends never
+      ? CoreQuery.DialectCompatiblePlan<PlanValue, "mysql">
+      : never
+  ): Stream.Stream<CoreQuery.ResultRow<PlanValue>, MysqlQueryError<PlanValue>, Context>
 }
 
 /** Constructs a MySQL-specialized SQL driver. */
-export const driver = <
+export function driver<
   Error = never,
   Context = never
 >(
   execute: <Row>(
     query: CoreRenderer.RenderedQuery<Row, "mysql">
   ) => Effect.Effect<ReadonlyArray<FlatRow>, Error, Context>
-): Driver<Error, Context> =>
-  CoreExecutor.driver("mysql", execute)
+): Driver<Error, Context>
+export function driver<
+  Error = never,
+  Context = never
+>(
+  handlers: {
+    readonly execute: <Row>(
+      query: CoreRenderer.RenderedQuery<Row, "mysql">
+    ) => Effect.Effect<ReadonlyArray<FlatRow>, Error, Context>
+    readonly stream: <Row>(
+      query: CoreRenderer.RenderedQuery<Row, "mysql">
+    ) => Stream.Stream<FlatRow, Error, Context>
+  }
+): Driver<Error, Context>
+export function driver<
+  Error = never,
+  Context = never
+>(
+  executeOrHandlers:
+    | (<Row>(
+      query: CoreRenderer.RenderedQuery<Row, "mysql">
+    ) => Effect.Effect<ReadonlyArray<FlatRow>, Error, Context>)
+    | {
+      readonly execute: <Row>(
+        query: CoreRenderer.RenderedQuery<Row, "mysql">
+      ) => Effect.Effect<ReadonlyArray<FlatRow>, Error, Context>
+      readonly stream: <Row>(
+        query: CoreRenderer.RenderedQuery<Row, "mysql">
+      ) => Stream.Stream<FlatRow, Error, Context>
+    }
+): Driver<Error, Context> {
+  return CoreExecutor.driver("mysql", executeOrHandlers as any)
+}
 
 const fromDriver = <
   Error = never,
@@ -87,13 +124,38 @@ const fromDriver = <
           : narrowMysqlDriverErrorForReadQuery(normalized)
       }
     ) as Effect.Effect<any, any, Context>
+  },
+  stream(plan) {
+    const rendered = renderer.render(plan)
+    return Stream.mapError(
+      Stream.mapChunksEffect(
+        sqlDriver.stream(rendered),
+        (rows) => Effect.try({
+          try: () => CoreExecutor.decodeChunk(rendered, plan, rows, { driverMode }),
+          catch: (error) => error as RowDecodeError
+        })
+      ),
+      (error) => {
+        if (typeof error === "object" && error !== null && "_tag" in error && error._tag === "RowDecodeError") {
+          return error as RowDecodeError
+        }
+        const normalized = normalizeMysqlDriverError(error, rendered)
+        return CoreExecutor.hasWriteCapability(plan)
+          ? normalized
+          : narrowMysqlDriverErrorForReadQuery(normalized)
+      }
+    ) as Stream.Stream<any, any, Context>
   }
 })
 
 const sqlClientDriver = (): Driver<any, SqlClient.SqlClient> =>
-  driver((query) =>
-    Effect.flatMap(SqlClient.SqlClient, (sql) =>
-      sql.unsafe<FlatRow>(query.sql, [...query.params])))
+  driver({
+    execute: (query) =>
+      Effect.flatMap(SqlClient.SqlClient, (sql) =>
+        sql.unsafe<FlatRow>(query.sql, [...query.params])),
+    stream: (query) =>
+      CoreExecutor.streamFromSqlClient(query)
+  })
 
 /**
  * Creates the standard MySQL executor pipeline.

@@ -45,11 +45,64 @@ export const renderDdlExpressionSql = (expression: DdlExpressionLike): string =>
         cteNames: new Set()
       }, inlineLiteralDialect)
 
+const stripRedundantOuterParens = (value: string): string => {
+  let current = value.trim()
+  while (current.startsWith("(") && current.endsWith(")")) {
+    let depth = 0
+    let wrapsWholeExpression = true
+    let inSingleQuote = false
+    let inDoubleQuote = false
+    for (let index = 0; index < current.length; index++) {
+      const char = current[index]!
+      const previous = index > 0 ? current[index - 1] : undefined
+      if (char === "'" && !inDoubleQuote && previous !== "\\") {
+        inSingleQuote = !inSingleQuote
+        continue
+      }
+      if (char === "\"" && !inSingleQuote && previous !== "\\") {
+        inDoubleQuote = !inDoubleQuote
+        continue
+      }
+      if (inSingleQuote || inDoubleQuote) {
+        continue
+      }
+      if (char === "(") {
+        depth += 1
+      } else if (char === ")") {
+        depth -= 1
+        if (depth === 0 && index < current.length - 1) {
+          wrapsWholeExpression = false
+          break
+        }
+      }
+    }
+    if (!wrapsWholeExpression) {
+      break
+    }
+    current = current.slice(1, -1).trim()
+  }
+  return current
+}
+
+const canonicalizeDdlExpressionSql = (value: string): string =>
+  stripRedundantOuterParens(
+    value
+      .trim()
+      .replace(/\s+/g, " ")
+      .replace(/"[^"]+"\./g, "")
+      .replace(/"([A-Za-z_][A-Za-z0-9_]*)"/g, "$1")
+      .replace(/\bCOLLATE\b/g, "collate")
+      .replace(
+        /cast\(((?:'(?:[^']|'')*'|"[^"]+"|[a-zA-Z_][a-zA-Z0-9_]*|\([^()]+\))) as ([^)]+)\)/gi,
+        (_, expression: string, target: string) => `${expression}::${target.trim()}`
+      )
+  )
+
 export const normalizeDdlExpressionSql = (expression: DdlExpressionLike): string => {
   const rendered = renderDdlExpressionSql(expression)
   try {
-    return toSql.expr(parse(rendered, "expr"))
+    return canonicalizeDdlExpressionSql(toSql.expr(parse(rendered, "expr")))
   } catch {
-    return rendered.trim()
+    return canonicalizeDdlExpressionSql(rendered)
   }
 }

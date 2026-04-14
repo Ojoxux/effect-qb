@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect"
 import * as SqlClient from "@effect/sql/SqlClient"
+import * as Stream from "effect/Stream"
 
 import * as CoreExecutor from "../internal/executor.js"
 import * as CoreQuery from "../internal/query.js"
@@ -45,6 +46,11 @@ export interface QueryExecutor<Context = never> {
   execute<PlanValue extends CoreQuery.QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
     plan: CoreQuery.DialectCompatiblePlan<PlanValue, "postgres">
   ): Effect.Effect<CoreQuery.ResultRows<PlanValue>, PostgresQueryError<PlanValue>, Context>
+  stream<PlanValue extends CoreQuery.QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
+    plan: Exclude<CoreQuery.CapabilitiesOfPlan<PlanValue>, "read" | "locking"> extends never
+      ? CoreQuery.DialectCompatiblePlan<PlanValue, "postgres">
+      : never
+  ): Stream.Stream<CoreQuery.ResultRow<PlanValue>, PostgresQueryError<PlanValue>, Context>
 }
 
 /** Constructs a Postgres-specialized SQL driver. */
@@ -84,13 +90,38 @@ const fromDriver = <
           : narrowPostgresDriverErrorForReadQuery(normalized)
       }
     ) as Effect.Effect<any, any, Context>
+  },
+  stream(plan) {
+    const rendered = renderer.render(plan)
+    return Stream.mapError(
+      Stream.mapChunksEffect(
+        sqlDriver.stream(rendered),
+        (rows) => Effect.try({
+          try: () => CoreExecutor.decodeChunk(rendered, plan, rows, { driverMode }),
+          catch: (error) => error as RowDecodeError
+        })
+      ),
+      (error) => {
+        if (typeof error === "object" && error !== null && "_tag" in error && error._tag === "RowDecodeError") {
+          return error as RowDecodeError
+        }
+        const normalized = normalizePostgresDriverError(error, rendered)
+        return CoreExecutor.hasWriteCapability(plan)
+          ? normalized
+          : narrowPostgresDriverErrorForReadQuery(normalized)
+      }
+    ) as Stream.Stream<any, any, Context>
   }
 })
 
 const sqlClientDriver = (): Driver<any, SqlClient.SqlClient> =>
-  driver((query: CoreRenderer.RenderedQuery<any, "postgres">) =>
-    Effect.flatMap(SqlClient.SqlClient, (sql) =>
-      sql.unsafe<FlatRow>(query.sql, [...query.params])))
+  driver({
+    execute: (query: CoreRenderer.RenderedQuery<any, "postgres">) =>
+      Effect.flatMap(SqlClient.SqlClient, (sql) =>
+        sql.unsafe<FlatRow>(query.sql, [...query.params])),
+    stream: (query: CoreRenderer.RenderedQuery<any, "postgres">) =>
+      CoreExecutor.streamFromSqlClient(query)
+  })
 
 /**
  * Creates the standard Postgres executor pipeline.

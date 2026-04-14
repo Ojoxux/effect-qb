@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test"
 import * as SqlClient from "@effect/sql/SqlClient"
 import * as Either from "effect/Either"
 import * as Effect from "effect/Effect"
+import * as Stream from "effect/Stream"
 
 import * as Postgres from "#postgres"
 import { unsafeAny } from "../../helpers/unsafe.ts"
@@ -140,6 +141,49 @@ describe("postgres errors", () => {
     expect(error.constraintName).toBe("users_email_key")
   })
 
+  test("fromDriver remaps write-required SQLSTATE failures on the stream path", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const plan = Postgres.Query.select({
+      id: users.id,
+      email: users.email
+    }).pipe(
+      Postgres.Query.from(users)
+    )
+
+    const executor = Postgres.Executor.make({
+      driver: Postgres.Executor.driver({
+        execute: () => Effect.succeed([]),
+        stream: () => Stream.fail({
+          code: "23505",
+          message: "duplicate key value violates unique constraint",
+          detail: 'Key (email)=(alice@example.com) already exists.',
+          schema: "public",
+          table: "users",
+          constraint: "users_email_key",
+          severity: "ERROR"
+        })
+      })
+    })
+
+    const result = Effect.runSync(unsafeAny(Effect.either(Stream.runCollect(executor.stream(plan)))))
+
+    expect(Either.isLeft(result)).toBe(true)
+    if (Either.isRight(result)) {
+      throw new Error("Expected Postgres stream failure")
+    }
+    const error = result.left
+    if (!("_tag" in error) || error._tag !== "@postgres/unknown/query-requirements") {
+      throw new Error(`Expected @postgres/unknown/query-requirements, got ${String(error)}`)
+    }
+    expect(error.requiredCapabilities).toEqual(["write"])
+    expect(error.actualCapabilities).toEqual(["read"])
+    expect(error.cause._tag).toBe("@postgres/integrity-constraint-violation/unique-violation")
+  })
+
   test("fromSqlClient normalizes syntax errors with structured fields", () => {
     const users = Postgres.Table.make("users", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey)
@@ -171,6 +215,47 @@ describe("postgres errors", () => {
     expect(Either.isLeft(result)).toBe(true)
     if (Either.isRight(result)) {
       throw new Error("Expected Postgres failure")
+    }
+    const error = result.left
+    if (!("_tag" in error) || error._tag !== "@postgres/syntax-error-or-access-rule-violation/syntax-error") {
+      throw new Error(`Expected @postgres/syntax-error-or-access-rule-violation/syntax-error, got ${String(error)}`)
+    }
+    expect(error.code).toBe("42601")
+    expect(error.position).toBe(15)
+    expect(error.hint).toBe("Perhaps you meant FROM.")
+  })
+
+  test("fromSqlClient normalizes syntax errors on the stream path", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey)
+    })
+
+    const plan = Postgres.Query.select({
+      id: users.id
+    }).pipe(
+      Postgres.Query.from(users)
+    )
+
+    const executor = Postgres.Executor.make()
+    const sql = {
+      reserve: Effect.succeed({
+        executeStream: () => Stream.fail({
+          code: "42601",
+          message: "syntax error at or near \"fromm\"",
+          position: "15",
+          hint: "Perhaps you meant FROM.",
+          severity: "ERROR"
+        })
+      })
+    } as unknown as SqlClient.SqlClient
+
+    const result = Effect.runSync(
+      unsafeAny(Effect.either(Effect.provideService(Stream.runCollect(executor.stream(plan)), SqlClient.SqlClient, sql)))
+    )
+
+    expect(Either.isLeft(result)).toBe(true)
+    if (Either.isRight(result)) {
+      throw new Error("Expected Postgres stream failure")
     }
     const error = result.left
     if (!("_tag" in error) || error._tag !== "@postgres/syntax-error-or-access-rule-violation/syntax-error") {

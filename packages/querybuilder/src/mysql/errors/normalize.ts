@@ -25,6 +25,19 @@ import type {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
 
+const unwrapMysqlDriverCause = (cause: unknown): unknown => {
+  let current = cause
+  while (
+    isRecord(current) &&
+    "_tag" in current &&
+    current._tag === "SqlError" &&
+    "cause" in current
+  ) {
+    current = current.cause
+  }
+  return current
+}
+
 const asString = (value: unknown): string | undefined =>
   typeof value === "string" ? value : undefined
 
@@ -161,41 +174,42 @@ export const normalizeMysqlDriverError = (
   cause: unknown,
   query?: MysqlQueryContext | Renderer.RenderedQuery<any, "mysql">
 ): MysqlDriverError => {
+  const normalizedCause = unwrapMysqlDriverCause(cause)
   const context = query === undefined
     ? undefined
     : "sql" in query
       ? { sql: query.sql, params: query.params }
       : query
 
-  if (!isMysqlErrorLike(cause)) {
+  if (!isMysqlErrorLike(normalizedCause)) {
     return {
       _tag: "@mysql/unknown/driver",
-      message: cause instanceof Error ? cause.message : "Unknown MySQL driver failure",
+      message: normalizedCause instanceof Error ? normalizedCause.message : "Unknown MySQL driver failure",
       query: context,
       cause
     } as UnknownMysqlDriverError
   }
 
-  const descriptor = findDescriptor(cause)
+  const descriptor = findDescriptor(normalizedCause)
   if (descriptor !== undefined) {
-    return makeKnownMysqlError(descriptor, cause, context)
+    return makeKnownMysqlError(descriptor, normalizedCause, context)
   }
 
-  if (typeof cause.code === "string" || numberOf(cause) !== undefined) {
+  if (typeof normalizedCause.code === "string" || numberOf(normalizedCause) !== undefined) {
     return {
       _tag: "@mysql/unknown/code",
-      code: asString(cause.code),
-      errno: cause.errno,
-      message: errorMessageOf(cause),
+      code: asString(normalizedCause.code),
+      errno: normalizedCause.errno,
+      message: errorMessageOf(normalizedCause),
       query: context,
-      raw: cause,
-      ...normalizeFields(cause as Record<string, unknown>)
+      raw: normalizedCause,
+      ...normalizeFields(normalizedCause as Record<string, unknown>)
     } as UnknownMysqlCodeError
   }
 
   return {
     _tag: "@mysql/unknown/driver",
-    message: errorMessageOf(cause),
+    message: errorMessageOf(normalizedCause),
     query: context,
     cause
   } as UnknownMysqlDriverError

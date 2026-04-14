@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test"
+import * as Chunk from "effect/Chunk"
 import * as Effect from "effect/Effect"
 import * as SqlClient from "@effect/sql/SqlClient"
 import * as Schema from "effect/Schema"
+import * as Stream from "effect/Stream"
 
 import { Column as C, Executor, Query as Q, Table } from "#mysql"
 import { createDeferred, execMysql, runMysql } from "./helpers.ts"
@@ -206,6 +208,33 @@ test("mysql executor decodes live temporal, numeric, and json values", async () 
   })
 })
 
+test("mysql executor streams live temporal, numeric, and json values", async () => {
+  const plan = Q.select({
+    id: events.id,
+    happenedOn: events.happenedOn,
+    happenedAt: events.happenedAt,
+    amount: events.amount,
+    payload: events.payload
+  }).pipe(
+    Q.from(events)
+  )
+
+  const rows = Chunk.toReadonlyArray(
+    await runMysql(Stream.runCollect(Executor.make().stream(plan)))
+  )
+
+  expect(rows).toHaveLength(1)
+  const row = rows[0]!
+  expect(row.id).toBe("mysql-1")
+  expect(row.happenedOn).toEqual(new Date("2026-03-18T00:00:00.000Z"))
+  expect(row.happenedOn).toBeInstanceOf(Date)
+  expect(row.happenedAt).toBe("2026-03-18T10:00:00" as typeof row.happenedAt)
+  expect(row.amount).toBe("12.34" as typeof row.amount)
+  expect(row.payload).toEqual({
+    visits: 42
+  })
+})
+
 test("mysql executor reads joined rows through a live cte", async () => {
   const rows = await runMysql(Executor.make().execute(makeJoinedPostsPlan()))
 
@@ -309,6 +338,49 @@ test("mysql executor keeps outer mutations after a nested transaction rollback a
       note: "outer"
     }
   ])
+})
+
+test("mysql executor streams uncommitted rows inside a transaction and rolls them back", async () => {
+  const executor = Executor.make()
+  const auditId = "mysql-audit-stream-1"
+
+  const insertAudit = Q.insert(auditLogs, {
+    id: auditId,
+    note: "streamed"
+  })
+  const readAudit = Q.select({
+    note: auditLogs.note
+  }).pipe(
+    Q.from(auditLogs),
+    Q.where(Q.eq(auditLogs.id, auditId))
+  )
+
+  await runMysql(Effect.gen(function*() {
+    const sql = yield* SqlClient.SqlClient
+    yield* Effect.catchAll(
+      sql.withTransaction(
+        Effect.gen(function*() {
+          yield* executor.execute(insertAudit)
+
+          const rows = Chunk.toReadonlyArray(
+            yield* Stream.runCollect(executor.stream(readAudit))
+          )
+
+          expect(rows).toEqual([
+            {
+              note: "streamed"
+            }
+          ])
+
+          return yield* Effect.fail(new Error("rollback streamed transaction"))
+        })
+      ),
+      () => Effect.void
+    )
+  }))
+
+  const persisted = await runMysql(executor.execute(readAudit))
+  expect(persisted).toEqual([])
 })
 
 test("mysql lock nowait failures are normalized from live row locks", async () => {

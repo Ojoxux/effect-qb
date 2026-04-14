@@ -1,7 +1,10 @@
+import * as Chunk from "effect/Chunk"
 import * as Effect from "effect/Effect"
+import * as Option from "effect/Option"
 import * as Schema from "effect/Schema"
 import * as SqlClient from "@effect/sql/SqlClient"
 import * as SqlError from "@effect/sql/SqlError"
+import * as Stream from "effect/Stream"
 
 import * as Expression from "./scalar.js"
 import * as ExpressionAst from "./expression-ast.js"
@@ -58,6 +61,9 @@ export interface Driver<
   execute<Row>(
     query: Renderer.RenderedQuery<Row, Dialect>
   ): Effect.Effect<ReadonlyArray<FlatRow>, Error, Context>
+  stream<Row>(
+    query: Renderer.RenderedQuery<Row, Dialect>
+  ): Stream.Stream<FlatRow, Error, Context>
 }
 
 /**
@@ -76,6 +82,9 @@ export interface Executor<
   execute<PlanValue extends Query.Plan.Any>(
     plan: Query.DialectCompatiblePlan<PlanValue, Dialect>
   ): Effect.Effect<Query.ResultRows<PlanValue>, Error, Context>
+  stream<PlanValue extends Query.Plan.Any>(
+    plan: Query.DialectCompatiblePlan<PlanValue, Dialect>
+  ): Stream.Stream<Query.ResultRow<PlanValue>, Error, Context>
 }
 
 const setPath = (
@@ -289,14 +298,13 @@ const decodeProjectionValue = (
   }
 }
 
-export const decodeRows = (
+export const makeRowDecoder = (
   rendered: Renderer.RenderedQuery<any, any>,
   plan: Query.Plan.Any,
-  rows: ReadonlyArray<FlatRow>,
   options: {
     readonly driverMode?: DriverMode
   } = {}
-): ReadonlyArray<any> => {
+): ((row: FlatRow) => any) => {
   const projections = flattenSelection(
     Query.getAst(plan).select as Record<string, unknown>
   )
@@ -305,7 +313,7 @@ export const decodeRows = (
   )
   const driverMode = options.driverMode ?? "raw"
   const scope = resolveImplicationScope(plan[Plan.TypeId].available, Query.getQueryState(plan).assumptions)
-  return rows.map((row) => {
+  return (row) => {
     const decoded: Record<string, unknown> = {}
     for (const projection of rendered.projections) {
       if (!(projection.alias in row)) {
@@ -322,7 +330,31 @@ export const decodeRows = (
       )
     }
     return decoded
-  })
+  }
+}
+
+export const decodeChunk = (
+  rendered: Renderer.RenderedQuery<any, any>,
+  plan: Query.Plan.Any,
+  rows: Chunk.Chunk<FlatRow>,
+  options: {
+    readonly driverMode?: DriverMode
+  } = {}
+): Chunk.Chunk<any> => {
+  const decodeRow = makeRowDecoder(rendered, plan, options)
+  return Chunk.unsafeFromArray(Chunk.toReadonlyArray(rows).map((row) => decodeRow(row)))
+}
+
+export const decodeRows = (
+  rendered: Renderer.RenderedQuery<any, any>,
+  plan: Query.Plan.Any,
+  rows: ReadonlyArray<FlatRow>,
+  options: {
+    readonly driverMode?: DriverMode
+  } = {}
+): ReadonlyArray<any> => {
+  const decodeRow = makeRowDecoder(rendered, plan, options)
+  return rows.map((row) => decodeRow(row))
 }
 
 /**
@@ -341,13 +373,16 @@ export const make = <
   dialect,
   execute(plan) {
     return (execute as any)(plan)
+  },
+  stream(plan) {
+    return Stream.unwrap(Effect.map((execute as any)(plan), (rows: ReadonlyArray<any>) => Stream.fromIterable(rows)))
   }
 }) as Executor<Dialect, Error, Context>
 
 /**
  * Constructs a driver from a dialect and execution callback.
  */
-export const driver = <
+export function driver<
   Dialect extends string,
   Error = never,
   Context = never
@@ -356,12 +391,58 @@ export const driver = <
   execute: <Row>(
     query: Renderer.RenderedQuery<Row, Dialect>
   ) => Effect.Effect<ReadonlyArray<FlatRow>, Error, Context>
-): Driver<Dialect, Error, Context> => ({
+): Driver<Dialect, Error, Context>
+export function driver<
+  Dialect extends string,
+  Error = never,
+  Context = never
+>(
+  dialect: Dialect,
+  handlers: {
+    readonly execute: <Row>(
+      query: Renderer.RenderedQuery<Row, Dialect>
+    ) => Effect.Effect<ReadonlyArray<FlatRow>, Error, Context>
+    readonly stream: <Row>(
+      query: Renderer.RenderedQuery<Row, Dialect>
+    ) => Stream.Stream<FlatRow, Error, Context>
+  }
+): Driver<Dialect, Error, Context>
+export function driver<
+  Dialect extends string,
+  Error = never,
+  Context = never
+>(
+  dialect: Dialect,
+  executeOrHandlers:
+    | (<Row>(
+      query: Renderer.RenderedQuery<Row, Dialect>
+    ) => Effect.Effect<ReadonlyArray<FlatRow>, Error, Context>)
+    | {
+      readonly execute: <Row>(
+        query: Renderer.RenderedQuery<Row, Dialect>
+      ) => Effect.Effect<ReadonlyArray<FlatRow>, Error, Context>
+      readonly stream: <Row>(
+        query: Renderer.RenderedQuery<Row, Dialect>
+      ) => Stream.Stream<FlatRow, Error, Context>
+    }
+): Driver<Dialect, Error, Context> {
+  return {
   dialect,
   execute(query) {
-    return execute(query)
+    return typeof executeOrHandlers === "function"
+      ? executeOrHandlers(query)
+      : executeOrHandlers.execute(query)
+  },
+  stream(query) {
+    if (typeof executeOrHandlers === "function") {
+      return Stream.unwrap(
+        Effect.map(executeOrHandlers(query), (rows) => Stream.fromIterable(rows))
+      )
+    }
+    return executeOrHandlers.stream(query)
   }
-})
+  }
+}
 
 /**
  * Creates an executor by composing a renderer with a rendered-query driver.
@@ -387,20 +468,44 @@ export const fromDriver = <
         sqlDriver.execute(rendered),
         (rows) => remapRows<any>(rendered, rows)
       )
+    },
+    stream(plan: any) {
+      const rendered = renderer.render(plan) as Renderer.RenderedQuery<any, Dialect>
+      return Stream.mapChunks(
+        sqlDriver.stream(rendered),
+        (rows) => Chunk.unsafeFromArray(remapRows<any>(rendered, Chunk.toReadonlyArray(rows)))
+      )
     }
   }
   return executor as unknown as Executor<Dialect, Error, Context>
 }
 
-/**
- * Creates an executor backed by `@effect/sql`'s `SqlClient`.
- */
+export const streamFromSqlClient = <Dialect extends string>(
+  query: Renderer.RenderedQuery<any, Dialect>
+): Stream.Stream<FlatRow, SqlError.SqlError, SqlClient.SqlClient> =>
+  Stream.unwrapScoped(
+    Effect.flatMap(SqlClient.SqlClient, (sql) =>
+      Effect.flatMap(
+        Effect.serviceOption(SqlClient.TransactionConnection),
+        Option.match({
+          onNone: () => sql.reserve,
+          onSome: ([connection]) => Effect.succeed(connection)
+        })
+      ).pipe(
+        Effect.map((connection) => connection.executeStream(query.sql, [...query.params], undefined))
+      )
+    )
+  )
+
 export const fromSqlClient = <Dialect extends string>(
   renderer: Renderer.Renderer<Dialect>
 ): Executor<Dialect, unknown, SqlClient.SqlClient> =>
-  fromDriver(renderer, driver(renderer.dialect, (query) =>
-    Effect.flatMap(SqlClient.SqlClient, (sql) =>
-      sql.unsafe<FlatRow>(query.sql, [...query.params]))))
+  fromDriver(renderer, driver(renderer.dialect, {
+    execute: (query) =>
+      Effect.flatMap(SqlClient.SqlClient, (sql) =>
+        sql.unsafe<FlatRow>(query.sql, [...query.params])),
+    stream: (query) => streamFromSqlClient(query)
+  }))
 
 /** Runs an effect within the ambient `@effect/sql` transaction service. */
 export const withTransaction = <A, E, R>(

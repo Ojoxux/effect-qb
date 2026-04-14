@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import * as SqlClient from "@effect/sql/SqlClient"
 import * as Either from "effect/Either"
 import * as Effect from "effect/Effect"
+import * as Stream from "effect/Stream"
 
 import * as Mysql from "#mysql"
 import { unsafeAny } from "../../helpers/unsafe.ts"
@@ -137,6 +138,48 @@ describe("mysql errors", () => {
     expect(error.sqlState).toBe("23000")
   })
 
+  test("fromDriver remaps write-required server failures on the stream path", () => {
+    const users = Mysql.Table.make("users", {
+      id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey),
+      email: Mysql.Column.text()
+    })
+
+    const plan = Mysql.Query.select({
+      id: users.id,
+      email: users.email
+    }).pipe(
+      Mysql.Query.from(users)
+    )
+
+    const executor = Mysql.Executor.make({
+      driver: Mysql.Executor.driver({
+        execute: () => Effect.succeed([]),
+        stream: () => Stream.fail({
+          code: "ER_DUP_ENTRY",
+          errno: 1062,
+          sqlState: "23000",
+          sqlMessage: "Duplicate entry 'alice@example.com' for key 'users.email'",
+          message: "Duplicate entry 'alice@example.com' for key 'users.email'",
+          fatal: false
+        })
+      })
+    })
+
+    const result = Effect.runSync(Effect.either(Stream.runCollect(executor.stream(plan))))
+
+    expect(Either.isLeft(result)).toBe(true)
+    if (Either.isRight(result)) {
+      throw new Error("Expected MySQL stream failure")
+    }
+    const error = result.left
+    if (!("_tag" in error) || error._tag !== "@mysql/unknown/query-requirements") {
+      throw new Error(`Expected @mysql/unknown/query-requirements, got ${String(error)}`)
+    }
+    expect(error.requiredCapabilities).toEqual(["write"])
+    expect(error.actualCapabilities).toEqual(["read"])
+    expect(error.cause._tag).toBe("@mysql/server/dup-entry")
+  })
+
   test("fromDriver normalizes known client failures by number", () => {
     const users = Mysql.Table.make("users", {
       id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey)
@@ -202,6 +245,44 @@ describe("mysql errors", () => {
     expect(Either.isLeft(result)).toBe(true)
     if (Either.isRight(result)) {
       throw new Error("Expected MySQL failure")
+    }
+    const error = result.left
+    if (!("_tag" in error) || error._tag !== "@mysql/server/parse-error") {
+      throw new Error(`Expected @mysql/server/parse-error, got ${String(error)}`)
+    }
+    expect(error.query?.sql).toBe("select `users`.`id` as `id` from `users`")
+  })
+
+  test("fromSqlClient normalizes allowed mysql failures on the stream path", () => {
+    const users = Mysql.Table.make("users", {
+      id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey)
+    })
+
+    const plan = Mysql.Query.select({
+      id: users.id
+    }).pipe(
+      Mysql.Query.from(users)
+    )
+
+    const executor = Mysql.Executor.make()
+    const sql = {
+      reserve: Effect.succeed({
+        executeStream: () => Stream.fail({
+          code: "ER_PARSE_ERROR",
+          errno: 1064,
+          sqlState: "42000",
+          sqlMessage: "You have an error in your SQL syntax"
+        })
+      })
+    } as unknown as SqlClient.SqlClient
+
+    const result = Effect.runSync(
+      Effect.either(Effect.provideService(Stream.runCollect(executor.stream(plan)), SqlClient.SqlClient, sql))
+    )
+
+    expect(Either.isLeft(result)).toBe(true)
+    if (Either.isRight(result)) {
+      throw new Error("Expected MySQL stream failure")
     }
     const error = result.left
     if (!("_tag" in error) || error._tag !== "@mysql/server/parse-error") {

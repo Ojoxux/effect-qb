@@ -24,6 +24,19 @@ import type {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
 
+const unwrapPostgresDriverCause = (cause: unknown): unknown => {
+  let current = cause
+  while (
+    isRecord(current) &&
+    "_tag" in current &&
+    current._tag === "SqlError" &&
+    "cause" in current
+  ) {
+    current = current.cause
+  }
+  return current
+}
+
 const asString = (value: unknown): string | undefined =>
   typeof value === "string" ? value : undefined
 
@@ -126,44 +139,45 @@ export const normalizePostgresDriverError = (
   cause: unknown,
   query?: PostgresQueryContext | Renderer.RenderedQuery<any, "postgres">
 ): PostgresDriverError => {
+  const normalizedCause = unwrapPostgresDriverCause(cause)
   const context = query === undefined
     ? undefined
     : "sql" in query
       ? { sql: query.sql, params: query.params }
       : query
 
-  if (!isPostgresErrorLike(cause)) {
+  if (!isPostgresErrorLike(normalizedCause)) {
     return {
       _tag: "@postgres/unknown/driver",
-      message: cause instanceof Error ? cause.message : "Unknown Postgres driver failure",
+      message: normalizedCause instanceof Error ? normalizedCause.message : "Unknown Postgres driver failure",
       query: context,
       cause
     } as UnknownPostgresDriverError
   }
 
-  if (cause.code && isPostgresSqlStateCode(cause.code)) {
-    return makeKnownPostgresError(cause.code, cause, context)
+  if (normalizedCause.code && isPostgresSqlStateCode(normalizedCause.code)) {
+    return makeKnownPostgresError(normalizedCause.code, normalizedCause, context)
   }
 
-  if (typeof cause.code === "string" && sqlStatePattern.test(cause.code)) {
-    const classCode = cause.code.slice(0, 2)
+  if (typeof normalizedCause.code === "string" && sqlStatePattern.test(normalizedCause.code)) {
+    const classCode = normalizedCause.code.slice(0, 2)
     return {
       _tag: "@postgres/unknown/sqlstate",
-      code: cause.code,
+      code: normalizedCause.code,
       classCode,
       className: classCode in postgresErrorClasses
         ? postgresErrorClasses[classCode as PostgresErrorClassCode]
         : undefined,
-      message: errorMessageOf(cause),
+      message: errorMessageOf(normalizedCause),
       query: context,
-      raw: cause,
-      ...normalizeFields(cause as Record<string, unknown>)
+      raw: normalizedCause,
+      ...normalizeFields(normalizedCause as Record<string, unknown>)
     } as UnknownPostgresSqlStateError
   }
 
   return {
     _tag: "@postgres/unknown/driver",
-    message: errorMessageOf(cause),
+    message: errorMessageOf(normalizedCause),
     query: context,
     cause
   } as UnknownPostgresDriverError

@@ -1,8 +1,10 @@
 // @ts-nocheck
 import { describe, expect, test } from "bun:test"
 import * as SqlClient from "@effect/sql/SqlClient"
+import * as Chunk from "effect/Chunk"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
+import * as Stream from "effect/Stream"
 
 import { Column as C, Executor, Query as Q, Function as F, Renderer, Table } from "#postgres"
 
@@ -619,6 +621,273 @@ describe("executor behavior", () => {
         alias: "createdAt"
       },
       raw: expect.any(Date)
+    })
+  })
+
+  describe("stream", () => {
+    test("decodes the same rows as execute for read plans", () => {
+      const users = Table.make("users", {
+        id: C.uuid().pipe(C.primaryKey),
+        email: C.text().pipe(C.nullable),
+        createdAt: C.timestamp()
+      })
+
+      const plan = Q.select({
+        profile: {
+          id: users.id,
+          email: users.email,
+          createdAt: users.createdAt
+        }
+      }).pipe(
+        Q.from(users)
+      )
+
+      const flatRows = [
+        {
+          profile__id: userId,
+          profile__email: "alice@example.com",
+          profile__createdAt: "2026-03-18 10:00:00"
+        },
+        {
+          profile__id: "22222222-2222-2222-2222-222222222222",
+          profile__email: null,
+          profile__createdAt: new Date("2026-03-19T11:30:00Z")
+        }
+      ] as const
+
+      const executor = Executor.make({
+        driver: Executor.driver("postgres", {
+          execute: () => Effect.succeed(flatRows),
+          stream: () => Stream.fromIterable(flatRows).pipe(Stream.rechunk(1))
+        })
+      })
+
+      const executedRows = Effect.runSync(executor.execute(plan))
+      const streamedRows = Chunk.toReadonlyArray(
+        Effect.runSync(Stream.runCollect(executor.stream(plan)))
+      )
+
+      expect(streamedRows).toEqual(executedRows)
+      expect(streamedRows).toEqual([
+        {
+          profile: {
+            id: userId,
+            email: "alice@example.com",
+            createdAt: "2026-03-18T10:00:00"
+          }
+        },
+        {
+          profile: {
+            id: "22222222-2222-2222-2222-222222222222",
+            email: null,
+            createdAt: "2026-03-19T11:30:00"
+          }
+        }
+      ])
+    })
+
+    test("preserves row order across streamed chunks", () => {
+      const users = Table.make("users", {
+        id: C.uuid().pipe(C.primaryKey)
+      })
+
+      const plan = Q.select({
+        id: users.id
+      }).pipe(
+        Q.from(users)
+      )
+
+      const flatRows = [
+        { id: "11111111-1111-1111-1111-111111111111" },
+        { id: "22222222-2222-2222-2222-222222222222" },
+        { id: "33333333-3333-3333-3333-333333333333" }
+      ]
+
+      const executor = Executor.make({
+        driver: Executor.driver("postgres", {
+          execute: () => Effect.succeed(flatRows),
+          stream: () => Stream.fromIterable(flatRows).pipe(Stream.rechunk(2))
+        })
+      })
+
+      const streamedRows = Chunk.toReadonlyArray(
+        Effect.runSync(Stream.runCollect(executor.stream(plan)))
+      )
+
+      expect(streamedRows).toEqual([
+        { id: "11111111-1111-1111-1111-111111111111" },
+        { id: "22222222-2222-2222-2222-222222222222" },
+        { id: "33333333-3333-3333-3333-333333333333" }
+      ])
+    })
+
+    test("fails with RowDecodeError when streamed rows violate runtime decoding", () => {
+      const users = Table.make("users", {
+        id: C.uuid().pipe(C.primaryKey),
+        createdAt: C.timestamp()
+      })
+
+      const plan = Q.select({
+        id: users.id,
+        createdAt: users.createdAt
+      }).pipe(
+        Q.from(users)
+      )
+
+      const executor = Executor.make({
+        driver: Executor.driver("postgres", {
+          execute: () => Effect.succeed([]),
+          stream: () =>
+            Stream.fromIterable([
+              {
+                id: userId,
+                createdAt: "not-a-date"
+              }
+            ])
+        })
+      })
+
+      expect(
+        Effect.runSync(Effect.flip(Stream.runCollect(executor.stream(plan))))
+      ).toMatchObject({
+        _tag: "RowDecodeError",
+        stage: "normalize",
+        projection: {
+          alias: "createdAt"
+        },
+        dbType: {
+          dialect: "postgres",
+          kind: "timestamp"
+        },
+        raw: "not-a-date"
+      })
+    })
+
+    test("uses the driver's stream path without calling execute", () => {
+      const users = Table.make("users", {
+        id: C.uuid().pipe(C.primaryKey)
+      })
+
+      const plan = Q.select({
+        id: users.id
+      }).pipe(
+        Q.from(users)
+      )
+
+      let executeCalls = 0
+      let streamCalls = 0
+
+      const executor = Executor.make({
+        driver: Executor.driver("postgres", {
+          execute: () => {
+            executeCalls += 1
+            return Effect.succeed([])
+          },
+          stream: () => {
+            streamCalls += 1
+            return Stream.fromIterable([{ id: userId }])
+          }
+        })
+      })
+
+      const rows = Chunk.toReadonlyArray(
+        Effect.runSync(Stream.runCollect(executor.stream(plan)))
+      )
+
+      expect(rows).toEqual([{ id: userId }])
+      expect(streamCalls).toBe(1)
+      expect(executeCalls).toBe(0)
+    })
+
+    test("runs driver stream finalizers when consumers stop early", () => {
+      const users = Table.make("users", {
+        id: C.uuid().pipe(C.primaryKey)
+      })
+
+      const plan = Q.select({
+        id: users.id
+      }).pipe(
+        Q.from(users)
+      )
+
+      let finalized = false
+
+      const executor = Executor.make({
+        driver: Executor.driver("postgres", {
+          execute: () => Effect.succeed([]),
+          stream: () =>
+            Stream.fromIterable([
+              { id: "11111111-1111-1111-1111-111111111111" },
+              { id: "22222222-2222-2222-2222-222222222222" }
+            ]).pipe(
+              Stream.ensuring(Effect.sync(() => {
+                finalized = true
+              }))
+            )
+        })
+      })
+
+      const rows = Chunk.toReadonlyArray(
+        Effect.runSync(Stream.runCollect(executor.stream(plan).pipe(Stream.take(1))))
+      )
+
+      expect(rows).toEqual([{ id: "11111111-1111-1111-1111-111111111111" }])
+      expect(finalized).toBe(true)
+    })
+
+    test("forwards rendered SQL and params to the ambient SqlClient stream", () => {
+      const users = Table.make("users", {
+        id: C.uuid().pipe(C.primaryKey),
+        email: C.text()
+      })
+
+      const plan = Q.select({
+        profile: {
+          id: users.id,
+          email: users.email
+        }
+      }).pipe(
+        Q.from(users),
+        Q.where(Q.eq(users.email, "alice@example.com"))
+      )
+
+      const executor = Executor.make()
+      const sql = {
+        reserve: Effect.succeed({
+          executeStream<Row extends object>(
+            statement: string,
+            params?: ReadonlyArray<any>
+          ) {
+            expect(statement).toBe('select "users"."id" as "profile__id", "users"."email" as "profile__email" from "public"."users" where ("users"."email" = $1)')
+            expect(params).toEqual(["alice@example.com"])
+            return Stream.fromIterable([
+              {
+                profile__id: userId,
+                profile__email: "alice@example.com"
+              }
+            ] as unknown as ReadonlyArray<Row>)
+          }
+        })
+      } as unknown as SqlClient.SqlClient
+
+      const rows = Chunk.toReadonlyArray(
+        Effect.runSync(
+          Effect.provideService(
+            Stream.runCollect(executor.stream(plan)),
+            SqlClient.SqlClient,
+            sql
+          )
+        )
+      )
+
+      expect(rows).toEqual([
+        {
+          profile: {
+            id: userId,
+            email: "alice@example.com"
+          }
+        }
+      ])
     })
   })
 
