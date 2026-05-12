@@ -77,6 +77,15 @@ const schemaNamesOf = (model: SchemaModel): Set<string> => {
 const quoteLiteral = (value: string): string =>
   `'${value.replaceAll("'", "''")}'`
 
+const quoteIdentifier = (value: string): string =>
+  `"${value.replaceAll("\"", "\"\"")}"`
+
+const qualifyIdentifier = (schemaName: string | undefined, name: string): string =>
+  `${quoteIdentifier(schemaName ?? "public")}.${quoteIdentifier(name)}`
+
+const modelIdentityKey = (schemaName: string | undefined, name: string): string =>
+  JSON.stringify([schemaName ?? "public", name])
+
 const effectiveConstraintName = (
   table: TableModel,
   option: Exclude<TableOptionSpec, { readonly kind: "index" }>
@@ -341,7 +350,7 @@ const diffEnum = (
           kind: "alterEnumAddValue",
           key,
           summary: `add enum value ${quoteLiteral(value)} to ${key}`,
-          sql: `alter type "${sourceEnum.schemaName ?? "public"}"."${sourceEnum.name}" add value if not exists ${quoteLiteral(value)}`,
+          sql: `alter type ${qualifyIdentifier(sourceEnum.schemaName, sourceEnum.name)} add value if not exists ${quoteLiteral(value)}`,
           safe: true,
           destructive: false
         }))
@@ -677,39 +686,39 @@ export const planPostgresSchemaDiff = (
         kind: "createSchema",
         key: schemaName,
         summary: `create schema ${schemaName}`,
-        sql: `create schema if not exists "${schemaName}"`,
-        rollbackSql: `drop schema if exists "${schemaName}" cascade`,
+        sql: `create schema if not exists ${quoteIdentifier(schemaName)}`,
+        rollbackSql: `drop schema if exists ${quoteIdentifier(schemaName)} cascade`,
         safe: true,
         destructive: false
       }))
     }
   }
 
-  const dbEnums = new Map(database.enums.map((enumType) => [enumKey(enumType.schemaName, enumType.name), enumType]))
-  const sourceEnums = new Map(source.enums.map((enumType) => [enumKey(enumType.schemaName, enumType.name), enumType]))
+  const dbEnums = new Map(database.enums.map((enumType) => [modelIdentityKey(enumType.schemaName, enumType.name), enumType]))
+  const sourceEnums = new Map(source.enums.map((enumType) => [modelIdentityKey(enumType.schemaName, enumType.name), enumType]))
   const matchedDbEnumKeys = new Set<string>()
   const matchedSourceEnumKeys = new Set<string>()
 
   for (const enumType of source.enums) {
-    const key = enumKey(enumType.schemaName, enumType.name)
-    const dbEnum = dbEnums.get(key)
+    const identityKey = modelIdentityKey(enumType.schemaName, enumType.name)
+    const dbEnum = dbEnums.get(identityKey)
     if (dbEnum !== undefined) {
-      matchedDbEnumKeys.add(key)
-      matchedSourceEnumKeys.add(key)
+      matchedDbEnumKeys.add(identityKey)
+      matchedSourceEnumKeys.add(identityKey)
       changes.push(...diffEnum(enumType, dbEnum))
     }
   }
 
   for (const { source: sourceEnum, db: dbEnum } of pairUniqueBySignature(
-    source.enums.filter((enumType) => !dbEnums.has(enumKey(enumType.schemaName, enumType.name))),
-    database.enums.filter((enumType) => !sourceEnums.has(enumKey(enumType.schemaName, enumType.name))),
+    source.enums.filter((enumType) => !dbEnums.has(modelIdentityKey(enumType.schemaName, enumType.name))),
+    database.enums.filter((enumType) => !sourceEnums.has(modelIdentityKey(enumType.schemaName, enumType.name))),
     enumShapeSignature,
     enumShapeSignature
   )) {
     const sourceKey = enumKey(sourceEnum.schemaName, sourceEnum.name)
     const dbKey = enumKey(dbEnum.schemaName, dbEnum.name)
-    matchedSourceEnumKeys.add(sourceKey)
-    matchedDbEnumKeys.add(dbKey)
+    matchedSourceEnumKeys.add(modelIdentityKey(sourceEnum.schemaName, sourceEnum.name))
+    matchedDbEnumKeys.add(modelIdentityKey(dbEnum.schemaName, dbEnum.name))
     if (sourceKey !== dbKey) {
       changes.push(makeChange({
         kind: "renameEnum",
@@ -725,7 +734,8 @@ export const planPostgresSchemaDiff = (
 
   for (const enumType of source.enums) {
     const key = enumKey(enumType.schemaName, enumType.name)
-    if (matchedSourceEnumKeys.has(key) || dbEnums.has(key)) {
+    const identityKey = modelIdentityKey(enumType.schemaName, enumType.name)
+    if (matchedSourceEnumKeys.has(identityKey) || dbEnums.has(identityKey)) {
       continue
     }
     changes.push(makeChange({
@@ -741,7 +751,8 @@ export const planPostgresSchemaDiff = (
 
   for (const enumType of database.enums) {
     const key = enumKey(enumType.schemaName, enumType.name)
-    if (!matchedDbEnumKeys.has(key) && !sourceEnums.has(key)) {
+    const identityKey = modelIdentityKey(enumType.schemaName, enumType.name)
+    if (!matchedDbEnumKeys.has(identityKey) && !sourceEnums.has(identityKey)) {
       changes.push(makeChange({
         kind: "dropEnum",
         key,
@@ -754,31 +765,31 @@ export const planPostgresSchemaDiff = (
     }
   }
 
-  const dbTables = new Map(database.tables.map((table) => [tableKey(table.schemaName, table.name), table]))
-  const sourceTables = new Map(source.tables.map((table) => [tableKey(table.schemaName, table.name), table]))
+  const dbTables = new Map(database.tables.map((table) => [modelIdentityKey(table.schemaName, table.name), table]))
+  const sourceTables = new Map(source.tables.map((table) => [modelIdentityKey(table.schemaName, table.name), table]))
   const matchedDbTableKeys = new Set<string>()
   const matchedSourceTableKeys = new Set<string>()
 
   for (const table of source.tables) {
-    const key = tableKey(table.schemaName, table.name)
-    const dbTable = dbTables.get(key)
+    const identityKey = modelIdentityKey(table.schemaName, table.name)
+    const dbTable = dbTables.get(identityKey)
     if (dbTable !== undefined) {
-      matchedDbTableKeys.add(key)
-      matchedSourceTableKeys.add(key)
+      matchedDbTableKeys.add(identityKey)
+      matchedSourceTableKeys.add(identityKey)
       changes.push(...diffExistingTable(table, dbTable))
     }
   }
 
   for (const { source: sourceTable, db: dbTable } of pairUniqueBySignature(
-    source.tables.filter((table) => !dbTables.has(tableKey(table.schemaName, table.name))),
-    database.tables.filter((table) => !sourceTables.has(tableKey(table.schemaName, table.name))),
+    source.tables.filter((table) => !dbTables.has(modelIdentityKey(table.schemaName, table.name))),
+    database.tables.filter((table) => !sourceTables.has(modelIdentityKey(table.schemaName, table.name))),
     tableShapeSignature,
     tableShapeSignature
   )) {
     const sourceKey = tableKey(sourceTable.schemaName, sourceTable.name)
     const dbKey = tableKey(dbTable.schemaName, dbTable.name)
-    matchedDbTableKeys.add(dbKey)
-    matchedSourceTableKeys.add(sourceKey)
+    matchedDbTableKeys.add(modelIdentityKey(dbTable.schemaName, dbTable.name))
+    matchedSourceTableKeys.add(modelIdentityKey(sourceTable.schemaName, sourceTable.name))
     changes.push(makeChange({
       kind: "renameTable",
       key: dbKey,
@@ -793,10 +804,11 @@ export const planPostgresSchemaDiff = (
 
   for (const table of source.tables) {
     const key = tableKey(table.schemaName, table.name)
-    if (matchedSourceTableKeys.has(key)) {
+    const identityKey = modelIdentityKey(table.schemaName, table.name)
+    if (matchedSourceTableKeys.has(identityKey)) {
       continue
     }
-    if (!dbTables.has(key)) {
+    if (!dbTables.has(identityKey)) {
       changes.push(makeChange({
         kind: "createTable",
         key,
@@ -822,7 +834,8 @@ export const planPostgresSchemaDiff = (
 
   for (const table of database.tables) {
     const key = tableKey(table.schemaName, table.name)
-    if (!matchedDbTableKeys.has(key) && !sourceTables.has(key)) {
+    const identityKey = modelIdentityKey(table.schemaName, table.name)
+    if (!matchedDbTableKeys.has(identityKey) && !sourceTables.has(identityKey)) {
       changes.push(makeChange({
         kind: "dropTable",
         key,

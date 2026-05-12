@@ -111,7 +111,7 @@ const renderCreateTableSql = (
       }
       case "check":
         definitions.push(
-          `constraint ${dialect.quoteIdentifier(option.name)} check (${renderDdlExpression(option.predicate, state, dialect)})${option.noInherit ? " no inherit" : ""}`
+          `constraint ${dialect.quoteIdentifier(option.name)} check (${renderDdlExpression(option.predicate, { ...state, rowLocalColumns: true }, dialect)})${option.noInherit ? " no inherit" : ""}`
         )
         break
       case "index":
@@ -136,10 +136,20 @@ const renderDropIndexSql = (
   ddl: Extract<QueryAst.DdlClause, { readonly kind: "dropIndex" }>,
   state: RenderState,
   dialect: SqlDialect
-): string =>
-  dialect.name === "postgres"
-    ? `drop index${ddl.ifExists ? " if exists" : ""} ${dialect.quoteIdentifier(ddl.name)}`
-    : `drop index ${dialect.quoteIdentifier(ddl.name)} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)}`
+): string => {
+  if (dialect.name === "postgres") {
+    const schemaName = typeof targetSource.source === "object" &&
+      targetSource.source !== null &&
+      Table.TypeId in targetSource.source
+      ? (targetSource.source as Table.AnyTable)[Table.TypeId].schemaName
+      : undefined
+    const indexName = schemaName === undefined || schemaName === "public"
+      ? dialect.quoteIdentifier(ddl.name)
+      : `${dialect.quoteIdentifier(schemaName)}.${dialect.quoteIdentifier(ddl.name)}`
+    return `drop index${ddl.ifExists ? " if exists" : ""} ${indexName}`
+  }
+  return `drop index ${dialect.quoteIdentifier(ddl.name)} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)}`
+}
 
 const isExpression = (value: unknown): value is Expression.Any =>
   value !== null && typeof value === "object" && Expression.TypeId in value
@@ -897,6 +907,9 @@ export const renderQueryAst = (
       if (insertAst.distinct) {
         throw new Error("distinct(...) is not supported for insert statements")
       }
+      if (insertAst.offset) {
+        throw new Error("offset(...) is not supported for insert statements")
+      }
       const targetSource = insertAst.into!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       sql = `insert into ${target}`
@@ -982,6 +995,15 @@ export const renderQueryAst = (
       if (updateAst.distinct) {
         throw new Error("distinct(...) is not supported for update statements")
       }
+      if (updateAst.orderBy.length > 0) {
+        throw new Error("orderBy(...) is not supported for update statements")
+      }
+      if (updateAst.limit) {
+        throw new Error("limit(...) is not supported for update statements")
+      }
+      if (updateAst.offset) {
+        throw new Error("offset(...) is not supported for update statements")
+      }
       const targetSource = updateAst.target!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targets = updateAst.targets ?? [targetSource]
@@ -1037,6 +1059,15 @@ export const renderQueryAst = (
       const deleteAst = ast as QueryAst.Ast<Record<string, unknown>, any, "delete">
       if (deleteAst.distinct) {
         throw new Error("distinct(...) is not supported for delete statements")
+      }
+      if (deleteAst.orderBy.length > 0 && dialect.name === "postgres") {
+        throw new Error("orderBy(...) is not supported for delete statements")
+      }
+      if (deleteAst.limit && dialect.name === "postgres") {
+        throw new Error("limit(...) is not supported for delete statements")
+      }
+      if (deleteAst.offset) {
+        throw new Error("offset(...) is not supported for delete statements")
       }
       const targetSource = deleteAst.target!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
@@ -1319,7 +1350,7 @@ export const renderExpression = (
               : ">="
     switch (ast.kind) {
     case "column":
-      return ast.tableName.length === 0
+      return state.rowLocalColumns || ast.tableName.length === 0
         ? dialect.quoteIdentifier(ast.columnName)
         : `${dialect.quoteIdentifier(ast.tableName)}.${dialect.quoteIdentifier(ast.columnName)}`
     case "literal":

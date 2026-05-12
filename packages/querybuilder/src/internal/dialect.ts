@@ -17,6 +17,7 @@ export interface RenderState {
     readonly recursive?: boolean
   }[]
   readonly cteNames: Set<string>
+  readonly rowLocalColumns?: boolean
 }
 
 export interface RenderValueContext {

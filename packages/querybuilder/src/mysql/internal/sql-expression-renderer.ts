@@ -125,7 +125,7 @@ const renderCreateTableSql = (
       }
       case "check":
         definitions.push(
-          `constraint ${dialect.quoteIdentifier(option.name)} check (${renderDdlExpression(option.predicate, state, dialect)})${option.noInherit ? " no inherit" : ""}`
+          `constraint ${dialect.quoteIdentifier(option.name)} check (${renderDdlExpression(option.predicate, { ...state, rowLocalColumns: true }, dialect)})${option.noInherit ? " no inherit" : ""}`
         )
         break
       case "index":
@@ -1349,7 +1349,7 @@ export const renderExpression = (
               : ">="
     switch (ast.kind) {
     case "column":
-      return ast.tableName.length === 0
+      return state.rowLocalColumns || ast.tableName.length === 0
         ? dialect.quoteIdentifier(ast.columnName)
         : `${dialect.quoteIdentifier(ast.tableName)}.${dialect.quoteIdentifier(ast.columnName)}`
     case "literal":
