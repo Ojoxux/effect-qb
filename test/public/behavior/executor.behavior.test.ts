@@ -728,6 +728,32 @@ describe("executor behavior", () => {
     ])
   })
 
+  test("fromDriver accepts already-decoded JSON string scalars", () => {
+    const docs = Table.make("json_string_docs", {
+      payload: C.json(Schema.String)
+    })
+
+    const plan = Q.select({
+      payload: docs.payload
+    }).pipe(
+      Q.from(docs)
+    )
+
+    const rows = Effect.runSync(Executor.make({
+      driver: Executor.driver("postgres", () => Effect.succeed([
+        {
+          payload: "plain text"
+        }
+      ]))
+    }).execute(plan))
+
+    expect(rows).toEqual([
+      {
+        payload: "plain text"
+      }
+    ])
+  })
+
   test("normalized driver mode skips raw scalar normalization but still validates schemas", () => {
     const users = Table.make("users", {
       id: C.uuid().pipe(C.primaryKey),
