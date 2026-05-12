@@ -19,6 +19,9 @@ Q.select()
 // @ts-expect-error MySQL select statements require a projection object.
 Q.select(Q.literal(1))
 
+// @ts-expect-error MySQL nested selections must project at least one expression.
+Q.select({ nested: {} })
+
 const fullJoinPlan = Q.select({
   userId: users.id,
   postId: posts.id

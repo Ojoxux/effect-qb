@@ -5600,13 +5600,33 @@ type AsCurriedResult<
   type SelectionRootObjectConstraint<Selection> =
     Selection extends Expression.Any ? SelectionRootObjectError<Selection> : unknown
 
+  type SelectionNestedEmptyError<Selection> = Selection & {
+    readonly __effect_qb_error__: "effect-qb: projection objects cannot contain empty nested selections"
+  }
+
+  type SelectionHasEmptyNestedObject<Selection, IsRoot extends boolean> =
+    Selection extends Expression.Any
+      ? false
+      : Selection extends Record<string, any>
+        ? [Extract<keyof Selection, string>] extends [never]
+          ? IsRoot extends true ? false : true
+          : true extends {
+              [K in Extract<keyof Selection, string>]: SelectionHasEmptyNestedObject<Selection[K], false>
+            }[Extract<keyof Selection, string>]
+            ? true
+            : false
+        : false
+
+  type SelectionNestedNonEmptyConstraint<Selection> =
+    SelectionHasEmptyNestedObject<Selection, true> extends true ? SelectionNestedEmptyError<Selection> : unknown
+
   type SelectSelectionNonEmptyConstraint<Selection> =
     [Extract<keyof Selection, string>] extends [never]
       ? SelectSelectionNonEmptyError<Selection>
       : unknown
 
   export type SelectApi = <Selection extends SelectionShape>(
-    selection: Selection & SelectionRootObjectConstraint<Selection> & SelectSelectionNonEmptyConstraint<Selection>
+    selection: Selection & SelectionRootObjectConstraint<Selection> & SelectionNestedNonEmptyConstraint<Selection> & SelectSelectionNonEmptyConstraint<Selection>
   ) => QueryPlan<
     Selection,
     ExtractRequired<Selection>,
@@ -6072,7 +6092,7 @@ type AsCurriedResult<
 
   type ReturningApi = Dialect extends "postgres"
     ? <Selection extends SelectionShape>(
-        selection: Selection & SelectionRootObjectConstraint<Selection> & ReturningSelectionNonEmptyConstraint<Selection>
+        selection: Selection & SelectionRootObjectConstraint<Selection> & SelectionNestedNonEmptyConstraint<Selection> & ReturningSelectionNonEmptyConstraint<Selection>
       ) =>
         <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
           plan: PlanValue & RequireMutationStatement<PlanValue>

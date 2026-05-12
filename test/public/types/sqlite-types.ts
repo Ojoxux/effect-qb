@@ -27,6 +27,9 @@ Q.select()
 // @ts-expect-error sqlite select statements require a projection object
 Q.select(Q.literal(1))
 
+// @ts-expect-error sqlite nested selections must project at least one expression
+Q.select({ nested: {} })
+
 const selectUsers = Q.select({
   id: users.id,
   email: users.email,
@@ -118,6 +121,11 @@ Q.insert(users, userInsert).pipe(
 Q.insert(users, userInsert).pipe(
   // @ts-expect-error sqlite returning selections require a projection object
   Q.returning(users.id)
+)
+
+Q.insert(users, userInsert).pipe(
+  // @ts-expect-error sqlite returning nested selections must project at least one expression
+  Q.returning({ nested: {} })
 )
 
 Q.insert(users, userInsert).pipe(

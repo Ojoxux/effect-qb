@@ -152,6 +152,13 @@ Q.returning(users.id)(Q.insert(users, {
   bio: "writer"
 }))
 
+// @ts-expect-error returning nested selections must project at least one expression
+Q.returning({ nested: {} })(Q.insert(users, {
+  id: "user-id",
+  email: "alice@example.com",
+  bio: "writer"
+}))
+
 void invalidDefaultInsertPlan
 const positionalInsertSource = Q.select({
   userId: users.id,

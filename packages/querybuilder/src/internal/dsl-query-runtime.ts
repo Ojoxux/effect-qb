@@ -31,6 +31,25 @@ export const makeDslQueryRuntime = (ctx: DslQueryRuntimeContext) => {
     }
   }
 
+  const assertSelectionTree = (apiName: string, selection: any): void => {
+    const visit = (value: any, isRoot: boolean): void => {
+      if (value !== null && typeof value === "object" && Expression.TypeId in value) {
+        return
+      }
+      if (value === null || typeof value !== "object" || Array.isArray(value)) {
+        throw new Error(`${apiName}(...) selection leaves must be expressions`)
+      }
+      const nested = Object.values(value)
+      if (!isRoot && nested.length === 0) {
+        throw new Error(`${apiName}(...) projection objects cannot contain empty nested selections`)
+      }
+      for (const item of nested) {
+        visit(item, false)
+      }
+    }
+    visit(selection, true)
+  }
+
   const values = (rows: readonly [Record<string, any>, ...Record<string, any>[]]) => {
     if (rows.length === 0) {
       throw new Error("values(...) requires at least one row")
@@ -115,6 +134,7 @@ export const makeDslQueryRuntime = (ctx: DslQueryRuntimeContext) => {
 
   const select = (selection: any = {}) => {
     assertSelectionObject("select", selection)
+    assertSelectionTree("select", selection)
     return ctx.makePlan({
       selection,
       required: ctx.extractRequiredRuntime(selection),
@@ -152,6 +172,7 @@ export const makeDslQueryRuntime = (ctx: DslQueryRuntimeContext) => {
 
   const returning = (selection: any) => {
     assertSelectionObject("returning", selection)
+    assertSelectionTree("returning", selection)
     if (flattenSelection(selection as Record<string, unknown>).length === 0) {
       throw new Error("returning(...) requires at least one selected expression")
     }

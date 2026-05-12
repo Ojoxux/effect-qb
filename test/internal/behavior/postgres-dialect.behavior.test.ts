@@ -70,6 +70,16 @@ describe("postgres dialect behavior", () => {
     )
   })
 
+  test("rejects invalid postgres selection leaves before rendering bare select", () => {
+    expect(() => Postgres.Query.select(unsafeAny({ nested: {} }))).toThrow(
+      "select(...) projection objects cannot contain empty nested selections"
+    )
+
+    expect(() => Postgres.Query.select(unsafeAny({ value: 1 }))).toThrow(
+      "select(...) selection leaves must be expressions"
+    )
+  })
+
   test("renders omitted postgres selections as zero-column selects", () => {
     const { users } = makePostgresSocialGraph()
 
