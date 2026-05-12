@@ -140,4 +140,19 @@ describe("cross-cutting statement behavior", () => {
       "returning(...) is not supported for merge statements"
     )
   })
+
+  test("rejects runtime distinct modifiers on mutation statements", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const distinctDelete = Postgres.Query.delete(users).pipe(
+      Postgres.Query.distinct()
+    )
+
+    expect(() => Postgres.Renderer.make().render(distinctDelete)).toThrow(
+      "distinct(...) is not supported for delete statements"
+    )
+  })
 })
