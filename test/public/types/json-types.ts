@@ -428,6 +428,15 @@ J.json.path(J.json.key("profile"), J.jsonb.wildcard())
 // @ts-expect-error shared json helpers only accept exact key/index paths
 J.json.get(docs.payloadJsonb, wildcardPath)
 
+// @ts-expect-error jsonb mutation helpers only accept exact key/index paths
+J.jsonb.set(docs.payloadJsonb, wildcardPath, "featured")
+
+// @ts-expect-error jsonb mutation helpers only accept exact key/index paths
+J.jsonb.insert(docs.payloadJsonb, wildcardPath, "featured")
+
+// @ts-expect-error jsonb mutation helpers only accept exact key/index paths
+J.jsonb.delete(docs.payloadJsonb, wildcardPath)
+
 // @ts-expect-error jsonb helpers require a jsonb expression
 J.jsonb.set(docs.payload, postcodePath, "1000")
 

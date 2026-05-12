@@ -20,6 +20,11 @@ const suitePath = J.json.path(
   J.json.key("address"),
   J.json.key("suite")
 )
+const tagWildcardPath = J.json.path(
+  J.json.key("profile"),
+  J.json.key("tags"),
+  J.json.wildcard()
+)
 
 const setWithoutCreateExpr = J.json.set(docs.payload, suitePath, "12A", {
   createMissing: false
@@ -31,5 +36,14 @@ declare const setWithoutCreate: SetWithoutCreate
 
 // @ts-expect-error createMissing: false should not add a missing object key
 setWithoutCreate.profile.address.suite
+
+// @ts-expect-error json mutation helpers only accept exact key/index paths
+J.json.set(docs.payload, tagWildcardPath, "featured")
+
+// @ts-expect-error json mutation helpers only accept exact key/index paths
+J.json.insert(docs.payload, tagWildcardPath, "featured")
+
+// @ts-expect-error json mutation helpers only accept exact key/index paths
+J.json.delete(docs.payload, tagWildcardPath)
 
 void setWithoutCreateExpr
