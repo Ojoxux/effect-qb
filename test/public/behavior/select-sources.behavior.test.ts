@@ -348,6 +348,29 @@ describe("select sources behavior", () => {
     )
   })
 
+  test("renders common table expressions before referencing cte sources", () => {
+    const activePosts = Postgres.Query.select({
+      userId: pgPosts.userId,
+      title: pgPosts.title
+    }).pipe(
+      Postgres.Query.from(pgPosts),
+      Postgres.Query.where(Postgres.Query.isNotNull(pgPosts.title)),
+      Postgres.Query.with("active_posts")
+    )
+
+    const plan = Postgres.Query.select({
+      email: pgUsers.email,
+      title: activePosts.title
+    }).pipe(
+      Postgres.Query.from(pgUsers),
+      Postgres.Query.innerJoin(activePosts, Postgres.Query.eq(pgUsers.id, activePosts.userId))
+    )
+
+    expect(renderPostgres(plan).sql).toBe(
+      'with "active_posts" as (select "posts"."userId" as "userId", "posts"."title" as "title" from "public"."posts" where ("posts"."title" is not null)) select "users"."email" as "email", "active_posts"."title" as "title" from "public"."users" inner join "active_posts" on ("users"."id" = "active_posts"."userId")'
+    )
+  })
+
   test("rejects lateral joins before their required outer sources", () => {
     const lateralPosts = Postgres.Query.select({
       postId: pgPosts.id,
