@@ -294,4 +294,19 @@ describe("cross-cutting statement behavior", () => {
       "groupBy(...) is not supported for update statements"
     )
   })
+
+  test("rejects runtime joins on transaction statements", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const joinedTransaction = Postgres.Query.transaction().pipe(
+      Postgres.Query.crossJoin(users)
+    )
+
+    expect(() => Postgres.Renderer.make().render(joinedTransaction)).toThrow(
+      "join(...) is not supported for transaction statements"
+    )
+  })
 })
