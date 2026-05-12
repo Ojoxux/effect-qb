@@ -369,6 +369,63 @@ describe("postgres schema management", () => {
     )
   })
 
+  test("rejects invalid postgres index key ordering metadata before rendering ddl", () => {
+    const invalidOrder: SchemaModel = {
+      dialect: "postgres",
+      enums: [],
+      tables: [
+        {
+          kind: "table",
+          schemaName: "public",
+          name: "users",
+          columns: [
+            {
+              name: "email",
+              ddlType: "text",
+              dbTypeKind: "text",
+              nullable: false,
+              hasDefault: false,
+              generated: false
+            }
+          ],
+          options: [
+            {
+              kind: "index",
+              keys: [{ kind: "column", column: "email", order: "sideways" as never }]
+            }
+          ]
+        }
+      ]
+    }
+
+    expect(() => planPostgresSchemaDiff(invalidOrder, {
+      dialect: "postgres",
+      enums: [],
+      tables: []
+    })).toThrow("Postgres index key order must be asc or desc")
+
+    const invalidNulls: SchemaModel = {
+      ...invalidOrder,
+      tables: [
+        {
+          ...invalidOrder.tables[0]!,
+          options: [
+            {
+              kind: "index",
+              keys: [{ kind: "column", column: "email", nulls: "middle" as never }]
+            }
+          ]
+        }
+      ]
+    }
+
+    expect(() => planPostgresSchemaDiff(invalidNulls, {
+      dialect: "postgres",
+      enums: [],
+      tables: []
+    })).toThrow("Postgres index key nulls must be first or last")
+  })
+
   test("detects table, column, constraint, index, and enum renames", () => {
     const source: SchemaModel = {
       dialect: "postgres",

@@ -147,6 +147,26 @@ const indexKeysOf = (option: Extract<TableOptionSpec, { readonly kind: "index" }
     column
   }))
 
+const renderIndexOrder = (order: unknown): string => {
+  if (order === undefined) {
+    return ""
+  }
+  if (order !== "asc" && order !== "desc") {
+    throw new Error("Postgres index key order must be asc or desc")
+  }
+  return ` ${order}`
+}
+
+const renderIndexNulls = (nulls: unknown): string => {
+  if (nulls === undefined) {
+    return ""
+  }
+  if (nulls !== "first" && nulls !== "last") {
+    throw new Error("Postgres index key nulls must be first or last")
+  }
+  return ` nulls ${nulls}`
+}
+
 export const renderIndexDefinition = (
   table: TableModel,
   option: Extract<TableOptionSpec, { readonly kind: "index" }>
@@ -161,7 +181,7 @@ export const renderIndexDefinition = (
     const base = key.kind === "column"
       ? quote(key.column)
       : `(${SchemaExpression.renderDdlExpressionSql(key.expression)})`
-    return `${base}${key.collation ? ` collate ${qualifyIdentifier(key.collation)}` : ""}${key.operatorClass ? ` ${qualifyIdentifier(key.operatorClass)}` : ""}${key.order ? ` ${key.order}` : ""}${key.nulls ? ` nulls ${key.nulls}` : ""}`
+    return `${base}${key.collation ? ` collate ${qualifyIdentifier(key.collation)}` : ""}${key.operatorClass ? ` ${qualifyIdentifier(key.operatorClass)}` : ""}${renderIndexOrder(key.order)}${renderIndexNulls(key.nulls)}`
   }).join(", ")
   return `create${option.unique ? " unique" : ""} index ${quote(name)} on ${qualify(table.schemaName, table.name)}${option.method ? ` using ${option.method}` : ""} (${renderedKeys})${option.include && option.include.length > 0 ? ` include (${option.include.map(quote).join(", ")})` : ""}${option.predicate ? ` where ${SchemaExpression.renderDdlExpressionSql(option.predicate)}` : ""}`
 }
