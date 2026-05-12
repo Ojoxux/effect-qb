@@ -150,6 +150,23 @@ describe("sqlite behavior", () => {
     ])
   })
 
+  test("renders sqlite JSON merge operands as JSON instead of raw driver objects", () => {
+    const rendered = render(Sqlite.Query.select({
+      merged: Sqlite.Json.json.merge(
+        { nested: { left: true } },
+        { tags: ["sqlite"] }
+      )
+    }))
+
+    expect(rendered.sql).toBe(
+      'select json_patch(json(?), json(?)) as "merged"'
+    )
+    expect(rendered.params).toEqual([
+      JSON.stringify({ nested: { left: true } }),
+      JSON.stringify({ tags: ["sqlite"] })
+    ])
+  })
+
   test("encodes sqlite JSON string scalar literals as JSON text", () => {
     const docs = Sqlite.Table.make("json_string_docs", {
       id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),
