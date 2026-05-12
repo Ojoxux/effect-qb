@@ -1,6 +1,7 @@
 import * as Query from "./query.js"
 import type * as Expression from "./scalar.js"
 import { type Projection, validateProjections } from "./projections.js"
+import * as Plan from "./row-set.js"
 
 /** Symbol used to attach rendered-query phantom row metadata. */
 export const TypeId: unique symbol = Symbol.for("effect-qb/Renderer")
@@ -73,6 +74,10 @@ export function make<Dialect extends string>(
   return {
     dialect,
     render(plan) {
+      const required = Query.currentRequiredList(plan[Plan.TypeId].required)
+      if (required.length > 0) {
+        throw new Error(`query references sources that are not yet in scope: ${required.join(", ")}`)
+      }
       const rendered = render(plan)
       const projections = rendered.projections ?? []
       validateProjections(projections)

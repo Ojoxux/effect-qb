@@ -325,11 +325,21 @@ export const makeRowDecoder = (
   return (row) => {
     const decoded: Record<string, unknown> = {}
     for (const projection of rendered.projections) {
-      if (!(projection.alias in row)) {
-        continue
-      }
       const expression = byAlias.get(projection.alias)
       if (expression === undefined) {
+        continue
+      }
+      if (!(projection.alias in row)) {
+        if (projection.path.length === 1) {
+          throw makeRowDecodeError(
+            rendered,
+            projection,
+            expression,
+            undefined,
+            "schema",
+            new Error(`Missing required projection alias '${projection.alias}'`)
+          )
+        }
         continue
       }
       setPath(
