@@ -4828,6 +4828,15 @@ type InsertDirectSource =
 
 type FromInput = SourceLike | InsertDirectSource
 
+type SourceDialectConstraint<
+  CurrentSource extends SourceLike,
+  Dialect extends string
+> = [SourceDialectOf<CurrentSource>] extends [never]
+  ? unknown
+  : Extract<SourceDialectOf<CurrentSource>, Dialect> extends never
+    ? never
+    : unknown
+
 type SelectFromConstraint<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
   CurrentSource extends SourceLike
@@ -4926,15 +4935,17 @@ type FromPlanConstraint<
   Dialect extends string
 > =
   CurrentSource extends SourceLike
-    ? StatementOfPlan<PlanValue> extends "select"
-      ? SelectFromConstraint<PlanValue, CurrentSource>
-      : StatementOfPlan<PlanValue> extends "update"
-        ? UpdateFromConstraint<PlanValue, CurrentSource>
-        : StatementOfPlan<PlanValue> extends "insert"
-          ? CurrentSource extends AnyValuesSource | AnyUnnestSource
-            ? InsertFromConstraint<PlanValue, CurrentSource, Dialect>
-            : never
-          : never
+    ? SourceDialectConstraint<CurrentSource, Dialect> & (
+        StatementOfPlan<PlanValue> extends "select"
+          ? SelectFromConstraint<PlanValue, CurrentSource>
+          : StatementOfPlan<PlanValue> extends "update"
+            ? UpdateFromConstraint<PlanValue, CurrentSource>
+            : StatementOfPlan<PlanValue> extends "insert"
+              ? CurrentSource extends AnyValuesSource | AnyUnnestSource
+                ? InsertFromConstraint<PlanValue, CurrentSource, Dialect>
+                : never
+              : never
+      )
     : CurrentSource extends InsertDirectSource
       ? StatementOfPlan<PlanValue> extends "insert"
         ? InsertFromConstraint<PlanValue, CurrentSource, Dialect>

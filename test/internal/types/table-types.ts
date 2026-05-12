@@ -623,18 +623,18 @@ const postgresUsers = Postgres.Table.make("postgres_users", {
   email: Postgres.Column.text()
 })
 
-// @ts-expect-error postgres queries cannot use mysql sources
 const badPostgresFromMysql = Postgres.Query.select({
   id: mysqlUsers.id
 }).pipe(
+  // @ts-expect-error postgres queries cannot use mysql sources
   Postgres.Query.from(mysqlUsers)
 )
 void badPostgresFromMysql
 
-// @ts-expect-error mysql queries cannot use postgres sources
 const badMysqlFromPostgres = Mysql.Query.select({
   id: postgresUsers.id
 }).pipe(
+  // @ts-expect-error mysql queries cannot use postgres sources
   Mysql.Query.from(postgresUsers)
 )
 void badMysqlFromPostgres
