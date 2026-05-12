@@ -626,6 +626,14 @@ describe("sqlite behavior", () => {
     expect(() => render(transaction)).toThrow("Unsupported transaction statement kind")
   })
 
+  test("rejects invalid rendered sqlite query statement kinds", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const transaction = Sqlite.Query.transaction()
+    ;(transaction as any)[queryAst].kind = "vacuum"
+
+    expect(() => render(transaction)).toThrow("Unsupported query statement kind")
+  })
+
   test("rejects empty sqlite membership predicates", () => {
     const { users } = makeSqliteSocialGraph()
 

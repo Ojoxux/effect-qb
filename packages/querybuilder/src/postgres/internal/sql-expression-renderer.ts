@@ -1436,6 +1436,8 @@ export const renderQueryAst = (
       )
       break
     }
+    default:
+      throw new Error("Unsupported query statement kind")
   }
 
   if (state.ctes.length === 0 || options.emitCtes === false) {
