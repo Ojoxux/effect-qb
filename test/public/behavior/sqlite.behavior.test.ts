@@ -254,6 +254,36 @@ describe("sqlite behavior", () => {
     }))).toThrow("effect-qb: unknown conflict target column")
   })
 
+  test("rejects invalid rendered sqlite conflict discriminants", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const users = Sqlite.Table.make("users", {
+      id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),
+      email: Sqlite.Column.text()
+    })
+
+    const invalidActionPlan = Sqlite.Query.onConflict(["email"] as const, {
+      update: {
+        email: Sqlite.Query.excluded(users.email)
+      }
+    })(Sqlite.Query.insert(users, {
+      id: "user-1",
+      email: "alice@example.com"
+    }))
+    ;(invalidActionPlan as any)[queryAst].conflict.action = "merge"
+    expect(() => render(invalidActionPlan)).toThrow("Unsupported conflict action")
+
+    const invalidTargetPlan = Sqlite.Query.onConflict(["email"] as const, {
+      update: {
+        email: Sqlite.Query.excluded(users.email)
+      }
+    })(Sqlite.Query.insert(users, {
+      id: "user-1",
+      email: "alice@example.com"
+    }))
+    ;(invalidTargetPlan as any)[queryAst].conflict.target.kind = "index"
+    expect(() => render(invalidTargetPlan)).toThrow("Unsupported conflict target kind")
+  })
+
   test("renders sqlite string conflict targets", () => {
     const users = Sqlite.Table.make("users", {
       id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),

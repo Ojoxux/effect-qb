@@ -202,6 +202,36 @@ describe("postgres insert behavior", () => {
     }))).toThrow("effect-qb: unknown conflict target column")
   })
 
+  test("rejects invalid rendered postgres conflict discriminants", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const invalidActionPlan = Postgres.Query.onConflict(["email"] as const, {
+      update: {
+        email: Postgres.Query.excluded(users.email)
+      }
+    })(Postgres.Query.insert(users, {
+      id: userId,
+      email: "alice@example.com"
+    }))
+    ;(invalidActionPlan as any)[queryAst].conflict.action = "merge"
+    expect(() => render(invalidActionPlan)).toThrow("Unsupported conflict action")
+
+    const invalidTargetPlan = Postgres.Query.onConflict(["email"] as const, {
+      update: {
+        email: Postgres.Query.excluded(users.email)
+      }
+    })(Postgres.Query.insert(users, {
+      id: userId,
+      email: "alice@example.com"
+    }))
+    ;(invalidTargetPlan as any)[queryAst].conflict.target.kind = "index"
+    expect(() => render(invalidTargetPlan)).toThrow("Unsupported conflict target kind")
+  })
+
   test("renders postgres string conflict targets", () => {
     const users = Postgres.Table.make("users", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),

@@ -35,6 +35,34 @@ export const expectInsertSourceKind = <
   return source
 }
 
+export const expectConflictClause = <
+  Conflict extends {
+    readonly kind: string
+    readonly action: string
+    readonly target?: { readonly kind: string }
+  } | undefined
+>(
+  conflict: Conflict
+): Conflict => {
+  if (conflict === undefined) {
+    return conflict
+  }
+  if (conflict.kind !== "conflict") {
+    throw new Error("Unsupported conflict clause kind")
+  }
+  if (conflict.action !== "doNothing" && conflict.action !== "doUpdate") {
+    throw new Error("Unsupported conflict action")
+  }
+  if (
+    conflict.target !== undefined &&
+    conflict.target.kind !== "columns" &&
+    conflict.target.kind !== "constraint"
+  ) {
+    throw new Error("Unsupported conflict target kind")
+  }
+  return conflict
+}
+
 export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
   const insert = (target: any, values?: Record<string, unknown>) => {
     const { sourceName, sourceBaseName } = ctx.targetSourceDetails(target)

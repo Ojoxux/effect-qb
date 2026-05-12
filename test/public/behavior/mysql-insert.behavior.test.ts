@@ -260,6 +260,26 @@ describe("mysql insert behavior", () => {
     }))).toThrow("effect-qb: unknown conflict target column")
   })
 
+  test("rejects invalid rendered mysql conflict discriminants", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const users = Mysql.Table.make("users", {
+      id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey),
+      email: Mysql.Column.text()
+    })
+
+    const plan = Mysql.Query.onConflict(["email"] as const, {
+      update: {
+        email: Mysql.Query.excluded(users.email)
+      }
+    })(Mysql.Query.insert(users, {
+      id: userId,
+      email: "alice@example.com"
+    }))
+    ;(plan as any)[queryAst].conflict.action = "merge"
+
+    expect(() => render(plan)).toThrow("Unsupported conflict action")
+  })
+
   test("renders mysql string conflict targets", () => {
     const users = Mysql.Table.make("users", {
       id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey),

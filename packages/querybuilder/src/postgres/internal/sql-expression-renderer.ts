@@ -8,7 +8,7 @@ import type { RenderState, RenderValueContext, SqlDialect } from "../../internal
 import * as ExpressionAst from "../../internal/expression-ast.js"
 import * as JsonPath from "../../internal/json/path.js"
 import { renderSelectLockMode } from "../../internal/dsl-plan-runtime.js"
-import { expectInsertSourceKind } from "../../internal/dsl-mutation-runtime.js"
+import { expectConflictClause, expectInsertSourceKind } from "../../internal/dsl-mutation-runtime.js"
 import { expectDdlClauseKind, expectTruncateClause, renderTransactionIsolationLevel } from "../../internal/dsl-transaction-ddl-runtime.js"
 import {
   renderJsonSelectSql,
@@ -1133,6 +1133,7 @@ export const renderQueryAst = (
       const targetSource = insertAst.into!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const insertSource = expectInsertSourceKind(insertAst.insertSource)
+      const conflict = expectConflictClause(insertAst.conflict)
       sql = `insert into ${target}`
       if (insertSource?.kind === "values") {
         const columns = insertSource.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")
@@ -1183,24 +1184,24 @@ export const renderQueryAst = (
           sql += " default values"
         }
       }
-      if (insertAst.conflict) {
-        if (insertAst.conflict.action === "doNothing" && insertAst.conflict.where) {
+      if (conflict) {
+        if (conflict.action === "doNothing" && conflict.where) {
           throw new Error("conflict action predicates require update assignments")
         }
-        const updateValues = (insertAst.conflict.values ?? []).map((entry) =>
+        const updateValues = (conflict.values ?? []).map((entry) =>
           `${dialect.quoteIdentifier(entry.columnName)} = ${renderExpression(entry.value, state, dialect)}`
         ).join(", ")
         if (dialect.name === "postgres") {
-          const targetSql = insertAst.conflict.target?.kind === "constraint"
-            ? ` on conflict on constraint ${dialect.quoteIdentifier(insertAst.conflict.target.name)}`
-            : insertAst.conflict.target?.kind === "columns"
-              ? ` on conflict (${insertAst.conflict.target.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")})${insertAst.conflict.target.where ? ` where ${renderExpression(insertAst.conflict.target.where, state, dialect)}` : ""}`
+          const targetSql = conflict.target?.kind === "constraint"
+            ? ` on conflict on constraint ${dialect.quoteIdentifier(conflict.target.name)}`
+            : conflict.target?.kind === "columns"
+              ? ` on conflict (${conflict.target.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")})${conflict.target.where ? ` where ${renderExpression(conflict.target.where, state, dialect)}` : ""}`
               : " on conflict"
           sql += targetSql
-          sql += insertAst.conflict.action === "doNothing"
+          sql += conflict.action === "doNothing"
             ? " do nothing"
-            : ` do update set ${updateValues}${insertAst.conflict.where ? ` where ${renderExpression(insertAst.conflict.where, state, dialect)}` : ""}`
-        } else if (insertAst.conflict.action === "doNothing") {
+            : ` do update set ${updateValues}${conflict.where ? ` where ${renderExpression(conflict.where, state, dialect)}` : ""}`
+        } else if (conflict.action === "doNothing") {
           sql = sql.replace(/^insert/, "insert ignore")
         } else {
           sql += ` on duplicate key update ${updateValues}`
