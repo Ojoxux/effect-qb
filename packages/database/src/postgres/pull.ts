@@ -456,13 +456,54 @@ const parseQualifiedNameLiteral = (
   readonly name: string
 } | undefined => {
   const trimmed = value.trim()
-  const match = /^(?:(?:"([^"]+)"|([A-Za-z_][A-Za-z0-9_$]*))\.)?(?:"([^"]+)"|([A-Za-z_][A-Za-z0-9_$]*))$/.exec(trimmed)
-  if (match === null) {
+  const parseIdentifierPart = (
+    start: number
+  ): { readonly value: string; readonly next: number } | undefined => {
+    if (trimmed[start] === "\"") {
+      let parsed = ""
+      for (let index = start + 1; index < trimmed.length; index++) {
+        if (trimmed[index] !== "\"") {
+          parsed += trimmed[index]
+          continue
+        }
+        if (trimmed[index + 1] === "\"") {
+          parsed += "\""
+          index++
+          continue
+        }
+        return {
+          value: parsed,
+          next: index + 1
+        }
+      }
+      return undefined
+    }
+    const match = /^[A-Za-z_][A-Za-z0-9_$]*/.exec(trimmed.slice(start))
+    return match === null
+      ? undefined
+      : {
+          value: match[0],
+          next: start + match[0].length
+        }
+  }
+
+  const first = parseIdentifierPart(0)
+  if (first === undefined) {
+    return undefined
+  }
+  if (first.next === trimmed.length) {
+    return { name: first.value }
+  }
+  if (trimmed[first.next] !== ".") {
+    return undefined
+  }
+  const second = parseIdentifierPart(first.next + 1)
+  if (second === undefined || second.next !== trimmed.length) {
     return undefined
   }
   return {
-    schemaName: match[1] ?? match[2],
-    name: match[3] ?? match[4]!
+    schemaName: first.value,
+    name: second.value
   }
 }
 
