@@ -72,6 +72,37 @@ describe("sqlite behavior", () => {
     expect(rendered.params).toEqual(["user-1", "alice@example.com", 1, 2])
   })
 
+  test("renders sqlite conflict target and action predicates", () => {
+    const users = Sqlite.Table.make("users", {
+      id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),
+      email: Sqlite.Column.text(),
+      visits: Sqlite.Column.int()
+    })
+
+    const plan = Sqlite.Query.insert(users, {
+      id: "user-1",
+      email: "alice@example.com",
+      visits: 1
+    }).pipe(
+      Sqlite.Query.onConflict({
+        columns: ["email"] as const,
+        where: Sqlite.Query.isNotNull(users.email)
+      }, {
+        update: {
+          visits: Sqlite.Query.excluded(users.visits)
+        },
+        where: Sqlite.Query.gt(Sqlite.Query.excluded(users.visits), 0)
+      })
+    )
+
+    const rendered = render(plan)
+
+    expect(rendered.sql).toBe(
+      'insert into "users" ("id", "email", "visits") values (?, ?, ?) on conflict ("email") where ("users"."email" is not null) do update set "visits" = excluded."visits" where (excluded."visits" > ?)'
+    )
+    expect(rendered.params).toEqual(["user-1", "alice@example.com", 1, 0])
+  })
+
   test("rejects sqlite conflict targets with unknown columns at runtime", () => {
     const users = Sqlite.Table.make("users", {
       id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),
@@ -86,6 +117,24 @@ describe("sqlite behavior", () => {
       id: "user-1",
       email: "alice@example.com"
     }))).toThrow("effect-qb: unknown conflict target column")
+  })
+
+  test("rejects sqlite named conflict targets at runtime", () => {
+    const users = Sqlite.Table.make("users", {
+      id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),
+      email: Sqlite.Column.text()
+    })
+
+    expect(() => Sqlite.Query.onConflict({
+      constraint: "users_email_key"
+    } as any, {
+      update: {
+        email: Sqlite.Query.excluded(users.email)
+      }
+    })(Sqlite.Query.insert(users, {
+      id: "user-1",
+      email: "alice@example.com"
+    }))).toThrow("Unsupported sqlite named conflict constraint")
   })
 
   test("canonicalizes and validates sqlite unnest insert arrays using target column contracts", () => {

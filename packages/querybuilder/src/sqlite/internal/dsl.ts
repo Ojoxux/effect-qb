@@ -4391,10 +4391,7 @@ type BinaryPredicateExpression<
       }
     }
     if (!Array.isArray(input) && "constraint" in input) {
-      return {
-        kind: "constraint",
-        name: input.constraint
-      }
+      throw new Error("Unsupported sqlite named conflict constraint")
     }
     const columnTarget = input as {
       readonly columns: readonly string[]
@@ -4726,8 +4723,8 @@ type InsertPlanSelectionShapeError<
 }
 
 type SqliteConflictTargetError<Target> = Target & {
-  readonly __effect_qb_error__: "effect-qb: sqlite does not support named or predicate-scoped conflict targets"
-  readonly __effect_qb_hint__: "Use a column tuple target, or rely on SQLite duplicate-key resolution without target predicates"
+  readonly __effect_qb_error__: "effect-qb: sqlite does not support named conflict targets"
+  readonly __effect_qb_hint__: "Use a column tuple target, a column target object, or rely on SQLite duplicate-key resolution"
 }
 
 type SqliteConflictWhereError<Values> = Values & {
@@ -4838,6 +4835,15 @@ type ConflictColumnTarget<
   Columns extends DdlColumnInput
 > = ValidateTargetColumns<Target, NormalizeDdlColumns<Columns>>
 
+type SqliteConflictColumnTarget<
+  Target extends MutationTargetLike,
+  Columns extends DdlColumnInput
+> = {
+  readonly columns: ConflictColumnTarget<Target, Columns>
+  readonly where?: PredicateInput
+  readonly constraint?: never
+}
+
 type ConflictTargetInput<
   Target extends MutationTargetLike,
   Dialect extends string,
@@ -4851,6 +4857,10 @@ type ConflictTargetInput<
         } | {
           readonly constraint: string
         }
+      : Dialect extends "sqlite"
+        ? SqliteConflictColumnTarget<Target, Columns> | SqliteConflictTargetError<{
+          readonly constraint: string
+        }>
       : SqliteConflictTargetError<{
           readonly columns?: ConflictColumnTarget<Target, Columns>
           readonly where?: PredicateInput
@@ -4863,7 +4873,7 @@ type ConflictActionInput<
   UpdateValues extends MutationInputOf<Table.UpdateOf<Target>> | undefined = MutationInputOf<Table.UpdateOf<Target>> | undefined
 > = {
   readonly update?: UpdateValues
-  readonly where?: Dialect extends "postgres" ? PredicateInput : SqliteConflictWhereError<PredicateInput>
+  readonly where?: Dialect extends "postgres" | "sqlite" ? PredicateInput : SqliteConflictWhereError<PredicateInput>
 }
 
 type ConflictTargetPredicate<Target> =

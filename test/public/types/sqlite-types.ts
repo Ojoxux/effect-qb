@@ -71,6 +71,29 @@ Q.insert(users, userInsert).pipe(
   })
 )
 
+Q.insert(users, userInsert).pipe(
+  Q.onConflict({
+    columns: ["email"] as const,
+    where: Q.isNotNull(users.email)
+  }, {
+    update: {
+      visits: Q.excluded(users.visits)
+    },
+    where: Q.gt(Q.excluded(users.visits), 0)
+  })
+)
+
+Q.insert(users, userInsert).pipe(
+  // @ts-expect-error sqlite does not support named conflict constraints
+  Q.onConflict({
+    constraint: "users_email_key"
+  }, {
+    update: {
+      visits: Q.excluded(users.visits)
+    }
+  })
+)
+
 // @ts-expect-error sqlite does not support mysql mutation lock modifiers
 Q.lock("ignore")(Q.update(users, { visits: 3 }))
 
