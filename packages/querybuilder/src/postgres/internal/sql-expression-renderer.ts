@@ -818,6 +818,24 @@ const renderSelectionList = (
   }
 }
 
+const nestedRenderState = (state: RenderState): RenderState => ({
+  params: state.params,
+  valueMappings: state.valueMappings,
+  ctes: [],
+  cteNames: new Set(state.cteNames)
+})
+
+const assertMatchingSetProjections = (
+  left: readonly Projection[],
+  right: readonly Projection[]
+): void => {
+  const leftKeys = left.map((projection) => projection.path.join("."))
+  const rightKeys = right.map((projection) => projection.path.join("."))
+  if (leftKeys.length !== rightKeys.length || leftKeys.some((key, index) => key !== rightKeys[index])) {
+    throw new Error("set operator operands must have matching result rows")
+  }
+}
+
 export const renderQueryAst = (
   ast: QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
   state: RenderState,
@@ -885,6 +903,7 @@ export const renderQueryAst = (
         dialect
       )
       projections = selectionProjections(setAst.select as Record<string, unknown>)
+      assertMatchingSetProjections(projections, base.projections)
       sql = [
         `(${base.sql})`,
         ...(setAst.setOperations ?? []).map((entry) => {
@@ -897,6 +916,7 @@ export const renderQueryAst = (
             state,
             dialect
           )
+          assertMatchingSetProjections(projections, rendered.projections)
           return `${entry.kind}${entry.all ? " all" : ""} (${rendered.sql})`
         })
       ].join(" ")
@@ -1274,14 +1294,14 @@ const renderSourceReference = (
     if (!state.cteNames.has(derived.name)) {
       // derived tables are inlined, so no CTE registration is needed
     }
-    return `(${renderQueryAst(Query.getAst(derived.plan) as QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>, state, dialect).sql}) as ${dialect.quoteIdentifier(derived.name)}`
+    return `(${renderQueryAst(Query.getAst(derived.plan) as QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>, nestedRenderState(state), dialect).sql}) as ${dialect.quoteIdentifier(derived.name)}`
   }
   if (typeof source === "object" && source !== null && "kind" in source && (source as { readonly kind?: string }).kind === "lateral") {
     const lateral = source as unknown as {
       readonly name: string
       readonly plan: Query.Plan.Any
     }
-    return `lateral (${renderQueryAst(Query.getAst(lateral.plan) as QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>, state, dialect).sql}) as ${dialect.quoteIdentifier(lateral.name)}`
+    return `lateral (${renderQueryAst(Query.getAst(lateral.plan) as QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>, nestedRenderState(state), dialect).sql}) as ${dialect.quoteIdentifier(lateral.name)}`
   }
   if (typeof source === "object" && source !== null && (source as { readonly kind?: string }).kind === "values") {
     const values = source as unknown as {

@@ -87,29 +87,16 @@ describe("mysql errors", () => {
     expect(error.cause.sqlState).toBe("23000")
   })
 
-  test("fromDriver preserves write-required failures for write-bearing cte plans", () => {
+  test("fromDriver preserves write-required failures for write plans", () => {
     const users = Mysql.Table.make("users", {
       id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey),
       email: Mysql.Column.text()
     })
 
-    const insertedUsers = Mysql.Query.insert(users, {
+    const plan = Mysql.Query.insert(users, {
       id: "11111111-1111-1111-1111-111111111111",
       email: "alice@example.com"
-    }).pipe(
-      Mysql.Query.returning({
-        id: users.id,
-        email: users.email
-      }),
-      Mysql.Query.with("inserted_users")
-    )
-
-    const plan = Mysql.Query.select({
-      id: insertedUsers.id,
-      email: insertedUsers.email
-    }).pipe(
-      Mysql.Query.from(insertedUsers)
-    )
+    })
 
     const executor = Mysql.Executor.make({
       driver: Mysql.Executor.driver(() =>

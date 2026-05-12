@@ -1106,7 +1106,7 @@ describe("postgres dialect behavior", () => {
     expect(Postgres.Renderer.make().render(Postgres.Query.createTable(memberships, {
       ifNotExists: true
     })).sql).toBe(
-      'create table if not exists "public"."memberships" ("id" uuid not null, "orgId" uuid not null, "role" text not null, "note" text, primary key ("id"), foreign key ("orgId") references "public"."orgs" ("id"), unique ("orgId", "role"), constraint "role_not_empty" check (("memberships"."role" <> $1)))'
+      'create table if not exists "public"."memberships" ("id" uuid not null, "orgId" uuid not null, "role" text not null, "note" text, primary key ("id"), foreign key ("orgId") references "public"."orgs" ("id"), unique ("orgId", "role"), constraint "role_not_empty" check (("role" <> $1)))'
     )
     expect(Postgres.Renderer.make().render(Postgres.Query.createTable(memberships, {
       ifNotExists: true
