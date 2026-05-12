@@ -119,6 +119,13 @@ Q.insert(users, userInsert).pipe(
 )
 
 Q.insert(users, userInsert).pipe(
+  // @ts-expect-error sqlite conflict update actions require at least one assignment
+  Q.onConflict(["id"] as const, {
+    update: {}
+  })
+)
+
+Q.insert(users, userInsert).pipe(
   // @ts-expect-error sqlite does not support named conflict constraints
   Q.onConflict({
     constraint: "users_email_key"

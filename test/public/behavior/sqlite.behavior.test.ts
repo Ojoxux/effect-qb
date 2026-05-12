@@ -198,6 +198,20 @@ describe("sqlite behavior", () => {
     ))).toThrow("conflict action predicates require update assignments")
   })
 
+  test("rejects sqlite conflict update actions without assignments", () => {
+    const users = Sqlite.Table.make("users", {
+      id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),
+      email: Sqlite.Column.text()
+    })
+
+    expect(() => Sqlite.Query.onConflict(["email"] as const, {
+      update: {}
+    })(Sqlite.Query.insert(users, {
+      id: "user-1",
+      email: "alice@example.com"
+    }))).toThrow("conflict update assignments require at least one assignment")
+  })
+
   test("rejects sqlite conflict targets with unknown columns at runtime", () => {
     const users = Sqlite.Table.make("users", {
       id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),

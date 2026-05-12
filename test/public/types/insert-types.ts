@@ -83,6 +83,17 @@ Q.insert(users, {
   })
 )
 
+Q.insert(users, {
+  id: "user-id",
+  email: "alice@example.com",
+  bio: "writer"
+}).pipe(
+  // @ts-expect-error conflict update actions require at least one assignment
+  Q.onConflict(["email"] as const, {
+    update: {}
+  })
+)
+
 const invalidConflictTargetPredicatePlan = Q.insert(users, {
   id: "user-id",
   email: "alice@example.com",
@@ -154,6 +165,17 @@ Mysql.Query.insert(mysqlUsers, {
   // @ts-expect-error mysql conflict actions do not support where(...)
   where: Mysql.Query.isNotNull(Mysql.Query.excluded(mysqlUsers.bio))
 }))
+
+Mysql.Query.insert(mysqlUsers, {
+  id: "user-id",
+  email: "alice@example.com",
+  bio: null
+}).pipe(
+  // @ts-expect-error mysql conflict update actions require at least one assignment
+  Mysql.Query.onConflict(["email"] as const, {
+    update: {}
+  })
+)
 
 // @ts-expect-error mysql excluded(...) only accepts bound table columns
 const invalidMysqlExcludedExpression = Mysql.Query.excluded(Mysql.Function.lower(mysqlUsers.bio))

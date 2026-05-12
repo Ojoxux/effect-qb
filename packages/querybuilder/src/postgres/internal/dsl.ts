@@ -4915,6 +4915,11 @@ type ConflictActionInput<
       readonly where?: ConflictActionWhereWithoutUpdateError<PredicateInput>
     }
 
+type ConflictActionUpdateNonEmptyConstraint<Options> =
+  Options extends { readonly update: infer Values }
+    ? UpdateValuesNonEmptyConstraint<Values>
+    : unknown
+
 type ConflictTargetPredicate<Target> =
   Target extends { readonly where?: infer Predicate } ? Extract<Predicate, PredicateInput> : never
 
@@ -6181,7 +6186,7 @@ type AsCurriedResult<
     ConflictTarget extends ConflictTargetInput<Target, Dialect, Columns> = ConflictTargetInput<Target, Dialect, Columns>
   >(
     target: ConflictTarget,
-    options?: Options
+    options?: Options & ConflictActionUpdateNonEmptyConstraint<Options>
   ) =>
     <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
       plan: PlanValue & RequireInsertStatement<PlanValue>

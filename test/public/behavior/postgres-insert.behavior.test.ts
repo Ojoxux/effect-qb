@@ -187,6 +187,20 @@ describe("postgres insert behavior", () => {
     }))).toThrow("effect-qb: unknown conflict target column")
   })
 
+  test("rejects postgres conflict update actions without assignments", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    expect(() => Postgres.Query.onConflict(["email"] as const, {
+      update: {}
+    })(Postgres.Query.insert(users, {
+      id: userId,
+      email: "alice@example.com"
+    }))).toThrow("conflict update assignments require at least one assignment")
+  })
+
   test("canonicalizes insert values using the target column runtime contract", () => {
     const metrics = Postgres.Table.make("metrics", {
       total: Postgres.Column.number(),

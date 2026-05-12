@@ -189,6 +189,20 @@ describe("mysql insert behavior", () => {
     ])
   })
 
+  test("rejects mysql conflict update actions without assignments", () => {
+    const users = Mysql.Table.make("users", {
+      id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey),
+      email: Mysql.Column.text()
+    })
+
+    expect(() => Mysql.Query.onConflict(["email"] as const, {
+      update: {}
+    })(Mysql.Query.insert(users, {
+      id: userId,
+      email: "alice@example.com"
+    }))).toThrow("conflict update assignments require at least one assignment")
+  })
+
   test("rejects mysql conflict targets with unknown columns at runtime", () => {
     const users = Mysql.Table.make("users", {
       id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey),

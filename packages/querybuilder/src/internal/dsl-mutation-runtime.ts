@@ -129,6 +129,9 @@ export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
       const updateAssignments = options.update
         ? ctx.buildMutationAssignments(insertTarget, options.update)
         : []
+      if (options.update !== undefined && updateAssignments.length === 0) {
+        throw new Error("conflict update assignments require at least one assignment")
+      }
       const updateWhere = options.where === undefined
         ? undefined
         : ctx.toDialectExpression(options.where)
