@@ -35,6 +35,7 @@ import {
   type DependencyRecord,
   type DialectOf,
   type DerivedSelectionOf,
+  type DerivedSourceCompatiblePlan,
   type DerivedSource,
   type CompletePlan,
   type ExpressionInput,
@@ -216,6 +217,13 @@ type DialectAsExpression<
 > = Value extends Expression.Any
   ? Value
   : DialectLiteralExpression<Extract<Value, LiteralValue>, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
+
+type ProjectionAliasedExpression<
+  Value extends Expression.Any,
+  Alias extends string
+> = Value & {
+  readonly [ProjectionAlias.TypeId]: ProjectionAlias.State<Alias>
+}
 
 /** Normalizes a generic string-capable input into the expression form used internally. */
 type DialectAsStringExpression<
@@ -5007,7 +5015,7 @@ type AsCurriedResult<
   >(
     value: Value,
     alias: Alias
-  ): DialectAsExpression<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
+  ): ProjectionAliasedExpression<DialectAsExpression<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>, Alias>
   function as<
     Rows extends ValuesRowsInput,
     Alias extends string
@@ -5028,7 +5036,7 @@ type AsCurriedResult<
     PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
     Alias extends string
   >(
-    value: CompletePlan<PlanValue>,
+    value: DerivedSourceCompatiblePlan<PlanValue>,
     alias: Alias
   ): DerivedSource<PlanValue, Alias>
   function as(valueOrAlias: unknown, alias?: string): unknown {

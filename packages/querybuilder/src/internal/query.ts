@@ -6,6 +6,7 @@ import * as RowSet from "./row-set.js"
 import * as Table from "./table.js"
 import * as ExpressionAst from "./expression-ast.js"
 import * as QueryAst from "./query-ast.js"
+import type * as ProjectionAlias from "./projection-alias.js"
 import type { JsonNode } from "./json/ast.js"
 import type * as JsonPath from "./json/path.js"
 import type { QueryCapability } from "./query-requirements.js"
@@ -1054,6 +1055,113 @@ type JoinPath<Segments extends readonly string[]> = Segments extends readonly []
     : Segments extends readonly [infer Head extends string, ...infer Tail extends readonly string[]]
       ? `${Head}__${JoinPath<Tail>}`
       : string
+
+type ProjectionAliasOf<
+  Value extends Expression.Any,
+  Path extends readonly string[]
+> = Value extends {
+  readonly [ProjectionAlias.TypeId]: ProjectionAlias.State<infer Alias extends string>
+} ? Alias : JoinPath<Path>
+
+type SelectionProjectionEntry<
+  Alias extends string,
+  Path extends readonly string[],
+  ExpectedAlias extends string
+> = {
+  readonly alias: Alias
+  readonly path: Path
+  readonly expectedAlias: ExpectedAlias
+}
+
+type SelectionProjectionEntries<
+  Selection,
+  Path extends readonly string[] = []
+> = Selection extends Expression.Any
+  ? SelectionProjectionEntry<ProjectionAliasOf<Selection, Path>, Path, JoinPath<Path>>
+  : Selection extends Record<string, any>
+    ? {
+        readonly [K in Extract<keyof Selection, string>]:
+          SelectionProjectionEntries<Selection[K], [...Path, K]>
+      }[Extract<keyof Selection, string>]
+    : never
+
+type SameProjectionPath<
+  Left extends readonly string[],
+  Right extends readonly string[]
+> = Left extends readonly []
+  ? Right extends readonly [] ? true : false
+  : Left extends readonly [infer LeftHead extends string, ...infer LeftTail extends readonly string[]]
+    ? Right extends readonly [infer RightHead extends string, ...infer RightTail extends readonly string[]]
+      ? [LeftHead] extends [RightHead]
+        ? [RightHead] extends [LeftHead]
+          ? SameProjectionPath<LeftTail, RightTail>
+          : false
+        : false
+      : false
+    : false
+
+type SameProjectionAlias<
+  Left extends string,
+  Right extends string
+> = [Left] extends [Right] ? [Right] extends [Left] ? true : false : false
+
+type HasDifferentPathForAlias<
+  Entries,
+  Alias extends string,
+  Path extends readonly string[]
+> = Entries extends SelectionProjectionEntry<infer EntryAlias, infer EntryPath, any>
+  ? SameProjectionAlias<EntryAlias, Alias> extends true
+    ? SameProjectionPath<EntryPath, Path> extends true ? never : true
+    : never
+  : never
+
+type DuplicateProjectionAliases<
+  Entries,
+  AllEntries = Entries
+> = Entries extends SelectionProjectionEntry<infer Alias, infer Path, any>
+  ? string extends Alias ? never
+    : true extends HasDifferentPathForAlias<AllEntries, Alias, Path> ? Alias : never
+  : never
+
+type ProjectionAliasMismatches<Entries> =
+  Entries extends SelectionProjectionEntry<infer Alias, any, infer ExpectedAlias>
+    ? string extends Alias ? never
+      : string extends ExpectedAlias ? never
+        : SameProjectionAlias<Alias, ExpectedAlias> extends true ? never : Alias
+    : never
+
+type DerivedProjectionDuplicateAliases<Selection> =
+  DuplicateProjectionAliases<SelectionProjectionEntries<Selection>>
+
+type DerivedProjectionAliasMismatches<Selection> =
+  ProjectionAliasMismatches<SelectionProjectionEntries<Selection>>
+
+type IsAny<Value> = 0 extends (1 & Value) ? true : false
+
+type IsBroadSelection<Selection> =
+  IsAny<Selection> extends true ? true :
+    unknown extends Selection ? true : false
+
+type DerivedProjectionIssues<Selection> =
+  IsBroadSelection<Selection> extends true
+    ? never
+    : | DerivedProjectionDuplicateAliases<Selection>
+      | DerivedProjectionAliasMismatches<Selection>
+
+export type DerivedSourceProjectionCompatibilityError<
+  PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>
+> = PlanValue & {
+  readonly __effect_qb_error__: "effect-qb: derived subqueries require unique path-based projection aliases"
+  readonly __effect_qb_duplicate_projection_aliases__: DerivedProjectionDuplicateAliases<SelectionOfPlan<PlanValue>>
+  readonly __effect_qb_alias_mismatches__: DerivedProjectionAliasMismatches<SelectionOfPlan<PlanValue>>
+  readonly __effect_qb_hint__: "Use unique nested selection paths and do not override projection aliases inside derived subqueries"
+}
+
+export type DerivedSourceCompatiblePlan<
+  PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>
+> = [DerivedProjectionIssues<SelectionOfPlan<PlanValue>>] extends [never]
+  ? CompletePlan<PlanValue>
+  : CompletePlan<PlanValue> & DerivedSourceProjectionCompatibilityError<PlanValue>
 
 type DerivedLeafExpression<
   Value extends Expression.Any,
