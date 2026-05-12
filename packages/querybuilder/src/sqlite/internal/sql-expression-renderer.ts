@@ -1205,6 +1205,9 @@ export const renderQueryAst = (
       if (targets.length > 1) {
         throw new Error("Unsupported sqlite multi-table update")
       }
+      if ((updateAst.set ?? []).length === 0) {
+        throw new Error("update statements require at least one assignment")
+      }
       const assignments = updateAst.set!.map((entry) =>
         renderMutationAssignment(entry, state, dialect)).join(", ")
       if (dialect.name === "mysql") {

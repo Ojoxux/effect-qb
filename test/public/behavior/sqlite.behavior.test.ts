@@ -412,6 +412,10 @@ describe("sqlite behavior", () => {
   test("rejects sqlite mutation modifiers that would otherwise be ignored", () => {
     const { users, posts } = makeSqliteSocialGraph()
 
+    expect(() => render(Sqlite.Query.update(users, {}))).toThrow(
+      "update statements require at least one assignment"
+    )
+
     const orderedUpdate = Sqlite.Query.update(users, {
       email: "updated@example.com"
     }).pipe(
