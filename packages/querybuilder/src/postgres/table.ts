@@ -155,15 +155,24 @@ type RichIndexKeyInput =
       readonly collation?: string
     }
 
-type RichIndexInput<Columns extends string | readonly string[] = string | readonly string[]> = {
-  readonly columns?: Columns & BaseTable.NonEmptyColumnInput<Columns>
-  readonly keys?: readonly [RichIndexKeyInput, ...RichIndexKeyInput[]]
+type RichIndexDetails = {
   readonly name?: string
   readonly unique?: boolean
   readonly method?: string
   readonly include?: readonly string[]
   readonly predicate?: DdlExpressionLike
 }
+
+type RichIndexInput<Columns extends string | readonly string[] = string | readonly string[]> = RichIndexDetails & (
+  | {
+      readonly columns: Columns & BaseTable.NonEmptyColumnInput<Columns>
+      readonly keys?: readonly [RichIndexKeyInput, ...RichIndexKeyInput[]]
+    }
+  | {
+      readonly columns?: Columns & BaseTable.NonEmptyColumnInput<Columns>
+      readonly keys: readonly [RichIndexKeyInput, ...RichIndexKeyInput[]]
+    }
+)
 
 type RichForeignKeyInput<
   LocalColumns extends string | readonly string[],
