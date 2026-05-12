@@ -198,6 +198,33 @@ describe("postgres insert behavior", () => {
     }))).toThrow("Expected a local-date value")
   })
 
+  test("canonicalizes expression-wrapped insert values using the target column runtime contract", () => {
+    const metrics = Postgres.Table.make("expression_metrics", {
+      total: Postgres.Column.number(),
+      counter: Postgres.Column.int8()
+    })
+
+    const rendered = render(Postgres.Query.insert(metrics, {
+      total: Postgres.Query.literal("-0.00"),
+      counter: Postgres.Query.literal("0042")
+    }))
+
+    expect(rendered.params).toEqual([
+      "0",
+      "42"
+    ])
+  })
+
+  test("rejects invalid expression-wrapped insert values before rendering params", () => {
+    const events = Postgres.Table.make("expression_events", {
+      happenedOn: Postgres.Column.date()
+    })
+
+    expect(() => render(Postgres.Query.insert(events, {
+      happenedOn: Postgres.Query.literal("2026-02-31")
+    }))).toThrow("Expected a local-date value")
+  })
+
   test("canonicalizes unnest insert arrays using the target column runtime contract", () => {
     const metrics = Postgres.Table.make("unnest_metrics", {
       total: Postgres.Column.number(),
