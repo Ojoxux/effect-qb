@@ -14,7 +14,7 @@ import {
   type SelectionOfPlan
 } from "./query.js"
 import * as ExpressionAst from "./expression-ast.js"
-import { flattenSelection } from "./projections.js"
+import { flattenSelection, validateProjections } from "./projections.js"
 
 const DerivedProto = {
   pipe(this: unknown) {
@@ -64,7 +64,9 @@ const reboundedColumns = <
 ): DerivedSelectionOf<SelectionOfPlan<PlanValue>, Alias> => {
   const ast = getAst(plan)
   const selection = {} as Record<string, unknown>
-  for (const projection of flattenSelection(ast.select as Record<string, unknown>)) {
+  const projections = flattenSelection(ast.select as Record<string, unknown>)
+  validateProjections(projections)
+  for (const projection of projections) {
     const expectedAlias = pathAlias(projection.path)
     if (projection.alias !== expectedAlias) {
       throw new Error(
