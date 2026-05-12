@@ -149,6 +149,10 @@ const derivedAliasCollisionSubquery = Postgres.Query.select({
 const derivedAliasCollisionSource = Postgres.Query.as(derivedAliasCollisionSubquery, "derived_collision")
 void derivedAliasCollisionSource
 
+// @ts-expect-error curried derived subquery aliases must be validated too
+const derivedAliasCollisionCurriedSource = Postgres.Query.as("derived_collision_curried")(derivedAliasCollisionSubquery)
+void derivedAliasCollisionCurriedSource
+
 const derivedAliasedProjectionSubquery = Postgres.Query.select({
   value: Postgres.Query.as(users.id, "renamed_value")
 }).pipe(
