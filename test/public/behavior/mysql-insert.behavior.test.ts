@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { describe, expect, test } from "bun:test"
+import * as Schema from "effect/Schema"
 
 import * as Mysql from "#mysql"
 import { unsafeAny } from "../../helpers/unsafe.ts"
@@ -91,6 +92,18 @@ describe("mysql insert behavior", () => {
       "bob@example.com",
       "writer"
     ])
+  })
+
+  test("preserves JSON string scalars that look like JSON while encoding inserts", () => {
+    const docs = Mysql.Table.make("json_string_docs", {
+      payload: Mysql.Column.json(Schema.String)
+    })
+
+    const rendered = render(Mysql.Query.insert(docs, {
+      payload: "42"
+    }))
+
+    expect(rendered.params).toEqual(["42"])
   })
 
   test("renders mysql default-only inserts and duplicate-key conflict clauses", () => {
