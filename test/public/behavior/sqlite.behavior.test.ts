@@ -39,6 +39,41 @@ describe("sqlite behavior", () => {
     expect(rendered.dialect).toBe("sqlite")
   })
 
+  test("rejects sqlite-unsupported read constructs before emitting invalid SQL", () => {
+    const { users, posts } = makeSqliteSocialGraph()
+    const postIds = Sqlite.Query.select({
+      value: posts.id
+    }).pipe(Sqlite.Query.from(posts))
+    const lateralPosts = Sqlite.Query.select({
+      postId: posts.id,
+      userId: posts.userId
+    }).pipe(
+      Sqlite.Query.from(posts),
+      Sqlite.Query.where(Sqlite.Query.eq(posts.userId, users.id)),
+      Sqlite.Query.lateral("user_posts")
+    )
+
+    expect(() => render(Sqlite.Query.select({
+      ok: Sqlite.Query.compareAny(users.id, postIds, "eq")
+    }).pipe(Sqlite.Query.from(users)))).toThrow("Unsupported sqlite quantified comparison")
+
+    expect(() => render(Sqlite.Query.select({
+      ok: Sqlite.Query.compareAll(users.id, postIds, "eq")
+    }).pipe(Sqlite.Query.from(users)))).toThrow("Unsupported sqlite quantified comparison")
+
+    expect(() => render(Sqlite.Query.select({
+      ok: Sqlite.Query.regexMatch(users.email, ".*@example.com")
+    }).pipe(Sqlite.Query.from(users)))).toThrow("Unsupported sqlite regex operator")
+
+    expect(() => render(Sqlite.Query.select({
+      email: users.email,
+      postId: lateralPosts.postId
+    }).pipe(
+      Sqlite.Query.from(users),
+      Sqlite.Query.innerJoin(lateralPosts, Sqlite.Query.eq(lateralPosts.userId, users.id))
+    ))).toThrow("Unsupported sqlite lateral source")
+  })
+
   test("renders sqlite upserts and returning clauses with excluded column references", () => {
     const users = Sqlite.Table.make("users", {
       id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),

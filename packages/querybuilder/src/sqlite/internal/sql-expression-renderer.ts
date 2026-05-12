@@ -4,7 +4,7 @@ import * as Query from "../../internal/query.js"
 import * as Expression from "../../internal/scalar.js"
 import * as Table from "../../internal/table.js"
 import * as QueryAst from "../../internal/query-ast.js"
-import type { RenderState, SqlDialect } from "../../internal/dialect.js"
+import type { RenderState, RenderValueContext, SqlDialect } from "../../internal/dialect.js"
 import * as ExpressionAst from "../../internal/expression-ast.js"
 import * as JsonPath from "../../internal/json/path.js"
 import {
@@ -58,14 +58,59 @@ const renderCastType = (
   }
 }
 
+const renderSqliteDdlString = (value: string): string =>
+  `'${value.replaceAll("'", "''")}'`
+
+const renderSqliteDdlBytes = (value: Uint8Array): string =>
+  `x'${Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("")}'`
+
+const renderSqliteDdlLiteral = (
+  value: unknown,
+  state: RenderState,
+  context: RenderValueContext = {}
+): string => {
+  const driverValue = toDriverValue(value, {
+    dialect: "sqlite",
+    valueMappings: state.valueMappings,
+    ...context
+  })
+  if (driverValue === null) {
+    return "null"
+  }
+  switch (typeof driverValue) {
+    case "boolean":
+      return driverValue ? "1" : "0"
+    case "number":
+      if (!Number.isFinite(driverValue)) {
+        throw new Error("Expected a finite numeric value")
+      }
+      return String(driverValue)
+    case "bigint":
+      return driverValue.toString()
+    case "string":
+      return renderSqliteDdlString(driverValue)
+    case "object":
+      if (driverValue instanceof Uint8Array) {
+        return renderSqliteDdlBytes(driverValue)
+      }
+      break
+  }
+  throw new Error("Unsupported sqlite DDL literal value")
+}
+
 const renderDdlExpression = (
   expression: DdlExpressionLike,
   state: RenderState,
   dialect: SqlDialect
-): string =>
-  SchemaExpression.isSchemaExpression(expression)
-    ? SchemaExpression.render(expression)
-    : renderExpression(expression, state, dialect)
+): string => {
+  if (SchemaExpression.isSchemaExpression(expression)) {
+    return SchemaExpression.render(expression)
+  }
+  return renderExpression(expression, state, {
+    ...dialect,
+    renderLiteral: renderSqliteDdlLiteral
+  })
+}
 
 const renderSqliteMutationLimit = (
   expression: Expression.Any,
@@ -1439,6 +1484,9 @@ const renderSourceReference = (
       readonly name: string
       readonly plan: Query.Plan.Any
     }
+    if (dialect.name === "sqlite") {
+      throw new Error("Unsupported sqlite lateral source")
+    }
     return `lateral (${renderQueryAst(Query.getAst(lateral.plan) as QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>, nestedRenderState(state), dialect).sql}) as ${dialect.quoteIdentifier(lateral.name)}`
   }
   if (typeof source === "object" && source !== null && (source as { readonly kind?: string }).kind === "values") {
@@ -1557,18 +1605,30 @@ export const renderExpression = (
         ? `(${renderExpression(ast.left, state, dialect)} ilike ${renderExpression(ast.right, state, dialect)})`
         : `(lower(${renderExpression(ast.left, state, dialect)}) like lower(${renderExpression(ast.right, state, dialect)}))`
     case "regexMatch":
+      if (dialect.name === "sqlite") {
+        throw new Error("Unsupported sqlite regex operator")
+      }
       return dialect.name === "postgres"
         ? `(${renderExpression(ast.left, state, dialect)} ~ ${renderExpression(ast.right, state, dialect)})`
         : `(${renderExpression(ast.left, state, dialect)} regexp ${renderExpression(ast.right, state, dialect)})`
     case "regexIMatch":
+      if (dialect.name === "sqlite") {
+        throw new Error("Unsupported sqlite regex operator")
+      }
       return dialect.name === "postgres"
         ? `(${renderExpression(ast.left, state, dialect)} ~* ${renderExpression(ast.right, state, dialect)})`
         : `(${renderExpression(ast.left, state, dialect)} regexp ${renderExpression(ast.right, state, dialect)})`
     case "regexNotMatch":
+      if (dialect.name === "sqlite") {
+        throw new Error("Unsupported sqlite regex operator")
+      }
       return dialect.name === "postgres"
         ? `(${renderExpression(ast.left, state, dialect)} !~ ${renderExpression(ast.right, state, dialect)})`
         : `(${renderExpression(ast.left, state, dialect)} not regexp ${renderExpression(ast.right, state, dialect)})`
     case "regexNotIMatch":
+      if (dialect.name === "sqlite") {
+        throw new Error("Unsupported sqlite regex operator")
+      }
       return dialect.name === "postgres"
         ? `(${renderExpression(ast.left, state, dialect)} !~* ${renderExpression(ast.right, state, dialect)})`
         : `(${renderExpression(ast.left, state, dialect)} not regexp ${renderExpression(ast.right, state, dialect)})`
@@ -1662,8 +1722,14 @@ export const renderExpression = (
     case "inSubquery":
       return `(${renderExpression(ast.left, state, dialect)} in (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
     case "comparisonAny":
+      if (dialect.name === "sqlite") {
+        throw new Error("Unsupported sqlite quantified comparison")
+      }
       return `(${renderExpression(ast.left, state, dialect)} ${renderComparisonOperator(ast.operator)} any (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
     case "comparisonAll":
+      if (dialect.name === "sqlite") {
+        throw new Error("Unsupported sqlite quantified comparison")
+      }
       return `(${renderExpression(ast.left, state, dialect)} ${renderComparisonOperator(ast.operator)} all (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
     case "window": {
       if (!Array.isArray(ast.partitionBy) || !Array.isArray(ast.orderBy) || typeof ast.function !== "string") {

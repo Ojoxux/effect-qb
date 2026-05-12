@@ -164,6 +164,37 @@ test("sqlite executor supports returning upserts, JSON1 queries, and savepoint r
   ])
 })
 
+test("sqlite createTable renders literal defaults executable by SQLite", async () => {
+  const users = Table.make("default_users", {
+    id: C.text().pipe(C.primaryKey),
+    name: C.text().pipe(C.default(Q.literal("guest"))),
+    active: C.boolean().pipe(C.default(Q.literal(true)))
+  })
+
+  const result = await runSqlite(Effect.gen(function*() {
+    const executor = Executor.make()
+
+    yield* executor.execute(Q.createTable(users))
+    yield* executor.execute(Q.insert(users, {
+      id: "user-1"
+    }))
+
+    return yield* executor.execute(Q.select({
+      id: users.id,
+      name: users.name,
+      active: users.active
+    }).pipe(Q.from(users)))
+  }))
+
+  expect(result).toEqual([
+    {
+      id: "user-1",
+      name: "guest",
+      active: true
+    }
+  ])
+})
+
 test("sqlite JSON string scalars are stored as valid JSON text scalars", async () => {
   const docs = Table.make("json_string_docs", {
     id: C.text().pipe(C.primaryKey),
