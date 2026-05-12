@@ -1133,6 +1133,15 @@ type MySqlJsonTypeName<Value> =
             JsonTypeName<Value> extends "null" ? "NULL" :
               JsonTypeName<Value>
 
+type MySqlUnsupportedJsonFeatureUsageError<Feature extends string> = {
+  readonly __effect_qb_error__: "effect-qb: unsupported mysql json feature"
+  readonly __effect_qb_json_feature__: Feature
+}
+
+type MySqlUnsupportedJsonFeature<Feature extends string> = (
+  feature: MySqlUnsupportedJsonFeatureUsageError<Feature>
+) => never
+
 type JsonPathGuard<
   Root,
   Target extends JsonPathInput,
@@ -3134,9 +3143,9 @@ type BinaryPredicateExpression<
     typeOf: jsonTypeOf,
     length: jsonLength,
     keys: jsonKeys,
-    stripNulls: jsonStripNulls,
+    stripNulls: jsonStripNulls as unknown as MySqlUnsupportedJsonFeature<"json.stripNulls">,
     pathExists: jsonPathExists,
-    pathMatch: jsonPathMatch
+    pathMatch: jsonPathMatch as unknown as MySqlUnsupportedJsonFeature<"json.pathMatch">
   }
 
   const jsonb = {
