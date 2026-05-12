@@ -260,6 +260,9 @@ const renderMySqlJsonPathSegment = (segment: JsonPath.AnySegment | string | numb
   if (typeof segment === "object" && segment !== null && segment.kind === "slice") {
     return `[${renderMySqlJsonIndex(segment.start ?? 0)} to ${segment.end === undefined ? "last" : renderMySqlJsonIndex(segment.end)}]`
   }
+  if (typeof segment === "object" && segment !== null && segment.kind === "descend") {
+    return "**"
+  }
   return renderJsonPathSegment(segment)
 }
 
