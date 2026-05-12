@@ -38,6 +38,9 @@ Q.select(Q.literal(1))
 // @ts-expect-error nested selections must project at least one expression
 Q.select({ nested: {} })
 
+// @ts-expect-error distinctOn(...) requires at least one expression
+Postgres.Query.distinctOn()
+
 const predicateHelpersPlan = Q.select({
   distinctEmail: Q.isDistinctFrom(users.email, "alice@example.com"),
   sameEmail: Q.isNotDistinctFrom(users.email, "alice@example.com"),
