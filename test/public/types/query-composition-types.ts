@@ -598,9 +598,12 @@ const mutationReturningPlan = Q.insert(users, {
 
 // @ts-expect-error derived table sources only accept select-like plans
 const mutationDerivedSource = Q.as(mutationReturningPlan, "inserted_users")
+// @ts-expect-error curried derived table sources only accept select-like plans
+const mutationCurriedDerivedSource = Q.as("inserted_users")(mutationReturningPlan)
 // @ts-expect-error lateral sources only accept select-like plans
 const mutationLateralSource = Q.lateral("inserted_users")(mutationReturningPlan)
 void mutationDerivedSource
+void mutationCurriedDerivedSource
 void mutationLateralSource
 
 const rendered = Renderer.make().render(windowPlan)

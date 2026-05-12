@@ -363,6 +363,10 @@ describe("select sources behavior", () => {
       "inline derived sources only accept select-like query plans"
     )
 
+    expect(() => mutation.pipe(Postgres.Query.as("inserted_users"))).toThrow(
+      "inline derived sources only accept select-like query plans"
+    )
+
     expect(() => Postgres.Query.lateral("inserted_users")(unsafeAny(mutation))).toThrow(
       "inline derived sources only accept select-like query plans"
     )
