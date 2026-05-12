@@ -6,6 +6,68 @@ const stripOuterQuotes = (value: string): string =>
     ? value.slice(1, -1).replaceAll("\"\"", "\"")
     : value
 
+const safeUnquotedIdentifier = /^[a-z_][a-z0-9_$]*$/
+
+const quoteIdentifier = (value: string): string =>
+  `"${value.replaceAll("\"", "\"\"")}"`
+
+const renderCanonicalIdentifier = (value: string, quoted: boolean): string => {
+  const canonical = quoted ? value : value.toLowerCase()
+  return safeUnquotedIdentifier.test(canonical)
+    ? canonical
+    : quoteIdentifier(canonical)
+}
+
+const parseIdentifierPart = (
+  input: string,
+  start: number
+): { readonly value: string; readonly quoted: boolean; readonly next: number } | undefined => {
+  if (input[start] === "\"") {
+    let value = ""
+    for (let index = start + 1; index < input.length; index++) {
+      if (input[index] !== "\"") {
+        value += input[index]
+        continue
+      }
+      if (input[index + 1] === "\"") {
+        value += "\""
+        index++
+        continue
+      }
+      return {
+        value,
+        quoted: true,
+        next: index + 1
+      }
+    }
+    return undefined
+  }
+  const match = /^[A-Za-z_][A-Za-z0-9_$]*/.exec(input.slice(start))
+  return match === null
+    ? undefined
+    : {
+        value: match[0],
+        quoted: false,
+        next: start + match[0].length
+      }
+}
+
+const parseQualifiedTypeName = (
+  value: string
+): { readonly schemaName: string; readonly name: string } | undefined => {
+  const schema = parseIdentifierPart(value, 0)
+  if (schema === undefined || value[schema.next] !== ".") {
+    return undefined
+  }
+  const name = parseIdentifierPart(value, schema.next + 1)
+  return name !== undefined && name.next === value.length
+    ? {
+        schemaName: renderCanonicalIdentifier(schema.value, schema.quoted),
+        name: renderCanonicalIdentifier(name.value, name.quoted)
+      }
+    : undefined
+}
+
 const canonicalBaseType = (value: string): string => {
   switch (value) {
     case "boolean":
@@ -45,15 +107,21 @@ const canonicalBaseType = (value: string): string => {
 export const normalizePostgresTypeName = normalize
 
 export const canonicalizePostgresTypeName = (value: string): string => {
-  const normalized = normalize(value)
-  if (normalized.endsWith("[]")) {
-    return `${canonicalizePostgresTypeName(normalized.slice(0, -2))}[]`
+  const trimmed = value.trim()
+  if (trimmed.endsWith("[]")) {
+    return `${canonicalizePostgresTypeName(trimmed.slice(0, -2))}[]`
   }
+  const normalized = normalize(trimmed)
   const arrayPrefix = /^_+/.exec(normalized)
   if (arrayPrefix !== null) {
     const depth = arrayPrefix[0].length
     const base = stripOuterQuotes(normalized.slice(depth))
     return `${canonicalBaseType(base)}${"[]".repeat(depth)}`
+  }
+  const rawBase = trimmed.replace(/\(.+\)$/, "")
+  const qualifiedTypeName = parseQualifiedTypeName(rawBase)
+  if (qualifiedTypeName !== undefined) {
+    return `${qualifiedTypeName.schemaName}.${qualifiedTypeName.name}${trimmed.slice(rawBase.length)}`
   }
   const base = normalized.replace(/\(.+\)$/, "")
   const unquotedBase = stripOuterQuotes(base)
