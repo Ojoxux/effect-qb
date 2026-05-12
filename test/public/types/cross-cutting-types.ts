@@ -40,6 +40,9 @@ const mergePlan = Q.merge(
   },
 );
 
+const completeMergePlan: Q.CompletePlan<typeof mergePlan> = mergePlan;
+void completeMergePlan;
+
 const badMergeMysqlPredicate = Q.merge(
   users,
   incomingUsers,
