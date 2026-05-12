@@ -39,6 +39,7 @@ const tagsKeysExpr = J.json.keys(tagsExpr)
 const scalarLengthExpr = J.json.length(scalarDocs.payload)
 const objectTypeExpr = J.json.typeOf(docs.payload)
 const scalarTypeExpr = J.json.typeOf(scalarDocs.payload)
+const wildcardPath = J.json.path(J.json.key("profile"), J.json.key("tags"), J.json.wildcard())
 
 type SetWithoutCreate = E.RuntimeOf<typeof setWithoutCreateExpr>
 type TagsKeys = E.RuntimeOf<typeof tagsKeysExpr>
@@ -68,6 +69,12 @@ J.json.insert(docs.payload, tagWildcardPath, "featured")
 
 // @ts-expect-error json mutation helpers only accept exact key/index paths
 J.json.delete(docs.payload, tagWildcardPath)
+
+// @ts-expect-error MySQL does not support json path match predicates.
+J.json.pathMatch(docs.payload, wildcardPath)
+
+// @ts-expect-error MySQL does not support json_strip_nulls-style helpers.
+J.json.stripNulls(docs.payload)
 
 void setWithoutCreateExpr
 void tagsKeysExpr
