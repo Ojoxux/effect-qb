@@ -17,6 +17,7 @@ import {
   type NormalizeColumns,
   type ReferentialAction,
   type TableOptionSpec,
+  type ValidateIndexOptionColumns,
   type ValidateKnownColumns,
   type ValidatePrimaryKeyColumns,
   validateOptions
@@ -71,6 +72,8 @@ type OptionInputTable<
   Spec extends TableOptionSpec
 > = Spec extends { readonly kind: "primaryKey"; readonly columns: infer Columns extends readonly string[] }
   ? ValidatePrimaryKeyColumns<Table[typeof TypeId]["fields"], Columns> extends never ? never : Table
+  : Spec extends { readonly kind: "index" }
+    ? ValidateIndexOptionColumns<Table[typeof TypeId]["fields"], Spec> extends never ? never : Table
   : Spec extends { readonly columns: infer Columns extends readonly string[] }
     ? ValidateKnownColumns<Table[typeof TypeId]["fields"], Columns> extends never ? never : Table
     : Table

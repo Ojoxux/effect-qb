@@ -126,6 +126,25 @@ type AssertKnownColumns<Fields extends TableFieldMap, Columns extends readonly s
   ? Columns
   : never
 
+type IndexKeyColumnNames<Keys> = Keys extends readonly (infer Key)[]
+  ? Key extends { readonly kind: "column"; readonly column: infer Column extends string }
+    ? Column
+    : never
+  : never
+
+type IndexOptionColumnNames<Spec> =
+  | (Spec extends { readonly columns: infer Columns extends readonly string[] } ? Columns[number] : never)
+  | (Spec extends { readonly include: infer Include extends readonly string[] } ? Include[number] : never)
+  | (Spec extends { readonly keys: infer Keys } ? IndexKeyColumnNames<Keys> : never)
+
+type AssertKnownColumnNames<Fields extends TableFieldMap, Columns extends string> = [Columns] extends [never]
+  ? true
+  : string extends Columns
+    ? true
+    : Exclude<Columns, ColumnNameUnion<Fields>> extends never
+      ? true
+      : false
+
 type AssertPrimaryKeyColumns<
   Fields extends TableFieldMap,
   Columns extends readonly string[]
@@ -319,6 +338,12 @@ export type ValidatePrimaryKeyColumns<
   Fields extends TableFieldMap,
   Columns extends readonly string[]
 > = AssertPrimaryKeyColumns<Fields, AssertKnownColumns<Fields, Columns>>
+
+/** Compile-time validation that index columns, included columns, and column keys exist on the table. */
+export type ValidateIndexOptionColumns<
+  Fields extends TableFieldMap,
+  Spec
+> = AssertKnownColumnNames<Fields, IndexOptionColumnNames<Spec>> extends true ? Spec : never
 
 /** Normalizes a public column input into the internal tuple form. */
 export type NormalizeColumns<Columns extends string | readonly string[]> = TupleFromColumns<Columns>

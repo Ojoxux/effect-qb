@@ -3,6 +3,7 @@ import type * as Schema from "effect/Schema"
 import type * as Expression from "../internal/scalar.js"
 import { ColumnTypeId, type AnyColumnDefinition } from "../internal/column-state.js"
 import * as BaseTable from "../internal/table.js"
+import type { TableOptionSpec } from "../internal/table-options.js"
 
 type Dialect = "postgres"
 
@@ -174,6 +175,36 @@ type RichIndexInput<Columns extends string | readonly string[] = string | readon
     }
 )
 
+type IndexOptionSpec = Extract<TableOptionSpec, { readonly kind: "index" }>
+
+type RichIndexColumnOption<Spec> = Spec extends { readonly columns: infer Columns extends string | readonly string[] }
+  ? { readonly columns: BaseTable.NormalizeColumns<Columns> }
+  : {}
+
+type RichIndexIncludeOption<Spec> = Spec extends { readonly include: infer Include extends readonly string[] }
+  ? { readonly include: Include }
+  : {}
+
+type RichIndexKeySpec<Key> = Key extends { readonly column: infer Column extends string }
+  ? BaseTable.IndexKeySpec & { readonly kind: "column"; readonly column: Column }
+  : BaseTable.IndexKeySpec & { readonly kind: "expression" }
+
+type RichIndexKeys<Keys extends readonly [RichIndexKeyInput, ...RichIndexKeyInput[]]> = {
+  readonly [K in keyof Keys]: Keys[K] extends RichIndexKeyInput ? RichIndexKeySpec<Keys[K]> : never
+} & readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]]
+
+type RichIndexKeysOption<Spec> = Spec extends { readonly keys: infer Keys extends readonly [RichIndexKeyInput, ...RichIndexKeyInput[]] }
+  ? { readonly keys: RichIndexKeys<Keys> }
+  : {}
+
+type RichIndexOptionSpec<Spec> = IndexOptionSpec & {
+  readonly kind: "index"
+  readonly name?: string
+  readonly unique?: boolean
+  readonly method?: string
+  readonly predicate?: DdlExpressionLike
+} & RichIndexColumnOption<Spec> & RichIndexIncludeOption<Spec> & RichIndexKeysOption<Spec>
+
 type RichForeignKeyInput<
   LocalColumns extends string | readonly string[],
   TargetTable extends AnyTable,
@@ -288,23 +319,14 @@ export const index: {
     readonly kind: "index"
     readonly columns: BaseTable.NormalizeColumns<Columns>
   }>
-  <Table extends SchemaTable, const Columns extends string | readonly string[]>(
-    spec: Omit<RichIndexInput<Columns>, "predicate"> & {
+  <Table extends SchemaTable, const Columns extends string | readonly string[], const Spec extends Omit<RichIndexInput<Columns>, "predicate"> & {
       readonly predicate: TableExpressionFactory<Table>
-    }
-  ): TableScopedOptionBuilder<Table, {
-    readonly kind: "index"
-    readonly columns?: BaseTable.NormalizeColumns<Columns>
-    readonly keys?: readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]]
-    readonly name?: string
-    readonly unique?: boolean
-    readonly method?: string
-    readonly include?: readonly string[]
-    readonly predicate?: DdlExpressionLike
-  }>
-  <const Columns extends string | readonly string[]>(
-    spec: RichIndexInput<Columns>
-  ): BaseTable.TableOption
+    }>(
+    spec: Spec
+  ): TableScopedOptionBuilder<Table, RichIndexOptionSpec<Spec>>
+  <const Columns extends string | readonly string[], const Spec extends RichIndexInput<Columns>>(
+    spec: Spec
+  ): BaseTable.TableOption<RichIndexOptionSpec<Spec>>
 } = ((input: unknown) =>
   isObject(input) && ("keys" in input || "name" in input || "unique" in input || "method" in input || "include" in input || "predicate" in input)
     ? (() => {
