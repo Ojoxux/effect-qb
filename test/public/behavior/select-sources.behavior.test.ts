@@ -145,6 +145,25 @@ describe("select sources behavior", () => {
     )
   })
 
+  test("renders postgres values rows by column name when row property order differs", () => {
+    const valuesSource = Postgres.Query.values([
+      { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") },
+      { email: Postgres.Query.literal("bob@example.com"), id: Postgres.Query.literal(2) }
+    ] as const).pipe(Postgres.Query.as("seed"))
+
+    const rendered = renderPostgres(
+      Postgres.Query.select({
+        id: valuesSource.id,
+        email: valuesSource.email
+      }).pipe(Postgres.Query.from(valuesSource))
+    )
+
+    expect(rendered.sql).toBe(
+      'select "seed"."id" as "id", "seed"."email" as "email" from (select $1 as "id", $2 as "email" union all select $3 as "id", $4 as "email") as "seed"("id", "email")'
+    )
+    expect(rendered.params).toEqual([1, "alice@example.com", 2, "bob@example.com"])
+  })
+
   test("renders standalone values and unnest sources in mysql", () => {
     const valuesSource = Mysql.Query.values([
       { id: Mysql.Query.literal(1), email: Mysql.Query.literal("alice@example.com") },
@@ -173,6 +192,25 @@ describe("select sources behavior", () => {
     ).sql).toBe(
       'select `seed_rows`.`id` as `id`, `seed_rows`.`email` as `email` from (select ? as `id`, ? as `email` union all select ? as `id`, ? as `email`) as `seed_rows`(`id`, `email`)'
     )
+  })
+
+  test("renders mysql values rows by column name when row property order differs", () => {
+    const valuesSource = Mysql.Query.values([
+      { id: Mysql.Query.literal(1), email: Mysql.Query.literal("alice@example.com") },
+      { email: Mysql.Query.literal("bob@example.com"), id: Mysql.Query.literal(2) }
+    ] as const).pipe(Mysql.Query.as("seed"))
+
+    const rendered = renderMysql(
+      Mysql.Query.select({
+        id: valuesSource.id,
+        email: valuesSource.email
+      }).pipe(Mysql.Query.from(valuesSource))
+    )
+
+    expect(rendered.sql).toBe(
+      "select `seed`.`id` as `id`, `seed`.`email` as `email` from (select ? as `id`, ? as `email` union all select ? as `id`, ? as `email`) as `seed`(`id`, `email`)"
+    )
+    expect(rendered.params).toEqual([1, "alice@example.com", 2, "bob@example.com"])
   })
 
   test("renders scalar and quantified subqueries in postgres", () => {
