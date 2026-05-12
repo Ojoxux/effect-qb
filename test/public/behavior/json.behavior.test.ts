@@ -450,6 +450,28 @@ describe("json behavior", () => {
     ])
   })
 
+  test("mysql preserves nested json delete paths as one path argument", () => {
+    const docs = makeJsonTable(Mysql)
+    const cityPath = Mysql.Json.json.path(
+      Mysql.Json.json.key("profile"),
+      Mysql.Json.json.key("address"),
+      Mysql.Json.json.key("city")
+    )
+
+    const plan = Mysql.Query.select({
+      deleteCity: Mysql.Json.json.delete(docs.payload, cityPath)
+    }).pipe(Mysql.Query.from(docs))
+
+    const rendered = Mysql.Renderer.make().render(plan)
+
+    expect(rendered.sql).toBe(
+      "select json_remove(`docs`.`payload`, ?) as `deleteCity` from `docs`"
+    )
+    expect(rendered.params).toEqual([
+      "$.profile.address.city"
+    ])
+  })
+
   test("postgres renders json and jsonb mutations with separate helper surfaces", () => {
     const docsJson = Postgres.Table.make("docs_json", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
