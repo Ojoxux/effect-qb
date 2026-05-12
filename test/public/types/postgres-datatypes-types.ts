@@ -9,14 +9,18 @@ const users = Table.make("users", {
 
 const status = Pg.enum("status", ["pending", "active"])
 const scopedStatus = Pg.schema("public").enum("status", ["pending", "active"])
+const quotedStatus = Pg.schema("audit\"schema").enum("status\"type", ["active"])
 type StatusValues = typeof status.values
 type ScopedStatusValues = typeof scopedStatus.values
 const statusValues: StatusValues = ["pending", "active"]
 const scopedStatusValues: ScopedStatusValues = ["pending", "active"]
+const quotedStatusKind: ReturnType<typeof quotedStatus.type>["kind"] = "\"audit\"\"schema\".\"status\"\"type\""
 void status
 void scopedStatus
+void quotedStatus
 void statusValues
 void scopedStatusValues
+void quotedStatusKind
 
 const builtinColumns = Table.make("builtin_columns", {
   shortName: C.varchar(32),
