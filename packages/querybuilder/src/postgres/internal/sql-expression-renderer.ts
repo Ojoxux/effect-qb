@@ -857,6 +857,15 @@ const renderDeleteTargets = (
   dialect: SqlDialect
 ): string => targets.map((target) => dialect.quoteIdentifier(target.tableName)).join(", ")
 
+const assertMergeActionKind = (
+  kind: unknown,
+  allowed: readonly string[]
+): void => {
+  if (typeof kind !== "string" || !allowed.includes(kind)) {
+    throw new Error("Unsupported merge action kind")
+  }
+}
+
 const renderMysqlMutationLock = (
   lock: QueryAst.LockClause | undefined,
   statement: "update" | "delete"
@@ -1359,6 +1368,9 @@ export const renderQueryAst = (
       const targetSource = mergeAst.target!
       const usingSource = mergeAst.using!
       const merge = mergeAst.merge!
+      if (merge.kind !== "merge") {
+        throw new Error("Unsupported merge statement kind")
+      }
       if (Object.keys(mergeAst.select as Record<string, unknown>).length > 0) {
         throw new Error("returning(...) is not supported for merge statements")
       }
@@ -1367,6 +1379,7 @@ export const renderQueryAst = (
       }
       sql = `merge into ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} using ${renderSourceReference(usingSource.source, usingSource.tableName, usingSource.baseTableName, state, dialect)} on ${renderExpression(merge.on, state, dialect)}`
       if (merge.whenMatched) {
+        assertMergeActionKind(merge.whenMatched.kind, ["update", "delete"])
         sql += " when matched"
         if (merge.whenMatched.predicate) {
           sql += ` and ${renderExpression(merge.whenMatched.predicate, state, dialect)}`
@@ -1383,6 +1396,7 @@ export const renderQueryAst = (
         }
       }
       if (merge.whenNotMatched) {
+        assertMergeActionKind(merge.whenNotMatched.kind, ["insert"])
         sql += " when not matched"
         if (merge.whenNotMatched.predicate) {
           sql += ` and ${renderExpression(merge.whenNotMatched.predicate, state, dialect)}`

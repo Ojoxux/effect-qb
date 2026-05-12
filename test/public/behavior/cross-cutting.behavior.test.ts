@@ -255,6 +255,70 @@ describe("cross-cutting statement behavior", () => {
     expect(() => Postgres.Renderer.make().render(plan)).toThrow()
   })
 
+  test("rejects invalid rendered postgres merge payload kinds", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+    const incomingUsers = Postgres.Table.make("incoming_users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const mergePayloadPlan = Postgres.Query.merge(
+      users,
+      incomingUsers,
+      Postgres.Query.eq(users.id, incomingUsers.id),
+      {
+        whenMatched: {
+          update: {
+            email: incomingUsers.email
+          }
+        }
+      }
+    )
+    ;(mergePayloadPlan as any)[queryAst].merge.kind = "upsert"
+    expect(() =>
+      Postgres.Renderer.make().render(mergePayloadPlan)
+    ).toThrow("Unsupported merge statement kind")
+
+    const matchedPlan = Postgres.Query.merge(
+      users,
+      incomingUsers,
+      Postgres.Query.eq(users.id, incomingUsers.id),
+      {
+        whenMatched: {
+          update: {
+            email: incomingUsers.email
+          }
+        }
+      }
+    )
+    ;(matchedPlan as any)[queryAst].merge.whenMatched.kind = "replace"
+    expect(() =>
+      Postgres.Renderer.make().render(matchedPlan)
+    ).toThrow("Unsupported merge action kind")
+
+    const notMatchedPlan = Postgres.Query.merge(
+      users,
+      incomingUsers,
+      Postgres.Query.eq(users.id, incomingUsers.id),
+      {
+        whenNotMatched: {
+          values: {
+            id: incomingUsers.id,
+            email: incomingUsers.email
+          }
+        }
+      }
+    )
+    ;(notMatchedPlan as any)[queryAst].merge.whenNotMatched.kind = "replace"
+    expect(() =>
+      Postgres.Renderer.make().render(notMatchedPlan)
+    ).toThrow("Unsupported merge action kind")
+  })
+
   test("rejects runtime filters on statements that cannot be filtered", () => {
     const users = Postgres.Table.make("users", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
