@@ -24,6 +24,18 @@ describe("postgres driver value mappings", () => {
     expect(rendered.params).toEqual(["event-1", "2026-03-18", "12.34", "created"])
   })
 
+  test("preserves JSON string scalars that look like JSON while encoding mutations", () => {
+    const docs = Table.make("driver_value_json_string_docs", {
+      payload: C.json(Schema.String)
+    })
+
+    const rendered = Renderer.make().render(Q.insert(docs, {
+      payload: "42"
+    }))
+
+    expect(rendered.params).toEqual(["42"])
+  })
+
   test("encodes comparison literals through the compared column schema and db type", () => {
     const happenedOn = new Date("2026-03-18T12:34:56.000Z")
     const rendered = Renderer.make().render(Q.select({
