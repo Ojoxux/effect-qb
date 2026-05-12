@@ -8,7 +8,7 @@ import type { RenderState, RenderValueContext, SqlDialect } from "../../internal
 import * as ExpressionAst from "../../internal/expression-ast.js"
 import * as JsonPath from "../../internal/json/path.js"
 import { renderMysqlMutationLockMode, renderSelectLockMode } from "../../internal/dsl-plan-runtime.js"
-import { expectDdlClauseKind, renderTransactionIsolationLevel } from "../../internal/dsl-transaction-ddl-runtime.js"
+import { expectDdlClauseKind, expectTruncateClause, renderTransactionIsolationLevel } from "../../internal/dsl-transaction-ddl-runtime.js"
 import {
   renderJsonSelectSql,
   renderSelectSql,
@@ -1390,15 +1390,16 @@ export const renderQueryAst = (
     case "truncate": {
       const truncateAst = ast as QueryAst.Ast<Record<string, unknown>, any, "truncate">
       assertNoStatementQueryClauses(truncateAst, "truncate")
+      const truncate = expectTruncateClause(truncateAst.truncate)
       const targetSource = truncateAst.target!
-      if (dialect.name === "mysql" && (truncateAst.truncate?.restartIdentity || truncateAst.truncate?.cascade)) {
+      if (dialect.name === "mysql" && (truncate.restartIdentity || truncate.cascade)) {
         throw new Error("Unsupported mysql truncate options")
       }
       sql = `truncate table ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)}`
-      if (truncateAst.truncate?.restartIdentity) {
+      if (truncate.restartIdentity) {
         sql += " restart identity"
       }
-      if (truncateAst.truncate?.cascade) {
+      if (truncate.cascade) {
         sql += " cascade"
       }
       break

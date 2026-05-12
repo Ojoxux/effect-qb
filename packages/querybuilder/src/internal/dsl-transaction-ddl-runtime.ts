@@ -36,6 +36,17 @@ export const expectDdlClauseKind = <
   return ddl as Extract<Ddl, { readonly kind: Kind }>
 }
 
+export const expectTruncateClause = <
+  Truncate extends { readonly kind: string }
+>(
+  truncate: Truncate | undefined
+): Extract<Truncate, { readonly kind: "truncate" }> => {
+  if (truncate === undefined || truncate.kind !== "truncate") {
+    throw new Error("Unsupported truncate statement kind")
+  }
+  return truncate as Extract<Truncate, { readonly kind: "truncate" }>
+}
+
 const validateIsolationLevel = (isolationLevel: unknown): void => {
   renderTransactionIsolationLevel(isolationLevel)
 }

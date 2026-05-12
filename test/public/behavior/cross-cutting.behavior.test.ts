@@ -166,6 +166,28 @@ describe("cross-cutting statement behavior", () => {
     ).toThrow("Unsupported query statement kind")
   })
 
+  test("rejects mismatched rendered truncate payload kinds", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+
+    const postgresUsers = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey)
+    })
+    const postgresPlan = Postgres.Query.truncate(postgresUsers)
+    ;(postgresPlan as any)[queryAst].truncate.kind = "dropTable"
+    expect(() =>
+      Postgres.Renderer.make().render(postgresPlan)
+    ).toThrow("Unsupported truncate statement kind")
+
+    const mysqlUsers = Mysql.Table.make("users", {
+      id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey)
+    })
+    const mysqlPlan = Mysql.Query.truncate(mysqlUsers)
+    ;(mysqlPlan as any)[queryAst].truncate.kind = "dropTable"
+    expect(() =>
+      Mysql.Renderer.make().render(mysqlPlan)
+    ).toThrow("Unsupported truncate statement kind")
+  })
+
   test("rejects postgres merge statements without actions", () => {
     const users = Postgres.Table.make("users", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
