@@ -318,6 +318,57 @@ describe("postgres schema management", () => {
     )
   })
 
+  test("preserves quoted qualified index support identifiers", () => {
+    const source: SchemaModel = {
+      dialect: "postgres",
+      enums: [],
+      tables: [
+        {
+          kind: "table",
+          schemaName: "public",
+          name: "users",
+          columns: [
+            {
+              name: "email",
+              ddlType: "text",
+              dbTypeKind: "text",
+              nullable: false,
+              hasDefault: false,
+              generated: false
+            }
+          ],
+          options: [
+            {
+              kind: "index",
+              name: "users_email_support_idx",
+              keys: [
+                {
+                  kind: "column",
+                  column: "email",
+                  collation: `"tenant.a"."special.collation"`,
+                  operatorClass: `"ops.schema"."text.pattern_ops"`
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+
+    const plan = planPostgresSchemaDiff(source, {
+      dialect: "postgres",
+      enums: [],
+      tables: []
+    })
+
+    expect(plan.safeChanges).toContainEqual(
+      expect.objectContaining({
+        kind: "createIndex",
+        sql: `create index "users_email_support_idx" on "public"."users" ("email" collate "tenant.a"."special.collation" "ops.schema"."text.pattern_ops")`
+      })
+    )
+  })
+
   test("detects table, column, constraint, index, and enum renames", () => {
     const source: SchemaModel = {
       dialect: "postgres",
