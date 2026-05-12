@@ -4342,8 +4342,8 @@ type DropTableOptions = {
 }
 
 type TruncateOptions = {
-  readonly restartIdentity?: boolean
-  readonly cascade?: boolean
+  readonly restartIdentity?: never
+  readonly cascade?: never
 }
 
 type TransactionOptions = {
@@ -4421,6 +4421,18 @@ type DistinctOnUnsupportedError<Dialect extends string> = {
   readonly __effect_qb_error__: "effect-qb: distinctOn(...) is only supported by the postgres dialect"
   readonly __effect_qb_dialect__: Dialect
   readonly __effect_qb_hint__: "Use postgres.Query.distinctOn(...) or regular distinct()/grouping logic"
+}
+
+type FullJoinUnsupportedError<Dialect extends string> = {
+  readonly __effect_qb_error__: "effect-qb: fullJoin(...) is only supported by the postgres dialect"
+  readonly __effect_qb_dialect__: Dialect
+  readonly __effect_qb_hint__: "Use leftJoin/rightJoin with nullable handling or switch to postgres.Query.fullJoin(...)"
+}
+
+type ReturningUnsupportedError<Dialect extends string> = {
+  readonly __effect_qb_error__: "effect-qb: returning(...) is only supported by the postgres dialect"
+  readonly __effect_qb_dialect__: Dialect
+  readonly __effect_qb_hint__: "Use postgres.Query.returning(...) or run a follow-up select after MySQL mutations"
 }
 
 type DistinctOnApi<Dialect extends string> = Dialect extends "postgres"
@@ -5169,7 +5181,7 @@ type AsCurriedResult<
     getQueryState,
     currentRequiredList,
     dedupeGroupedExpressions
-  }) as {
+  }) as unknown as {
     readonly values: ValuesApi
     readonly unnest: UnnestApi
     readonly generateSeries: GenerateSeriesApi
@@ -5350,6 +5362,8 @@ type AsCurriedResult<
       InsertSourceStateOfPlan<PlanValue>,
       PlanFactsAfterJoin<PlanValue, Predicate, Kind, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
     >
+
+  type FullJoinApi = Dialect extends "postgres" ? BinaryJoinApi<"full"> : FullJoinUnsupportedError<Dialect>
 
   type OrderByApi = <Value extends ExpressionInput>(
     value: Value,
@@ -5548,7 +5562,7 @@ type AsCurriedResult<
 
   const rightJoin = ((table, on) => (join as any)("right", table, on)) as BinaryJoinApi<"right">
 
-  const fullJoin = ((table, on) => (join as any)("full", table, on)) as BinaryJoinApi<"full">
+  const fullJoin = ((table: any, on: any) => (join as any)("full", table, on)) as unknown as FullJoinApi
 
   const distinctOn = {
     __effect_qb_error__: "effect-qb: distinctOn(...) is only supported by the postgres dialect",
@@ -5577,26 +5591,28 @@ type AsCurriedResult<
       FactsOfPlan<PlanValue>
     >
 
-  type ReturningApi = <Selection extends SelectionShape>(
-    selection: Selection
-  ) =>
-    <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
-      plan: PlanValue & RequireMutationStatement<PlanValue>
-    ) => QueryPlan<
-      Selection,
-      Exclude<RequiredOfPlan<PlanValue> | ExtractRequired<Selection>, AvailableNames<AvailableOfPlan<PlanValue>>>,
-      AvailableOfPlan<PlanValue>,
-      PlanDialectOf<PlanValue> | ExtractDialect<Selection>,
-      GroupedOfPlan<PlanValue>,
-      ScopedNamesOfPlan<PlanValue>,
-      Exclude<OutstandingOfPlan<PlanValue> | ExtractRequired<Selection>, AvailableNames<AvailableOfPlan<PlanValue>>>,
-      AssumptionsOfPlan<PlanValue>,
-      CapabilitiesOfPlan<PlanValue>,
-      StatementOfPlan<PlanValue>,
-      MutationTargetOfPlan<PlanValue>,
-      InsertSourceStateOfPlan<PlanValue>,
-      FactsOfPlan<PlanValue>
-    >
+  type ReturningApi = Dialect extends "postgres"
+    ? <Selection extends SelectionShape>(
+        selection: Selection
+      ) =>
+        <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
+          plan: PlanValue & RequireMutationStatement<PlanValue>
+        ) => QueryPlan<
+          Selection,
+          Exclude<RequiredOfPlan<PlanValue> | ExtractRequired<Selection>, AvailableNames<AvailableOfPlan<PlanValue>>>,
+          AvailableOfPlan<PlanValue>,
+          PlanDialectOf<PlanValue> | ExtractDialect<Selection>,
+          GroupedOfPlan<PlanValue>,
+          ScopedNamesOfPlan<PlanValue>,
+          Exclude<OutstandingOfPlan<PlanValue> | ExtractRequired<Selection>, AvailableNames<AvailableOfPlan<PlanValue>>>,
+          AssumptionsOfPlan<PlanValue>,
+          CapabilitiesOfPlan<PlanValue>,
+          StatementOfPlan<PlanValue>,
+          MutationTargetOfPlan<PlanValue>,
+          InsertSourceStateOfPlan<PlanValue>,
+          FactsOfPlan<PlanValue>
+        >
+    : ReturningUnsupportedError<Dialect>
 
   export interface InsertApi {
     <Target extends MutationTargetLike>(

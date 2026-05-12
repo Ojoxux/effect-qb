@@ -230,17 +230,15 @@ const postgresMutation = Postgres.Query.returning({
   id: users.id
 })(Postgres.Query.delete(users))
 
-const mysqlMutation = Mysql.Query.returning({
-  id: users.id
-})(Mysql.Query.delete(users))
+// @ts-expect-error mysql mutations do not expose PostgreSQL-style RETURNING projections
+Mysql.Query.returning({
+  id: mysqlUsers.id
+})(Mysql.Query.delete(mysqlUsers))
 
 type PostgresMutationRow = Postgres.Query.ResultRow<typeof postgresMutation>
-type MysqlMutationRow = Mysql.Query.ResultRow<typeof mysqlMutation>
 
 const postgresMutationRow: PostgresMutationRow = { id: "user-id" }
-const mysqlMutationRow: MysqlMutationRow = { id: "user-id" }
 void postgresMutationRow
-void mysqlMutationRow
 
 const pgUsers = Postgres.Table.make("users", {
   id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),

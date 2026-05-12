@@ -45,7 +45,7 @@ export interface Renderer<Dialect extends string = string> {
   readonly dialect: Dialect
   render<PlanValue extends Query.Plan.Any>(
     plan: Query.DialectCompatiblePlan<PlanValue, Dialect>
-  ): RenderedQuery<any, Dialect>
+  ): RenderedQuery<Query.ResultRow<PlanValue>, Dialect>
 }
 
 type CustomRender<Dialect extends string> = <PlanValue extends Query.Plan.Any>(

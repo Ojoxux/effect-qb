@@ -19,16 +19,16 @@ const fullJoinPlan = Q.select({
   Q.fullJoin(posts, Q.eq(users.id, posts.userId))
 )
 
-// @ts-expect-error MySQL TRUNCATE does not support PostgreSQL restart identity/cascade options.
 const restartIdentityTruncate = Q.truncate(users, {
+  // @ts-expect-error MySQL TRUNCATE does not support PostgreSQL restart identity/cascade options.
   restartIdentity: true
 })
 
-// @ts-expect-error MySQL mutation statements should not expose PostgreSQL-style RETURNING projections.
 const returningMutation = Q.insert(users, {
   id: "user-id",
   email: "alice@example.com"
 }).pipe(
+  // @ts-expect-error MySQL mutation statements should not expose PostgreSQL-style RETURNING projections.
   Q.returning({
     id: users.id
   })

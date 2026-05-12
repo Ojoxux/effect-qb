@@ -24,8 +24,8 @@ const missingRenderedField: RenderedRow = {
   id: "11111111-1111-1111-1111-111111111111"
 }
 
-// @ts-expect-error Renderer.RowOf should preserve the selected projection runtime types.
 const wrongRenderedFieldType: RenderedRow = {
+  // @ts-expect-error Renderer.RowOf should preserve the selected projection runtime types.
   id: 123,
   email: "alice@example.com"
 }
