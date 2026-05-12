@@ -41,6 +41,11 @@ describe("sqlite behavior", () => {
 
   test("rejects sqlite-unsupported read constructs before emitting invalid SQL", () => {
     const { users, posts } = makeSqliteSocialGraph()
+    const docs = Sqlite.Table.make("docs", {
+      payload: Sqlite.Column.json(Schema.Struct({
+        tags: Schema.Array(Schema.String)
+      }))
+    })
     const postIds = Sqlite.Query.select({
       value: posts.id
     }).pipe(Sqlite.Query.from(posts))
@@ -64,6 +69,10 @@ describe("sqlite behavior", () => {
     expect(() => render(Sqlite.Query.select({
       ok: Sqlite.Query.regexMatch(users.email, ".*@example.com")
     }).pipe(Sqlite.Query.from(users)))).toThrow("Unsupported sqlite regex operator")
+
+    expect(() => render(Sqlite.Query.select({
+      ok: Sqlite.Query.contains(docs.payload, docs.payload)
+    }).pipe(Sqlite.Query.from(docs)))).toThrow("Unsupported container operator for SQL rendering")
 
     expect(() => render(Sqlite.Query.select({
       id: users.id

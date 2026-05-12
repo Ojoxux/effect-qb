@@ -4715,6 +4715,12 @@ type QuantifiedComparisonUnsupportedError<Dialect extends string, Operator exten
   readonly __effect_qb_hint__: "Use inSubquery(...), exists(...), or a dialect that supports quantified comparisons"
 }
 
+type ContainerOperatorUnsupportedError<Dialect extends string, Operator extends string> = {
+  readonly __effect_qb_error__: `effect-qb: ${Operator}(...) is not supported by the sqlite dialect`
+  readonly __effect_qb_dialect__: Dialect
+  readonly __effect_qb_hint__: "Use sqlite JSON helpers, or switch to a dialect with container operators"
+}
+
 type SqliteCteStatementError<PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>> =
   PlanValue & {
     readonly __effect_qb_error__: "effect-qb: sqlite cte sources only accept select-like query plans"
@@ -6694,6 +6700,9 @@ const exportedRegexNotMatch = regexNotMatch as unknown as RegexUnsupportedError<
 const exportedRegexNotIMatch = regexNotIMatch as unknown as RegexUnsupportedError<Dialect, "regexNotIMatch">
 const exportedCompareAny = compareAny as unknown as QuantifiedComparisonUnsupportedError<Dialect, "compareAny">
 const exportedCompareAll = compareAll as unknown as QuantifiedComparisonUnsupportedError<Dialect, "compareAll">
+const exportedContains = contains as unknown as ContainerOperatorUnsupportedError<Dialect, "contains">
+const exportedContainedBy = containedBy as unknown as ContainerOperatorUnsupportedError<Dialect, "containedBy">
+const exportedOverlaps = overlaps as unknown as ContainerOperatorUnsupportedError<Dialect, "overlaps">
 
 export {
   literal,
@@ -6732,9 +6741,9 @@ export {
   in_,
   notIn,
   between,
-  contains,
-  containedBy,
-  overlaps,
+  exportedContains as contains,
+  exportedContainedBy as containedBy,
+  exportedOverlaps as overlaps,
   concat,
   exists,
   over,

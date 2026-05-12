@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
-import { Column as C, Executor, Query as Q, Renderer, Table } from "effect-qb/sqlite"
+import { Column as C, Executor, Json, Query as Q, Renderer, Table } from "effect-qb/sqlite"
 import { Executor as PostgresExecutor } from "effect-qb/postgres"
 
 const users = Table.make("users", {
@@ -126,6 +126,7 @@ const ids = Q.select({
 Q.like(users.email, "%@example.com")
 Q.ilike(users.email, "%@example.com")
 Q.inSubquery(users.id, ids)
+Json.json.get(users.payload, Json.json.key("tags"))
 
 // @ts-expect-error sqlite does not support regular-expression predicates
 Q.regexMatch(users.email, ".*@example.com")
@@ -144,6 +145,15 @@ Q.compareAny(users.id, ids, "eq")
 
 // @ts-expect-error sqlite does not support ALL quantified comparisons
 Q.compareAll(users.id, ids, "eq")
+
+// @ts-expect-error sqlite does not support container contains predicates
+Q.contains(users.payload, users.payload)
+
+// @ts-expect-error sqlite does not support container contained-by predicates
+Q.containedBy(users.payload, users.payload)
+
+// @ts-expect-error sqlite does not support container overlap predicates
+Q.overlaps(users.payload, users.payload)
 
 // @ts-expect-error sqlite does not support INTERSECT ALL
 Q.intersectAll(selectUsers, selectUsers)
