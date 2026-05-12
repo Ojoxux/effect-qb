@@ -626,6 +626,34 @@ describe("executor behavior", () => {
     })
   })
 
+  test("fromDriver accepts top-level JSON nulls allowed by the JSON schema", () => {
+    const docs = Table.make("nullable_json_docs", {
+      payload: C.json(Schema.NullOr(Schema.Struct({
+        kind: Schema.String
+      })))
+    })
+
+    const plan = Q.select({
+      payload: docs.payload
+    }).pipe(
+      Q.from(docs)
+    )
+
+    const rows = Effect.runSync(Executor.make({
+      driver: Executor.driver("postgres", () => Effect.succeed([
+        {
+          payload: null
+        }
+      ]))
+    }).execute(plan))
+
+    expect(rows).toEqual([
+      {
+        payload: null
+      }
+    ])
+  })
+
   test("fromDriver enforces structured record cast fields", () => {
     const plan = Q.select({
       profile: Cast.to("{}", Type.record("user_profile", {

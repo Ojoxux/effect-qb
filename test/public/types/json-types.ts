@@ -265,6 +265,12 @@ const groupedCityText = Q.select({
   Q.groupBy(cityTextExpr)
 )
 
+const nullableObjectPayload = Q.select({
+  payload: nullableObjectDocs.payload
+}).pipe(
+  Q.from(nullableObjectDocs)
+)
+
 const invalidGroupedCityText = Q.select({
   city: cityTextExpr,
   count: F.count(docs.id)
@@ -325,6 +331,7 @@ type Option2Or3KindSelectedViaOrRow = Q.ResultRow<typeof option2Or3KindSelectedV
 type NestedChild2PayloadRow = Q.ResultRow<typeof nestedChild2Payload>
 type DottedFlatPayloadRow = Q.ResultRow<typeof dottedFlatPayload>
 type GroupedCityTextRow = Q.ResultRow<typeof groupedCityText>
+type NullableObjectPayloadRow = Q.ResultRow<typeof nullableObjectPayload>
 type CurriedCityIsExact = Expect<IsExact<CurriedCity, string>>
 type CurriedMetricCountTextIsExact = Expect<IsExact<CurriedMetricCountText, `${number}`>>
 type NullableObjectTypeNameIsExact = Expect<IsExact<NullableObjectTypeName, "object" | "null">>
@@ -385,6 +392,7 @@ declare const option3KindSelectedRow: Option3KindSelectedRow
 declare const option2Or3KindSelectedViaOrRow: Option2Or3KindSelectedViaOrRow
 declare const nestedChild2PayloadRow: NestedChild2PayloadRow
 declare const groupedCityTextRow: GroupedCityTextRow
+declare const nullableObjectPayloadRow: NullableObjectPayloadRow
 const option3PayloadKind: "option3" = option3PayloadRow.payload.kind
 const option3PayloadValue: string = option3PayloadRow.payload.option3Value
 const conservativeOption3RuntimeKind: "option1" | "option2" | "option3" = option3PayloadRuntimeRow.payload.kind
@@ -401,6 +409,7 @@ const dottedFlatKeyKind: "flat" = dottedFlatPayloadRow.payload["a.b"].kind
 const dottedNestedKeyKind: "nested" | "other" = dottedFlatPayloadRow.payload.a.b.kind
 const groupedCityTextCity: CityText = groupedCityTextRow.city
 const groupedCityTextCount: number = groupedCityTextRow.count
+const nullableObjectPayloadNull: NullableObjectPayloadRow["payload"] = null
 const completeGroupedCityText: Q.CompletePlan<typeof groupedCityText> = groupedCityText
 type InvalidGroupedCityText = Q.CompletePlan<typeof invalidGroupedCityText>
 const invalidGroupedCityTextError: BrandedErrorOf<InvalidGroupedCityText> =
@@ -478,6 +487,7 @@ void nestedChild2PayloadKind
 void nestedChild2SelectedKind
 void groupedCityTextCity
 void groupedCityTextCount
+void nullableObjectPayloadNull
 void completeGroupedCityText
 void invalidGroupedCityTextError
 void invalidGroupedJsonPathCollisionError
