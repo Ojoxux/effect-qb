@@ -161,6 +161,15 @@ Q.select({
   Q.from(lateralPosts)
 )
 
+Q.select({
+  anchorId: posts.id,
+  postId: lateralPosts.postId
+}).pipe(
+  Q.from(posts),
+  // @ts-expect-error correlated sources cannot be joined before their outer dependencies are in scope
+  Q.innerJoin(lateralPosts, Q.eq(lateralPosts.userId, posts.userId))
+)
+
 const lockPlan = Q.select({
   userId: users.id
 }).pipe(

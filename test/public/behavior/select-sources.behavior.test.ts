@@ -317,6 +317,29 @@ describe("select sources behavior", () => {
     )
   })
 
+  test("rejects lateral joins before their required outer sources", () => {
+    const lateralPosts = Postgres.Query.select({
+      postId: pgPosts.id,
+      userId: pgPosts.userId
+    }).pipe(
+      Postgres.Query.from(pgPosts),
+      Postgres.Query.where(Postgres.Query.eq(pgPosts.userId, pgUsers.id)),
+      Postgres.Query.lateral("user_posts")
+    )
+
+    const plan = Postgres.Query.select({
+      anchorId: pgPosts.id,
+      postId: lateralPosts.postId
+    }).pipe(
+      Postgres.Query.from(pgPosts),
+      Postgres.Query.innerJoin(unsafeAny(lateralPosts), Postgres.Query.eq(lateralPosts.userId, pgPosts.userId))
+    )
+
+    expect(() => renderPostgres(plan)).toThrow(
+      "query references sources that are not yet in scope: users"
+    )
+  })
+
   test("renders scalar and quantified subqueries in mysql", () => {
     const postIds = Mysql.Query.select({
       value: mysqlPosts.id
