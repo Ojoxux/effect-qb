@@ -198,6 +198,16 @@ describe("postgres insert behavior", () => {
     }))).toThrow("Expected a local-date value")
   })
 
+  test("rejects invalid Date insert values before rendering params", () => {
+    const events = Postgres.Table.make("date_object_events", {
+      happenedOn: Postgres.Column.date()
+    })
+
+    expect(() => render(Postgres.Query.insert(events, {
+      happenedOn: new Date("not a date")
+    }))).toThrow()
+  })
+
   test("canonicalizes expression-wrapped insert values using the target column runtime contract", () => {
     const metrics = Postgres.Table.make("expression_metrics", {
       total: Postgres.Column.number(),
