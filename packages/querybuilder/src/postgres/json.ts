@@ -259,7 +259,7 @@ const json = {
     typeof jsonGetDirect & {
       <Target extends ExactJsonPathInput>(
         target: Target & ExactJsonPathGuard<Target>
-      ): <Base extends PostgresJsonExpression<any>>(base: Base) => ReturnType<typeof jsonGetDirect>
+      ): <Base extends PostgresJsonExpression<any>>(base: Base) => JsonGetResultExpression<Base, Target, "json.get">
     },
   access: <
     Base extends PostgresJsonExpression<any>,
@@ -282,7 +282,7 @@ const json = {
     typeof jsonTextDirect & {
       <Target extends ExactJsonPathInput>(
         target: Target & ExactJsonPathGuard<Target>
-      ): <Base extends PostgresJsonExpression<any>>(base: Base) => ReturnType<typeof jsonTextDirect>
+      ): <Base extends PostgresJsonExpression<any>>(base: Base) => JsonTextResultExpression<Base, Target>
     },
   accessText: <
     Base extends PostgresJsonExpression<any>,
