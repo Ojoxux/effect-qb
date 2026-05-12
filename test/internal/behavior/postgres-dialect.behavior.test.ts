@@ -101,6 +101,26 @@ describe("postgres dialect behavior", () => {
     )
   })
 
+  test("groups by regex predicate expressions", () => {
+    const { users } = makePostgresSocialGraph()
+    const matchesExample = Postgres.Query.regexMatch(users.email, "@example\\.com$")
+
+    const plan = Postgres.Query.select({
+      matchesExample,
+      userCount: Postgres.Function.count(users.id)
+    }).pipe(
+      Postgres.Query.from(users),
+      Postgres.Query.groupBy(matchesExample)
+    )
+
+    const rendered = Postgres.Renderer.make().render(plan)
+
+    expect(rendered.sql).toBe(
+      'select ("users"."email" ~ $1) as "matchesExample", count("users"."id") as "userCount" from "public"."users" group by ("users"."email" ~ $2)'
+    )
+    expect(rendered.params).toEqual(["@example\\.com$", "@example\\.com$"])
+  })
+
   test("renders literal-only scalar operators with stable postgres parameter ordering", () => {
     const plan = Postgres.Query.select({
       stitched: Postgres.Function.concat("a", "b", "c"),

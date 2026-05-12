@@ -282,6 +282,17 @@ type AggregatePlanCapabilities = Q.CapabilitiesOfPlan<typeof aggregatePlan>
 const aggregateCapability: AggregatePlanCapabilities = "read"
 void aggregateCapability
 
+const regexGroupedPlan = Q.select({
+  matchesExample: Q.regexMatch(users.email, "@example\\.com$"),
+  userCount: F.count(users.id)
+}).pipe(
+  Q.from(users),
+  Q.groupBy(Q.regexMatch(users.email, "@example\\.com$"))
+)
+
+const completeRegexGroupedPlan: Q.CompletePlan<typeof regexGroupedPlan> = regexGroupedPlan
+void completeRegexGroupedPlan
+
 const invalidDottedGroupedPlan = Q.select({
   splitStatus: splitGroupingTable["b.status"],
   statusCount: F.count(dottedGroupingTable.status)
