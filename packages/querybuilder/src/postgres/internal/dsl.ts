@@ -5406,7 +5406,7 @@ type AsCurriedResult<
         keyof AvailableOfPlan<PlanValue> extends never ? never : unknown
       ) & (
         SourceNameOf<CurrentTable> extends ScopedNamesOfPlan<PlanValue> ? never : unknown
-      )
+      ) & SourceDialectConstraint<CurrentTable, Dialect>
     ) => QueryPlan<
       SelectionOfPlan<PlanValue>,
       AddJoinRequired<RequiredOfPlan<PlanValue>, AvailableOfPlan<PlanValue>, SourceNameOf<CurrentTable>, never, "cross">,
@@ -5440,7 +5440,7 @@ type AsCurriedResult<
         keyof AvailableOfPlan<PlanValue> extends never ? never : unknown
       ) & (
         SourceNameOf<CurrentTable> extends ScopedNamesOfPlan<PlanValue> ? never : unknown
-      )
+      ) & SourceDialectConstraint<CurrentTable, Dialect>
     ) => QueryPlan<
       SelectionOfPlan<PlanValue>,
       AddJoinRequired<RequiredOfPlan<PlanValue>, AvailableOfPlan<PlanValue>, SourceNameOf<CurrentTable>, Predicate, Kind>,
@@ -5475,7 +5475,7 @@ type AsCurriedResult<
         keyof AvailableOfPlan<PlanValue> extends never ? never : unknown
       ) & (
         SourceNameOf<CurrentTable> extends ScopedNamesOfPlan<PlanValue> ? never : unknown
-      )
+      ) & SourceDialectConstraint<CurrentTable, Dialect>
     ) => QueryPlan<
       SelectionOfPlan<PlanValue>,
       AddJoinRequired<RequiredOfPlan<PlanValue>, AvailableOfPlan<PlanValue>, SourceNameOf<CurrentTable>, Predicate, Kind>,
