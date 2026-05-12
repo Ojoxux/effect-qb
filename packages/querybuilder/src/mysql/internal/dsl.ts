@@ -4027,11 +4027,18 @@ type BinaryPredicateExpression<
   ): Expression.Any => {
     const columnState = column[Expression.TypeId]
     const normalizeMutationValue = (candidate: unknown): unknown => {
+      if (candidate === null && columnState.nullability !== "never") {
+        return null
+      }
       const runtimeSchemaAccepts = columnState.runtimeSchema !== undefined &&
         (Schema.is(columnState.runtimeSchema) as (input: unknown) => boolean)(candidate)
-      return candidate === null || runtimeSchemaAccepts
-        ? candidate
-        : normalizeDbValue(columnState.dbType, candidate)
+      if (runtimeSchemaAccepts) {
+        return candidate
+      }
+      const normalized = normalizeDbValue(columnState.dbType, candidate)
+      return columnState.runtimeSchema === undefined
+        ? normalized
+        : (Schema.decodeUnknownSync as any)(columnState.runtimeSchema)(normalized)
     }
     if (value !== null && typeof value === "object" && Expression.TypeId in value) {
       const expression = value as unknown as Expression.Any

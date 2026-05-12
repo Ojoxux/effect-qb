@@ -395,12 +395,18 @@ const encodeArrayValues = (
   dialect: SqlDialect
 ): readonly unknown[] =>
   values.map((value) => {
+    if (value === null && column.metadata.nullable) {
+      return null
+    }
     const runtimeSchemaAccepts = column.schema !== undefined &&
       (Schema.is(column.schema) as (candidate: unknown) => boolean)(value)
-    const normalizedValue = value === null || runtimeSchemaAccepts
+    const normalizedValue = runtimeSchemaAccepts
       ? value
       : normalizeDbValue(column.metadata.dbType, value)
-    return toDriverValue(normalizedValue, {
+    const encodedValue = column.schema === undefined || runtimeSchemaAccepts
+      ? normalizedValue
+      : (Schema.decodeUnknownSync as any)(column.schema)(normalizedValue)
+    return toDriverValue(encodedValue, {
       dialect: dialect.name,
       valueMappings: state.valueMappings,
       dbType: column.metadata.dbType,
