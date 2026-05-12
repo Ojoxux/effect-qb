@@ -683,6 +683,29 @@ describe("json behavior", () => {
     ])
   })
 
+  test("mysql renders negative json array slices with last-relative syntax", () => {
+    const docs = makeJsonTable(Mysql)
+
+    const recentTagsPath = Mysql.Json.json.path(
+      Mysql.Json.json.key("profile"),
+      Mysql.Json.json.key("tags"),
+      Mysql.Json.json.slice(-3, -1)
+    )
+
+    const plan = Mysql.Query.select({
+      recentTags: Mysql.Json.json.get(docs.payload, recentTagsPath)
+    }).pipe(Mysql.Query.from(docs))
+
+    const rendered = Mysql.Renderer.make().render(plan)
+
+    expect(rendered.sql).toBe(
+      "select json_extract(`docs`.`payload`, ?) as `recentTags` from `docs`"
+    )
+    expect(rendered.params).toEqual([
+      "$.profile.tags[last-2 to last]"
+    ])
+  })
+
   test("mysql preserves nested json delete paths as one path argument", () => {
     const docs = makeJsonTable(Mysql)
     const cityPath = Mysql.Json.json.path(
