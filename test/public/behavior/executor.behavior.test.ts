@@ -1020,6 +1020,42 @@ describe("executor behavior", () => {
     })
   })
 
+  test("normalized driver mode rejects non-plain JSON object values", () => {
+    const docs = Table.make("normalized_json_object_domain_docs", {
+      payload: C.json(Schema.Unknown)
+    })
+
+    const plan = Q.select({
+      payload: docs.payload
+    }).pipe(
+      Q.from(docs)
+    )
+
+    const result = Effect.runSync(Effect.either(Executor.make({
+      driverMode: "normalized",
+      driver: Executor.driver("postgres", () => Effect.succeed([
+        {
+          payload: new Date("2026-03-18T00:00:00.000Z")
+        }
+      ]))
+    }).execute(plan)))
+
+    expect(result).toMatchObject({
+      _tag: "Left",
+      left: {
+        _tag: "RowDecodeError",
+        stage: "schema",
+        projection: {
+          alias: "payload"
+        },
+        dbType: {
+          dialect: "postgres",
+          kind: "json"
+        }
+      }
+    })
+  })
+
   test("normalized driver mode rejects non-finite numeric values", () => {
     const metrics = Table.make("normalized_metrics", {
       total: C.float8()
