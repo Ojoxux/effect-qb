@@ -202,7 +202,7 @@ export const JsonValueSchema: Schema.Schema<JsonValue> = Schema.suspend(() =>
 
 export const JsonPrimitiveSchema: Schema.Schema<JsonPrimitive> = Schema.Union(
   Schema.String,
-  Schema.Number,
+  Schema.Number.pipe(Schema.finite()),
   Schema.Boolean,
   Schema.Null
 )
