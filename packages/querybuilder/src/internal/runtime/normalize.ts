@@ -7,8 +7,7 @@ import {
   isValidLocalDateString,
   isValidLocalDateTimeString,
   isValidLocalTimeString,
-  isValidOffsetTimeString,
-  localDatePattern
+  isValidOffsetTimeString
 } from "./value.js"
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -119,8 +118,9 @@ const normalizeLocalDate = (value: unknown): string => {
   if (isValidLocalDateString(raw)) {
     return raw
   }
-  if (!localDatePattern.test(raw)) {
-    const parsed = new Date(raw)
+  const canonicalInstant = raw.replace(" ", "T").replace(/z$/, "Z")
+  if (isValidInstantString(canonicalInstant)) {
+    const parsed = new Date(canonicalInstant)
     if (!Number.isNaN(parsed.getTime())) {
       return formatLocalDate(parsed)
     }
