@@ -4391,19 +4391,18 @@ type BinaryPredicateExpression<
       }
     }
     if (!Array.isArray(input) && "constraint" in input) {
-      return {
-        kind: "constraint",
-        name: input.constraint
-      }
+      throw new Error("Unsupported mysql conflict target")
     }
     const columnTarget = input as {
       readonly columns: readonly string[]
       readonly where?: PredicateInput
     }
+    if (columnTarget.where !== undefined) {
+      throw new Error("Unsupported mysql conflict target")
+    }
     return {
       kind: "columns",
-      columns: normalizeConflictColumns(target, columnTarget.columns),
-      where: columnTarget.where === undefined ? undefined : toDialectExpression(columnTarget.where)
+      columns: normalizeConflictColumns(target, columnTarget.columns)
     }
   }
 
