@@ -793,6 +793,40 @@ describe("executor behavior", () => {
     })
   })
 
+  test("normalized driver mode rejects non-finite window numbers", () => {
+    const users = Table.make("normalized_window_users", {
+      id: C.uuid().pipe(C.primaryKey)
+    })
+
+    const plan = Q.select({
+      rowNumber: F.rowNumber({
+        orderBy: [{ value: users.id, direction: "asc" }]
+      })
+    }).pipe(
+      Q.from(users)
+    )
+
+    const result = Effect.runSync(Effect.either(Executor.make({
+      driverMode: "normalized",
+      driver: Executor.driver("postgres", () => Effect.succeed([
+        {
+          rowNumber: Number.POSITIVE_INFINITY
+        }
+      ]))
+    }).execute(plan)))
+
+    expect(result).toMatchObject({
+      _tag: "Left",
+      left: {
+        _tag: "RowDecodeError",
+        stage: "schema",
+        projection: {
+          alias: "rowNumber"
+        }
+      }
+    })
+  })
+
   test("fromDriver enforces structured record cast fields", () => {
     const plan = Q.select({
       profile: Cast.to("{}", Type.record("user_profile", {
