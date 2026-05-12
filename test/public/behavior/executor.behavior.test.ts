@@ -63,7 +63,7 @@ describe("executor behavior", () => {
     expect(Effect.runSync(executor.execute(plan))).toEqual([])
   })
 
-  test("fromDriver ignores extra columns and omits missing projected columns", () => {
+  test("fromDriver ignores extra columns while decoding projected columns", () => {
     const users = Table.make("users", {
       id: C.uuid().pipe(C.primaryKey),
       email: C.text()
@@ -81,6 +81,7 @@ describe("executor behavior", () => {
       driver: Executor.driver("postgres", () => Effect.succeed([
         {
           profile__id: userId,
+          profile__email: "alice@example.com",
           ignored: 123
         }
       ]))
@@ -89,7 +90,8 @@ describe("executor behavior", () => {
     expect(Effect.runSync(executor.execute(plan)) as ReadonlyArray<unknown>).toEqual([
       {
         profile: {
-          id: userId
+          id: userId,
+          email: "alice@example.com"
         }
       }
     ])
@@ -241,7 +243,7 @@ describe("executor behavior", () => {
     ])
   })
 
-  test("fromDriver omits missing projected aliases instead of failing", () => {
+  test("fromDriver rejects missing nested projected aliases instead of omitting paths", () => {
     const users = Table.make("users", {
       id: C.uuid().pipe(C.primaryKey),
       email: C.text()
@@ -263,13 +265,16 @@ describe("executor behavior", () => {
       ]))
     })
 
-    expect(Effect.runSync(executor.execute(plan)) as ReadonlyArray<unknown>).toEqual([
-      {
-        profile: {
-          id: userId
+    expect(Effect.runSync(Effect.either(executor.execute(plan)))).toMatchObject({
+      _tag: "Left",
+      left: {
+        _tag: "RowDecodeError",
+        stage: "schema",
+        projection: {
+          alias: "profile__email"
         }
       }
-    ])
+    })
   })
 
   test("fromDriver rejects raw values that cannot be normalized into the canonical runtime contract", () => {

@@ -330,17 +330,14 @@ export const makeRowDecoder = (
         continue
       }
       if (!(projection.alias in row)) {
-        if (projection.path.length === 1) {
-          throw makeRowDecodeError(
-            rendered,
-            projection,
-            expression,
-            undefined,
-            "schema",
-            new Error(`Missing required projection alias '${projection.alias}'`)
-          )
-        }
-        continue
+        throw makeRowDecodeError(
+          rendered,
+          projection,
+          expression,
+          undefined,
+          "schema",
+          new Error(`Missing required projection alias '${projection.alias}'`)
+        )
       }
       setPath(
         decoded,
