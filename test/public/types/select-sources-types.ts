@@ -96,6 +96,12 @@ const invalidUnnestLengths = Postgres.Query.unnest({
 }, "invalid_seed_rows")
 void invalidUnnestLengths
 
+const emptyUnnestRows = Postgres.Query.unnest({
+  // @ts-expect-error unnest column arrays must contain at least one value
+  id: [] as const
+}, "empty_seed_rows")
+void emptyUnnestRows
+
 const unnestPlan = Postgres.Query.select({
   id: unnestSource.id,
   email: unnestSource.email
@@ -260,6 +266,12 @@ const invalidMysqlUnnestLengths = Mysql.Query.unnest({
   email: [Mysql.Query.literal("alice@example.com")] as const
 }, "invalid_seed_rows")
 void invalidMysqlUnnestLengths
+
+const emptyMysqlUnnestRows = Mysql.Query.unnest({
+  // @ts-expect-error mysql unnest column arrays must contain at least one value
+  id: [] as const
+}, "empty_seed_rows")
+void emptyMysqlUnnestRows
 
 const mysqlUnnestPlan = Mysql.Query.select({
   id: mysqlUnnestSource.id,

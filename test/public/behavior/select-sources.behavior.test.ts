@@ -170,6 +170,16 @@ describe("select sources behavior", () => {
     )
   })
 
+  test("rejects invalid postgres unnest column arrays", () => {
+    expect(() => Postgres.Query.unnest(unsafeAny({
+      id: []
+    }), "empty_seed_rows")).toThrow("unnest(...) requires at least one row")
+
+    expect(() => Postgres.Query.unnest(unsafeAny({
+      id: Postgres.Query.literal(1)
+    }), "not_array_seed_rows")).toThrow("unnest(...) expects every value to be an array")
+  })
+
   test("renders standalone values and unnest sources in mysql", () => {
     const valuesSource = Mysql.Query.values([
       { id: Mysql.Query.literal(1), email: Mysql.Query.literal("alice@example.com") },
@@ -223,6 +233,16 @@ describe("select sources behavior", () => {
     expect(() => Mysql.Query.values([{}] as const)).toThrow(
       "values(...) rows must specify at least one column"
     )
+  })
+
+  test("rejects invalid mysql unnest column arrays", () => {
+    expect(() => Mysql.Query.unnest(unsafeAny({
+      id: []
+    }), "empty_seed_rows")).toThrow("unnest(...) requires at least one row")
+
+    expect(() => Mysql.Query.unnest(unsafeAny({
+      id: Mysql.Query.literal(1)
+    }), "not_array_seed_rows")).toThrow("unnest(...) expects every value to be an array")
   })
 
   test("renders scalar and quantified subqueries in postgres", () => {
