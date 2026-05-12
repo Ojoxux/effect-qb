@@ -84,7 +84,8 @@ const twoOptionalSources = Q.select({
   userId: users.id,
   commentId: comments.id,
   commentBody: comments.body,
-  fallbackComment: F.coalesce(null, comments.body, Q.literal("none"))
+  fallbackComment: F.coalesce(null, comments.body, Q.literal("none")),
+  loweredFallbackComment: F.lower(F.coalesce(null, comments.body, Q.literal("none")))
 }).pipe(
   Q.from(users),
   Q.leftJoin(posts, Q.eq(users.id, posts.userId)),
@@ -96,13 +97,18 @@ const optionalUserId: TwoOptionalRow["userId"] = "user-id"
 const nullableCommentId: TwoOptionalRow["commentId"] = null
 const nullableCommentBody: TwoOptionalRow["commentBody"] = null
 const fallbackComment: TwoOptionalRow["fallbackComment"] = "none"
+const loweredFallbackComment: TwoOptionalRow["loweredFallbackComment"] = "none"
 // @ts-expect-error coalesce should still seal nullability across multiply-optional sources
 const nullFallbackComment: TwoOptionalRow["fallbackComment"] = null
+// @ts-expect-error string functions over non-null coalesce should stay non-null
+const nullLoweredFallbackComment: TwoOptionalRow["loweredFallbackComment"] = null
 void nullableCommentId
 void nullableCommentBody
 void fallbackComment
+void loweredFallbackComment
 void optionalUserId
 void nullFallbackComment
+void nullLoweredFallbackComment
 
 const promotedAcrossTwoLeftJoins = Q.select({
   userId: users.id,
