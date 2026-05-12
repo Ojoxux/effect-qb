@@ -4417,9 +4417,18 @@ type ValuesRowsShapeMismatches<Rows extends ValuesRowsInput> =
     ? ValuesRowsShapeMismatchesFor<First, Rest[number]>
     : never
 
+type ValuesRowsColumnKeys<Rows extends ValuesRowsInput> =
+  Rows extends readonly [infer First extends ValuesRowInput, ...ValuesRowInput[]]
+    ? Extract<keyof First, string>
+    : never
+
 type ValuesRowsShapeInput<Rows extends ValuesRowsInput> =
-  [ValuesRowsShapeMismatches<Rows>] extends [never]
-    ? unknown
+  [ValuesRowsColumnKeys<Rows>] extends [never]
+    ? {
+        readonly __effect_qb_error__: "effect-qb: values rows must project at least one column"
+      }
+    : [ValuesRowsShapeMismatches<Rows>] extends [never]
+      ? unknown
     : {
         readonly __effect_qb_error__: "effect-qb: values rows must project the same columns"
         readonly __effect_qb_mismatched_columns__: ValuesRowsShapeMismatches<Rows>

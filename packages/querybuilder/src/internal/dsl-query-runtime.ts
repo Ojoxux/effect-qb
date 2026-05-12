@@ -28,6 +28,9 @@ export const makeDslQueryRuntime = (ctx: DslQueryRuntimeContext) => {
       ...Record<string, Expression.Any>[]
     ]
     const columnNames = Object.keys(normalizedRows[0]!)
+    if (columnNames.length === 0) {
+      throw new Error("values(...) rows must specify at least one column")
+    }
     const columnNameSet = new Set(columnNames)
     for (const row of normalizedRows) {
       const rowKeys = Object.keys(row)
