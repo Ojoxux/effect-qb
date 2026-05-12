@@ -174,6 +174,24 @@ const insertReturning = Q.returning({
   bio: users.bio
 })(insertPlan)
 
+const badReturningMysqlSelection = Q.returning({
+  bad: Mysql.Query.literal("wrong-dialect")
+})(insertPlan)
+const badReturningMysqlSelectionRendered = Renderer.make().render(
+  // @ts-expect-error postgres returning selections cannot use mysql expressions
+  badReturningMysqlSelection
+)
+void badReturningMysqlSelectionRendered
+
+const badReturningUnavailableSource = Q.returning({
+  note: auditLogs.note
+})(insertPlan)
+const badReturningUnavailableSourceRendered = Renderer.make().render(
+  // @ts-expect-error returning selections must be backed by available mutation sources
+  badReturningUnavailableSource
+)
+void badReturningUnavailableSourceRendered
+
 const updateReturning = Q.returning({
   id: users.id,
   email: users.email,
