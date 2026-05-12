@@ -1,0 +1,39 @@
+import { Column as C, Query as Q, Table } from "effect-qb/mysql"
+
+const users = Table.make("users", {
+  id: C.uuid().pipe(C.primaryKey),
+  email: C.text()
+})
+
+const posts = Table.make("posts", {
+  id: C.uuid().pipe(C.primaryKey),
+  userId: C.uuid()
+})
+
+const fullJoinPlan = Q.select({
+  userId: users.id,
+  postId: posts.id
+}).pipe(
+  Q.from(users),
+  // @ts-expect-error MySQL does not support FULL OUTER JOIN syntax.
+  Q.fullJoin(posts, Q.eq(users.id, posts.userId))
+)
+
+// @ts-expect-error MySQL TRUNCATE does not support PostgreSQL restart identity/cascade options.
+const restartIdentityTruncate = Q.truncate(users, {
+  restartIdentity: true
+})
+
+// @ts-expect-error MySQL mutation statements should not expose PostgreSQL-style RETURNING projections.
+const returningMutation = Q.insert(users, {
+  id: "user-id",
+  email: "alice@example.com"
+}).pipe(
+  Q.returning({
+    id: users.id
+  })
+)
+
+void fullJoinPlan
+void restartIdentityTruncate
+void returningMutation
