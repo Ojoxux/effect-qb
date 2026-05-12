@@ -3,7 +3,7 @@ import { join } from "node:path"
 
 import { describe, expect, test } from "bun:test"
 
-import { readMigrationFiles } from "effect-db/postgres/migrate"
+import { readMigrationFiles } from "../../../packages/database/src/postgres/migrate.js"
 
 const repoRoot = process.cwd()
 
