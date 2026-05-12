@@ -224,19 +224,19 @@ const extractJsonValue = (node: Record<string, unknown>): unknown =>
   node.newValue ?? node.insert ?? node.right
 
 const renderJsonPathSegment = (segment: JsonPath.AnySegment | string | number): string => {
+  const renderKey = (value: string): string =>
+    /^[A-Za-z_][A-Za-z0-9_]*$/.test(value)
+      ? `.${value}`
+      : `.${JSON.stringify(value)}`
   if (typeof segment === "string") {
-    return /^[A-Za-z_][A-Za-z0-9_]*$/.test(segment)
-      ? `.${segment}`
-      : `."${segment.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
+    return renderKey(segment)
   }
   if (typeof segment === "number") {
     return `[${segment}]`
   }
   switch (segment.kind) {
     case "key":
-      return /^[A-Za-z_][A-Za-z0-9_]*$/.test(segment.key)
-        ? `.${segment.key}`
-        : `."${segment.key.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
+      return renderKey(segment.key)
     case "index":
       return `[${segment.index}]`
     case "wildcard":
