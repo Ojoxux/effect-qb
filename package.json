@@ -29,7 +29,7 @@
     "@effect/sql-mysql2": "0.48.0",
     "@effect/sql-pg": "0.48.0",
     "@types/bun": "latest",
-    "@typescript/native-preview": "latest",
+    "@typescript/native-preview": "beta",
     "effect": "^3.19.3",
     "effect-db": "workspace:*",
     "effect-qb": "workspace:*",

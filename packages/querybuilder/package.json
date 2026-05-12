@@ -49,7 +49,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@typescript/native-preview": "latest"
+    "@typescript/native-preview": "beta"
   },
   "dependencies": {
     "@effect/experimental": "^0.57.0",
