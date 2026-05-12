@@ -109,12 +109,18 @@ describe("cross-cutting statement behavior", () => {
     const filteredCreateTable = Postgres.Query.createTable(users).pipe(
       Postgres.Query.where(true)
     )
+    const filteredTransaction = Postgres.Query.transaction().pipe(
+      Postgres.Query.where(true)
+    )
 
     expect(() => Postgres.Renderer.make().render(filteredTruncate)).toThrow(
       "where(...) is not supported for truncate statements"
     )
     expect(() => Postgres.Renderer.make().render(filteredCreateTable)).toThrow(
       "where(...) is not supported for createTable statements"
+    )
+    expect(() => Postgres.Renderer.make().render(filteredTransaction)).toThrow(
+      "where(...) is not supported for transaction statements"
     )
   })
 
