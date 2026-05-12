@@ -48,15 +48,32 @@ type InlinePrimaryKeyKeys<Fields extends TableFieldMap> = Extract<{
 type TableDialect<Fields extends TableFieldMap> = Fields[keyof Fields][typeof import("./column-state.js").ColumnTypeId]["dbType"]["dialect"]
 type TableKind = "schema" | "alias"
 type DefaultSchemaName = "public"
-type ClassOptionSpec = Exclude<TableOptionSpec, { readonly kind: "primaryKey" }>
+type FieldColumnName<Fields extends TableFieldMap> = Extract<keyof Fields, string>
+type FieldColumnList<Fields extends TableFieldMap> = readonly [FieldColumnName<Fields>, ...FieldColumnName<Fields>[]]
+type FieldIndexKeySpec<Fields extends TableFieldMap> =
+  | (Extract<IndexKeySpec, { readonly kind: "column" }> & { readonly column: FieldColumnName<Fields> })
+  | Extract<IndexKeySpec, { readonly kind: "expression" }>
+type ClassOptionSpec<Fields extends TableFieldMap = TableFieldMap> =
+  | (Omit<Extract<TableOptionSpec, { readonly kind: "index" }>, "columns" | "include" | "keys"> & {
+      readonly columns?: FieldColumnList<Fields>
+      readonly include?: readonly FieldColumnName<Fields>[]
+      readonly keys?: readonly [FieldIndexKeySpec<Fields>, ...FieldIndexKeySpec<Fields>[]]
+    })
+  | (Omit<Extract<TableOptionSpec, { readonly kind: "unique" }>, "columns"> & {
+      readonly columns: FieldColumnList<Fields>
+    })
+  | (Omit<Extract<TableOptionSpec, { readonly kind: "foreignKey" }>, "columns"> & {
+      readonly columns: FieldColumnList<Fields>
+    })
+  | Extract<TableOptionSpec, { readonly kind: "check" }>
 interface TableOptionBuilderLike<
   Spec extends TableOptionSpec = TableOptionSpec
 > {
   readonly option: Spec
 }
 
-type ClassTableOption = TableOptionBuilderLike<ClassOptionSpec>
-type ClassDeclaredTableOptions = readonly ClassTableOption[]
+type ClassTableOption<Fields extends TableFieldMap> = TableOptionBuilderLike<ClassOptionSpec<Fields>>
+type ClassDeclaredTableOptions<Fields extends TableFieldMap> = readonly ClassTableOption<Fields>[]
 
 type BuildPrimaryKey<
   Table extends TableDefinition<any, any, any, "schema", any>,
@@ -218,7 +235,7 @@ export type TableClassStatic<
   >
   readonly [OptionsSymbol]: readonly TableOptionSpec[]
   readonly [DeclaredOptionsSymbol]?: readonly TableOptionSpec[]
-  readonly [options]?: ClassDeclaredTableOptions
+  readonly [options]?: ClassDeclaredTableOptions<Fields>
   readonly tableName: Name
 } & BoundColumns<Name, Fields> & Plan.RowSet<
     BoundColumns<Name, Fields>,
