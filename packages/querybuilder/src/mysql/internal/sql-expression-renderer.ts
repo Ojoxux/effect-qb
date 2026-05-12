@@ -457,7 +457,10 @@ const renderJsonOpaquePath = (
   dialect: SqlDialect
 ): string => {
   if (isJsonPathValue(value)) {
-    return dialect.renderLiteral(renderJsonPathStringLiteral(value.segments), state)
+    const renderSegment = dialect.name === "mysql"
+      ? renderMySqlJsonPathSegment
+      : renderJsonPathSegment
+    return dialect.renderLiteral(renderJsonPathStringLiteral(value.segments, renderSegment), state)
   }
   if (typeof value === "string") {
     return dialect.renderLiteral(value, state)

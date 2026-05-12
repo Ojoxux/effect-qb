@@ -892,6 +892,37 @@ describe("json behavior", () => {
     ])
   })
 
+  test("mysql renders dialect-specific json path objects for path exists", () => {
+    const docs = makeJsonTable(Mysql)
+
+    const lastTagPath = Mysql.Json.json.path(
+      Mysql.Json.json.key("profile"),
+      Mysql.Json.json.key("tags"),
+      Mysql.Json.json.index(-1)
+    )
+    const cityDescendPath = Mysql.Json.json.path(
+      Mysql.Json.json.descend(),
+      Mysql.Json.json.key("city")
+    )
+
+    const plan = Mysql.Query.select({
+      hasLastTag: Mysql.Json.json.pathExists(docs.payload, lastTagPath),
+      hasAnyCity: Mysql.Json.json.pathExists(docs.payload, cityDescendPath)
+    }).pipe(Mysql.Query.from(docs))
+
+    const rendered = Mysql.Renderer.make().render(plan)
+
+    expect(rendered.sql).toBe(
+      "select json_contains_path(`docs`.`payload`, ?, ?) as `hasLastTag`, json_contains_path(`docs`.`payload`, ?, ?) as `hasAnyCity` from `docs`"
+    )
+    expect(rendered.params).toEqual([
+      "one",
+      "$.profile.tags[last]",
+      "one",
+      "$**.city"
+    ])
+  })
+
   test("postgres renders json and jsonb mutations with separate helper surfaces", () => {
     const docsJson = Postgres.Table.make("docs_json", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
