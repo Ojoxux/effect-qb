@@ -156,6 +156,9 @@ export const toDriverValue = (
   if (custom !== undefined && dbType !== undefined) {
     return custom(current, dbType)
   }
+  if (encoded.encoded && typeof current === "string" && isJsonDbType(dbType)) {
+    return current
+  }
   return dbType === undefined || !encoded.encoded
     ? current
     : normalizeDbValue(dbType, current)
