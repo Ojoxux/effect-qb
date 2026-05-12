@@ -228,4 +228,21 @@ describe("cross-cutting statement behavior", () => {
       "lock(...) is not supported for update statements"
     )
   })
+
+  test("rejects runtime returning projections on ddl statements", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const createTablePlan = Postgres.Query.createTable(users).pipe(
+      Postgres.Query.returning({
+        created: Postgres.Query.literal(true)
+      })
+    )
+
+    expect(() => Postgres.Renderer.make().render(createTablePlan)).toThrow(
+      "returning(...) is not supported for createTable statements"
+    )
+  })
 })
