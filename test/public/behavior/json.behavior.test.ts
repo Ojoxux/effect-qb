@@ -624,6 +624,35 @@ describe("json behavior", () => {
     ])
   })
 
+  test("mysql renders array json insert paths with the array insert operator", () => {
+    const docs = makeJsonTable(Mysql)
+
+    const firstTagPath = Mysql.Json.json.path(
+      Mysql.Json.json.key("profile"),
+      Mysql.Json.json.key("tags"),
+      Mysql.Json.json.index(1)
+    )
+
+    const plan = Mysql.Query.select({
+      insertTag: Mysql.Json.json.insert(docs.payload, firstTagPath, "city"),
+      insertTagAfter: Mysql.Json.json.insert(docs.payload, firstTagPath, "country", {
+        insertAfter: true
+      })
+    }).pipe(Mysql.Query.from(docs))
+
+    const rendered = Mysql.Renderer.make().render(plan)
+
+    expect(rendered.sql).toBe(
+      "select json_array_insert(`docs`.`payload`, ?, ?) as `insertTag`, json_array_insert(`docs`.`payload`, ?, ?) as `insertTagAfter` from `docs`"
+    )
+    expect(rendered.params).toEqual([
+      "$.profile.tags[1]",
+      "city",
+      "$.profile.tags[2]",
+      "country"
+    ])
+  })
+
   test("mysql preserves nested json delete paths as one path argument", () => {
     const docs = makeJsonTable(Mysql)
     const cityPath = Mysql.Json.json.path(
