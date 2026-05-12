@@ -148,7 +148,7 @@ type StepSet<
         ? readonly (NormalizeJsonLiteral<Root[number]> | NormalizeJsonLiteral<Next>)[]
         : SetTupleIndex<Root, Index, Next>
       : JsonPathUsageError<Operation, Root, Segment, "index segments require an array-like json value">
-    : NormalizeJsonLiteral<Root>
+    : JsonPathUsageError<Operation, Root, Segment, "mutation paths require exact key/index segments">
 
 type StepDelete<
   Root,
@@ -166,7 +166,7 @@ type StepDelete<
         ? Root
         : DropTupleIndex<Root, Index>
       : JsonPathUsageError<Operation, Root, Segment, "index segments require an array-like json value">
-    : NormalizeJsonLiteral<Root>
+    : JsonPathUsageError<Operation, Root, Segment, "mutation paths require exact key/index segments">
 
 type StepInsert<
   Root,
@@ -190,7 +190,7 @@ type StepInsert<
               readonly [K in Key]: NormalizeJsonLiteral<Next>
             }
         : JsonPathUsageError<Operation, Root, Segment, "key segments require an object-like json value">
-    : NormalizeJsonLiteral<Root>
+    : JsonPathUsageError<Operation, Root, Segment, "mutation paths require exact key/index segments">
 
 type RecurseValue<
   Current,
@@ -219,12 +219,16 @@ type RecurseSet<
     : StepValue<Current, Head, Operation> extends infer Child
       ? Child extends JsonPathUsageError<any, any, any, any>
         ? Child
-        : StepSet<
-            Current,
-            Head,
-            RecurseSet<StripNull<Child>, Tail, Next, Operation>,
-            Operation
-          >
+        : RecurseSet<StripNull<Child>, Tail, Next, Operation> extends infer UpdatedChild
+          ? UpdatedChild extends JsonPathUsageError<any, any, any, any>
+            ? UpdatedChild
+            : StepSet<
+                Current,
+                Head,
+                UpdatedChild,
+                Operation
+              >
+          : never
       : never
   : NormalizeJsonLiteral<Next>
 
@@ -238,12 +242,16 @@ type RecurseDelete<
     : StepValue<Current, Head, Operation> extends infer Child
       ? Child extends JsonPathUsageError<any, any, any, any>
         ? Child
-        : StepSet<
-            Current,
-            Head,
-            RecurseDelete<StripNull<Child>, Tail, Operation>,
-            Operation
-          >
+        : RecurseDelete<StripNull<Child>, Tail, Operation> extends infer UpdatedChild
+          ? UpdatedChild extends JsonPathUsageError<any, any, any, any>
+            ? UpdatedChild
+            : StepSet<
+                Current,
+                Head,
+                UpdatedChild,
+                Operation
+              >
+          : never
       : never
   : NormalizeJsonLiteral<Current>
 
@@ -259,12 +267,16 @@ type RecurseInsert<
     : StepValue<Current, Head, Operation> extends infer Child
       ? Child extends JsonPathUsageError<any, any, any, any>
         ? Child
-        : StepSet<
-            Current,
-            Head,
-            RecurseInsert<StripNull<Child>, Tail, Next, After, Operation>,
-            Operation
-          >
+        : RecurseInsert<StripNull<Child>, Tail, Next, After, Operation> extends infer UpdatedChild
+          ? UpdatedChild extends JsonPathUsageError<any, any, any, any>
+            ? UpdatedChild
+            : StepSet<
+                Current,
+                Head,
+                UpdatedChild,
+                Operation
+              >
+          : never
       : never
   : NormalizeJsonLiteral<Current>
 
