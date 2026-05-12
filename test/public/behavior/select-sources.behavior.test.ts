@@ -62,6 +62,28 @@ describe("select sources behavior", () => {
     )
   })
 
+  test("rejects runtime set operators with mismatched result rows", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+    const posts = Postgres.Table.make("posts", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      userId: Postgres.Column.uuid()
+    })
+
+    const usersByEmail = Postgres.Query.select({
+      email: users.email
+    }).pipe(Postgres.Query.from(users))
+    const postsById = Postgres.Query.select({
+      postId: posts.id
+    }).pipe(Postgres.Query.from(posts))
+
+    expect(() => renderPostgres(Postgres.Query.union(unsafeAny(usersByEmail), unsafeAny(postsById)))).toThrow(
+      "set operator operands must have matching result rows"
+    )
+  })
+
   test("renders standalone values, unnest, and generate series sources in postgres", () => {
     const valuesSource = Postgres.Query.values([
       { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") },
