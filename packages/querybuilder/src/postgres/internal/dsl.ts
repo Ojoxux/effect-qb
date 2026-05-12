@@ -35,6 +35,7 @@ import {
   type DependencyRecord,
   type DialectOf,
   type DerivedSelectionOf,
+  type DerivedProjectionCompatiblePlan,
   type DerivedSourceCompatiblePlan,
   type DerivedSource,
   type CompletePlan,
@@ -5083,13 +5084,13 @@ type AsCurriedResult<
   >(
     alias: Alias
   ): <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
-    value: CompletePlan<PlanValue>
+    value: DerivedSourceCompatiblePlan<PlanValue>
   ) => import("../../internal/query.js").CteSource<PlanValue, Alias>
   function with_<
     PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
     Alias extends string
   >(
-    value: CompletePlan<PlanValue>,
+    value: DerivedSourceCompatiblePlan<PlanValue>,
     alias: Alias
   ): import("../../internal/query.js").CteSource<PlanValue, Alias>
   function with_(valueOrAlias: unknown, alias?: string): unknown {
@@ -5107,13 +5108,13 @@ type AsCurriedResult<
   >(
     alias: Alias
   ): <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
-    value: CompletePlan<PlanValue>
+    value: DerivedSourceCompatiblePlan<PlanValue>
   ) => import("../../internal/query.js").CteSource<PlanValue, Alias>
   function withRecursive_<
     PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
     Alias extends string
   >(
-    value: CompletePlan<PlanValue>,
+    value: DerivedSourceCompatiblePlan<PlanValue>,
     alias: Alias
   ): import("../../internal/query.js").CteSource<PlanValue, Alias>
   function withRecursive_(valueOrAlias: unknown, alias?: string): unknown {
@@ -5132,13 +5133,13 @@ type AsCurriedResult<
   >(
     alias: Alias
   ): <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
-    value: PlanValue
+    value: DerivedProjectionCompatiblePlan<PlanValue>
   ) => import("../../internal/query.js").LateralSource<PlanValue, Alias>
   function lateral<
     PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
     Alias extends string
   >(
-    value: PlanValue,
+    value: DerivedProjectionCompatiblePlan<PlanValue>,
     alias: Alias
   ): import("../../internal/query.js").LateralSource<PlanValue, Alias>
   function lateral(valueOrAlias: unknown, alias?: string): unknown {

@@ -1157,11 +1157,16 @@ export type DerivedSourceProjectionCompatibilityError<
   readonly __effect_qb_hint__: "Use unique nested selection paths and do not override projection aliases inside derived subqueries"
 }
 
+export type DerivedProjectionCompatiblePlan<
+  PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
+  ValidPlan = PlanValue
+> = [DerivedProjectionIssues<SelectionOfPlan<PlanValue>>] extends [never]
+  ? ValidPlan
+  : ValidPlan & DerivedSourceProjectionCompatibilityError<PlanValue>
+
 export type DerivedSourceCompatiblePlan<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>
-> = [DerivedProjectionIssues<SelectionOfPlan<PlanValue>>] extends [never]
-  ? CompletePlan<PlanValue>
-  : CompletePlan<PlanValue> & DerivedSourceProjectionCompatibilityError<PlanValue>
+> = DerivedProjectionCompatiblePlan<PlanValue, CompletePlan<PlanValue>>
 
 type DerivedLeafExpression<
   Value extends Expression.Any,
