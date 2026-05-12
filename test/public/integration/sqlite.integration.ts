@@ -468,6 +468,422 @@ test("sqlite temporal helpers execute against SQLite built-ins", async () => {
   expect(row.now).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?$/)
 })
 
+test("sqlite composed reads execute CTEs, derived aggregates, subqueries, windows, and pagination", async () => {
+  const users = Table.make("composed_users", {
+    id: C.text().pipe(C.primaryKey),
+    email: C.text(),
+    visits: C.int()
+  })
+  const posts = Table.make("composed_posts", {
+    id: C.text().pipe(C.primaryKey),
+    userId: C.text(),
+    title: C.text().pipe(C.nullable)
+  })
+
+  const result = await runSqlite(Effect.gen(function*() {
+    const executor = Executor.make()
+
+    yield* executor.execute(Q.createTable(users))
+    yield* executor.execute(Q.createTable(posts))
+    yield* executor.execute(Q.insert(users, {
+      id: "user-1",
+      email: "ALICE@example.com",
+      visits: 5
+    }))
+    yield* executor.execute(Q.insert(users, {
+      id: "user-2",
+      email: "bob@example.com",
+      visits: 2
+    }))
+    yield* executor.execute(Q.insert(users, {
+      id: "user-3",
+      email: "carol@example.net",
+      visits: 0
+    }))
+    yield* executor.execute(Q.insert(posts, {
+      id: "post-1",
+      userId: "user-1",
+      title: "Alpha"
+    }))
+    yield* executor.execute(Q.insert(posts, {
+      id: "post-2",
+      userId: "user-1",
+      title: "Beta"
+    }))
+    yield* executor.execute(Q.insert(posts, {
+      id: "post-3",
+      userId: "user-2",
+      title: null
+    }))
+    yield* executor.execute(Q.insert(posts, {
+      id: "post-4",
+      userId: "user-2",
+      title: "Gamma"
+    }))
+
+    const activePosts = Q.select({
+      userId: posts.userId,
+      title: posts.title
+    }).pipe(
+      Q.from(posts),
+      Q.where(Q.isNotNull(posts.title)),
+      Q.with("active_posts")
+    )
+
+    const counts = Q.select({
+      userId: activePosts.userId,
+      postCount: F.count(activePosts.title),
+      firstTitle: F.min(activePosts.title)
+    }).pipe(
+      Q.from(activePosts),
+      Q.groupBy(activePosts.userId),
+      Q.having(Q.gt(F.count(activePosts.title), 0)),
+      Q.as("post_counts")
+    )
+
+    const latestTitle = Q.select({
+      value: F.max(posts.title)
+    }).pipe(
+      Q.from(posts),
+      Q.where(Q.eq(posts.userId, users.id))
+    )
+
+    const correlatedPosts = Q.select({
+      value: posts.id
+    }).pipe(
+      Q.from(posts),
+      Q.where(Q.eq(posts.userId, users.id)),
+      Q.limit(1)
+    )
+
+    const usersWithPosts = Q.select({
+      value: posts.userId
+    }).pipe(
+      Q.from(posts),
+      Q.where(Q.isNotNull(posts.title))
+    )
+
+    return yield* executor.execute(Q.select({
+      userId: users.id,
+      emailLower: F.lower(users.email),
+      label: Q.case()
+        .when(Q.gt(users.visits, 3), "busy")
+        .else("quiet"),
+      postCount: counts.postCount,
+      firstTitle: counts.firstTitle,
+      activeTitle: activePosts.title,
+      latestTitle: Q.scalar(latestTitle),
+      hasPosts: Q.exists(correlatedPosts),
+      inPublishedUsers: Q.inSubquery(users.id, usersWithPosts),
+      titleRow: F.rowNumber({
+        partitionBy: [users.id],
+        orderBy: [{ value: activePosts.title, direction: "asc" }]
+      }),
+      titleRank: F.rank({
+        partitionBy: [users.id],
+        orderBy: [{ value: activePosts.title, direction: "asc" }]
+      }),
+      windowPostCount: F.over(F.count(activePosts.title), {
+        partitionBy: [users.id]
+      })
+    }).pipe(
+      Q.from(users),
+      Q.innerJoin(counts, Q.eq(users.id, counts.userId)),
+      Q.innerJoin(activePosts, Q.eq(users.id, activePosts.userId)),
+      Q.where(Q.like(users.email, "%@example.com")),
+      Q.orderBy(users.id),
+      Q.orderBy(activePosts.title),
+      Q.limit(3),
+      Q.offset(0)
+    ))
+  }))
+
+  expect(result).toEqual([
+    {
+      userId: "user-1",
+      emailLower: "alice@example.com",
+      label: "busy",
+      postCount: 2,
+      firstTitle: "Alpha",
+      activeTitle: "Alpha",
+      latestTitle: "Beta",
+      hasPosts: true,
+      inPublishedUsers: true,
+      titleRow: 1,
+      titleRank: 1,
+      windowPostCount: 2
+    },
+    {
+      userId: "user-1",
+      emailLower: "alice@example.com",
+      label: "busy",
+      postCount: 2,
+      firstTitle: "Alpha",
+      activeTitle: "Beta",
+      latestTitle: "Beta",
+      hasPosts: true,
+      inPublishedUsers: true,
+      titleRow: 2,
+      titleRank: 2,
+      windowPostCount: 2
+    },
+    {
+      userId: "user-2",
+      emailLower: "bob@example.com",
+      label: "quiet",
+      postCount: 1,
+      firstTitle: "Gamma",
+      activeTitle: "Gamma",
+      latestTitle: "Gamma",
+      hasPosts: true,
+      inPublishedUsers: true,
+      titleRow: 1,
+      titleRank: 1,
+      windowPostCount: 1
+    }
+  ])
+})
+
+test("sqlite DDL constraints, generated columns, indexes, and drops execute", async () => {
+  const orgs = Table.make("ddl_orgs", {
+    id: C.text().pipe(C.primaryKey),
+    slug: C.text().pipe(C.unique)
+  })
+  const memberships = Table.make("ddl_memberships", {
+    id: C.text().pipe(C.primaryKey),
+    orgId: C.text(),
+    role: C.text(),
+    normalizedRole: C.text().pipe(C.generated(F.lower(Q.column("role", Q.type.text()))))
+  }).pipe(
+    Table.foreignKey("orgId", () => orgs, "id"),
+    Table.unique(["orgId", "role"] as const),
+    Table.check("ddl_memberships_role_not_empty", Q.neq(Q.column("role", Q.type.text()), "")),
+    Table.index(["role", "orgId"] as const)
+  )
+
+  const result = await runSqlite(Effect.gen(function*() {
+    const executor = Executor.make()
+    const sql = yield* SqlClient.SqlClient
+
+    yield* sql.unsafe("pragma foreign_keys = on", [])
+    yield* executor.execute(Q.createTable(orgs))
+    yield* executor.execute(Q.createTable(memberships))
+    yield* executor.execute(Q.createIndex(memberships, ["role", "orgId"] as const, {
+      ifNotExists: true
+    }))
+    yield* executor.execute(Q.insert(orgs, {
+      id: "org-1",
+      slug: "acme"
+    }))
+    yield* executor.execute(Q.insert(memberships, {
+      id: "membership-1",
+      orgId: "org-1",
+      role: "Admin"
+    }))
+
+    const rows = yield* executor.execute(Q.select({
+      id: memberships.id,
+      orgId: memberships.orgId,
+      role: memberships.role,
+      normalizedRole: memberships.normalizedRole
+    }).pipe(Q.from(memberships)))
+
+    const createdIndexes = yield* sql.unsafe<{ readonly name: string }>(
+      "select name from sqlite_master where type = 'index' and tbl_name = 'ddl_memberships' and name not like 'sqlite_autoindex%' order by name",
+      []
+    )
+
+    yield* executor.execute(Q.dropIndex(memberships, ["role", "orgId"] as const, {
+      ifExists: true
+    }))
+    yield* executor.execute(Q.dropTable(memberships, {
+      ifExists: true
+    }))
+    yield* executor.execute(Q.dropTable(orgs, {
+      ifExists: true
+    }))
+
+    const remaining = yield* sql.unsafe<{ readonly name: string }>(
+      "select name from sqlite_master where type in ('table', 'index') and name in ('ddl_orgs', 'ddl_memberships', 'ddl_memberships_role_orgId_idx') order by name",
+      []
+    )
+
+    return { rows, createdIndexes, remaining }
+  }))
+
+  expect(result.rows).toEqual([
+    {
+      id: "membership-1",
+      orgId: "org-1",
+      role: "Admin",
+      normalizedRole: "admin"
+    }
+  ])
+  expect(result.createdIndexes).toEqual([
+    {
+      name: "ddl_memberships_role_orgId_idx"
+    }
+  ])
+  expect(result.remaining).toEqual([])
+})
+
+test("sqlite transaction statements commit and roll back through the executor", async () => {
+  const auditLogs = Table.make("transaction_audit_logs", {
+    id: C.text().pipe(C.primaryKey),
+    note: C.text()
+  })
+
+  const result = await runSqlite(Effect.gen(function*() {
+    const executor = Executor.make()
+
+    yield* executor.execute(Q.createTable(auditLogs))
+
+    yield* executor.execute(Q.transaction())
+    yield* executor.execute(Q.insert(auditLogs, {
+      id: "committed",
+      note: "kept"
+    }))
+    yield* executor.execute(Q.commit())
+
+    yield* executor.execute(Q.transaction())
+    yield* executor.execute(Q.insert(auditLogs, {
+      id: "rolled-back",
+      note: "removed"
+    }))
+    yield* executor.execute(Q.rollback())
+
+    return yield* executor.execute(Q.select({
+      id: auditLogs.id,
+      note: auditLogs.note
+    }).pipe(
+      Q.from(auditLogs),
+      Q.orderBy(auditLogs.id)
+    ))
+  }))
+
+  expect(result).toEqual([
+    {
+      id: "committed",
+      note: "kept"
+    }
+  ])
+})
+
+test("sqlite JSON1 mutation and construction helpers execute against stored JSON", async () => {
+  const docs = Table.make("json_helper_docs", {
+    id: C.text().pipe(C.primaryKey),
+    payload: C.json(Schema.Unknown)
+  })
+
+  const result = await runSqlite(Effect.gen(function*() {
+    const executor = Executor.make()
+    const cityPath = J.json.path(J.json.key("profile"), J.json.key("address"), J.json.key("city"))
+    const postcodePath = J.json.path(J.json.key("profile"), J.json.key("address"), J.json.key("postcode"))
+    const metadataPath = J.json.path(J.json.key("metadata"))
+
+    yield* executor.execute(Q.createTable(docs))
+    yield* executor.execute(Q.insert(docs, {
+      id: "json-helper-1",
+      payload: {
+        profile: {
+          address: {
+            city: "Paris"
+          },
+          tags: ["sqlite"]
+        },
+        note: null
+      }
+    }))
+
+    return yield* executor.execute(Q.select({
+      builtObject: J.json.buildObject({
+        source: "sqlite",
+        ok: true
+      }),
+      builtArray: J.json.buildArray("sqlite", 1, true),
+      typeName: J.json.typeOf(docs.payload),
+      keys: J.json.keys(docs.payload),
+      hasProfile: J.json.hasKey(docs.payload, "profile"),
+      hasAll: J.json.hasAllKeys(docs.payload, "profile", "note"),
+      pathExists: J.json.pathExists(docs.payload, cityPath),
+      city: J.json.text(docs.payload, cityPath),
+      setPostcode: J.json.set(docs.payload, postcodePath, "1000"),
+      insertMetadata: J.json.insert(docs.payload, metadataPath, { imported: true }),
+      deleteNote: J.json.delete(docs.payload, J.json.key("note")),
+      removeNote: J.json.remove(docs.payload, J.json.key("note")),
+      merged: J.json.merge(docs.payload, {
+        profile: {
+          active: true
+        }
+      })
+    }).pipe(Q.from(docs)))
+  }))
+
+  expect(result).toEqual([
+    {
+      builtObject: {
+        source: "sqlite",
+        ok: true
+      },
+      builtArray: ["sqlite", 1, true],
+      typeName: "object",
+      keys: ["profile", "note"],
+      hasProfile: true,
+      hasAll: true,
+      pathExists: true,
+      city: "Paris",
+      setPostcode: {
+        profile: {
+          address: {
+            city: "Paris",
+            postcode: "1000"
+          },
+          tags: ["sqlite"]
+        },
+        note: null
+      },
+      insertMetadata: {
+        profile: {
+          address: {
+            city: "Paris"
+          },
+          tags: ["sqlite"]
+        },
+        note: null,
+        metadata: {
+          imported: true
+        }
+      },
+      deleteNote: {
+        profile: {
+          address: {
+            city: "Paris"
+          },
+          tags: ["sqlite"]
+        }
+      },
+      removeNote: {
+        profile: {
+          address: {
+            city: "Paris"
+          },
+          tags: ["sqlite"]
+        }
+      },
+      merged: {
+        profile: {
+          address: {
+            city: "Paris"
+          },
+          tags: ["sqlite"],
+          active: true
+        },
+        note: null
+      }
+    }
+  ])
+})
+
 test("sqlite JSON string scalars are stored as valid JSON text scalars", async () => {
   const docs = Table.make("json_string_docs", {
     id: C.text().pipe(C.primaryKey),
