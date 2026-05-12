@@ -167,6 +167,35 @@ describe("sqlite behavior", () => {
     ])
   })
 
+  test("renders sqlite JSON path objects through sqlite-specific path rules for path exists", () => {
+    const docs = Sqlite.Table.make("docs", {
+      id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),
+      payload: Sqlite.Column.json(Schema.Unknown)
+    })
+
+    const lastTagPath = Sqlite.Json.json.path(
+      Sqlite.Json.json.key("profile"),
+      Sqlite.Json.json.key("tags"),
+      Sqlite.Json.json.index(-1)
+    )
+    const descendPath = Sqlite.Json.json.path(
+      Sqlite.Json.json.descend(),
+      Sqlite.Json.json.key("city")
+    )
+
+    const rendered = render(Sqlite.Query.select({
+      hasLastTag: Sqlite.Json.json.pathExists(docs.payload, lastTagPath)
+    }).pipe(Sqlite.Query.from(docs)))
+
+    expect(rendered.sql).toBe(
+      'select (json_type("docs"."payload", ?) is not null) as "hasLastTag" from "docs"'
+    )
+    expect(rendered.params).toEqual(["$.profile.tags[#-1]"])
+    expect(() => render(Sqlite.Query.select({
+      unsupported: Sqlite.Json.json.pathExists(docs.payload, descendPath)
+    }).pipe(Sqlite.Query.from(docs)))).toThrow("SQLite JSON paths do not support recursive descent segments")
+  })
+
   test("encodes sqlite JSON string scalar literals as JSON text", () => {
     const docs = Sqlite.Table.make("json_string_docs", {
       id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),
