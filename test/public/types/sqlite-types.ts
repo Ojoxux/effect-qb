@@ -13,6 +13,11 @@ const users = Table.make("users", {
   }))
 })
 
+const posts = Table.make("posts", {
+  id: C.text().pipe(C.primaryKey),
+  userId: C.text()
+})
+
 const selectUsers = Q.select({
   id: users.id,
   email: users.email,
@@ -192,6 +197,9 @@ Q.update(users, {})
 
 // @ts-expect-error sqlite does not support mysql-style multi-table updates
 Q.update([users, users] as const, { users: { visits: 3 } })
+
+// @ts-expect-error sqlite delete statements do not support joins
+Q.innerJoin(posts, Q.eq(users.id, posts.userId))(Q.delete(users))
 
 // @ts-expect-error sqlite does not support truncate statements
 Q.truncate(users)

@@ -484,6 +484,10 @@ describe("sqlite behavior", () => {
       "lock(...) is not supported for update statements"
     )
 
+    expect(() => render(Sqlite.Query.delete(users).pipe(
+      Sqlite.Query.innerJoin(posts, Sqlite.Query.eq(users.id, posts.userId))
+    ))).toThrow("Unsupported sqlite joined delete")
+
     expect(() => render(Sqlite.Query.update([users, posts] as any, {
       users: {
         email: "updated@example.com"

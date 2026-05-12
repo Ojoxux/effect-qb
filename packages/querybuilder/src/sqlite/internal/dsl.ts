@@ -5091,7 +5091,7 @@ type RequireInsertStatement<PlanValue extends QueryPlan<any, any, any, any, any,
   StatementOfPlan<PlanValue> extends "insert" ? unknown : never
 
 type RequireJoinStatement<PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>> =
-  StatementOfPlan<PlanValue> extends "select" | "update" | "delete" ? unknown : never
+  StatementOfPlan<PlanValue> extends "select" | "update" ? unknown : never
 
 type RequireUpdateFromStatement<PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>> =
   StatementOfPlan<PlanValue> extends "update" ? unknown : never
