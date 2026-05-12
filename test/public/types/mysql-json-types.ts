@@ -6,7 +6,8 @@ const payloadSchema = Schema.Struct({
   profile: Schema.Struct({
     address: Schema.Struct({
       city: Schema.String
-    })
+    }),
+    tags: Schema.Array(Schema.String)
   })
 })
 
@@ -33,14 +34,19 @@ const tagWildcardPath = J.json.path(
 const setWithoutCreateExpr = J.json.set(docs.payload, suitePath, "12A", {
   createMissing: false
 })
+const tagsExpr = J.json.get(docs.payload, J.json.path(J.json.key("profile"), J.json.key("tags")))
+const tagsKeysExpr = J.json.keys(tagsExpr)
 const scalarLengthExpr = J.json.length(scalarDocs.payload)
 
 type SetWithoutCreate = E.RuntimeOf<typeof setWithoutCreateExpr>
+type TagsKeys = E.RuntimeOf<typeof tagsKeysExpr>
 type ScalarLength = E.RuntimeOf<typeof scalarLengthExpr>
 
+const tagsKeys: TagsKeys = null
 const scalarLength: ScalarLength = 1
 declare const setWithoutCreate: SetWithoutCreate
 
+void tagsKeys
 void scalarLength
 
 // @ts-expect-error createMissing: false should not add a missing object key
@@ -56,4 +62,5 @@ J.json.insert(docs.payload, tagWildcardPath, "featured")
 J.json.delete(docs.payload, tagWildcardPath)
 
 void setWithoutCreateExpr
+void tagsKeysExpr
 void scalarLengthExpr

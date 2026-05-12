@@ -113,6 +113,11 @@ const typeNameExpr = J.json.typeOf(docs.payload)
 const lengthExpr = J.json.length(docs.payload)
 const keysExpr = J.json.keys(docs.payload)
 const strippedExpr = J.json.stripNulls(docs.payload)
+const tagsExpr = J.json.get(
+  docs.payload,
+  J.json.path(J.json.key("profile"), J.json.key("tags"))
+)
+const tagsKeysExpr = J.json.keys(tagsExpr)
 
 const sharedJsonbProfileExpr = J.json.get(docs.payloadJsonb, J.json.key("profile"))
 const sharedJsonbCityExpr = J.json.get(docs.payloadJsonb, cityPath)
@@ -248,6 +253,7 @@ type CityText = E.RuntimeOf<typeof cityTextExpr>
 type JsonTypeName = E.RuntimeOf<typeof typeNameExpr>
 type JsonLength = E.RuntimeOf<typeof lengthExpr>
 type JsonKeys = E.RuntimeOf<typeof keysExpr>
+type TagsKeys = E.RuntimeOf<typeof tagsKeysExpr>
 type JsonStripped = Exclude<E.RuntimeOf<typeof strippedExpr>, null>
 type SharedJsonbCity = E.RuntimeOf<typeof sharedJsonbCityExpr>
 type SharedJsonbTypeName = E.RuntimeOf<typeof sharedJsonbTypeNameExpr>
@@ -285,6 +291,7 @@ const cityText: CityText = "Paris"
 const jsonTypeName: JsonTypeName = "object"
 const jsonLength: JsonLength = 2
 const jsonKeys: JsonKeys = ["profile", "note"]
+const tagsKeys: TagsKeys = null
 const strippedNote: JsonStripped["note"] = undefined
 const strippedPostcode: JsonStripped["profile"]["address"]["postcode"] = undefined
 const sharedJsonbCity: SharedJsonbCity = "Paris"
@@ -367,6 +374,7 @@ void cityText
 void jsonTypeName
 void jsonLength
 void jsonKeys
+void tagsKeys
 void strippedNote
 void strippedPostcode
 void sharedJsonbCity
