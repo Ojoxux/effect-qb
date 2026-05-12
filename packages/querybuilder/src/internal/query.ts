@@ -396,6 +396,10 @@ type GroupingKeyOfAst<Ast extends ExpressionAst.Any> =
       ? `cast(${GroupingKeyOfExpression<Value>} as ${Target["dialect"]}:${Target["kind"]})`
     : Ast extends ExpressionAst.CollateNode<infer Value extends Expression.Any, infer Collation extends readonly [string, ...string[]]>
       ? `collate(${GroupingKeyOfExpression<Value>},${JsonStringKeysGroupingKey<Collation>})`
+    : Ast extends ExpressionAst.FunctionCallNode<infer Name extends string, infer Args extends readonly Expression.Any[]>
+      ? `function(${EscapeGroupingText<Name>},${JoinGroupingKeys<{
+          readonly [K in keyof Args]: Args[K] extends Expression.Any ? GroupingKeyOfExpression<Args[K]> : never
+        } & readonly string[]>})`
     : Ast extends ExpressionAst.UnaryNode<infer Kind extends ExpressionAst.UnaryKind, infer Value extends Expression.Any>
       ? `${Kind}(${GroupingKeyOfExpression<Value>})`
     : Ast extends ExpressionAst.BinaryNode<infer Kind extends ExpressionAst.BinaryKind, infer Left extends Expression.Any, infer Right extends Expression.Any>

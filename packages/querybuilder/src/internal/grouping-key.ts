@@ -98,6 +98,8 @@ export const groupingKeyOfExpression = (expression: Expression.Any): string => {
       return `cast(${groupingKeyOfExpression(ast.value)} as ${ast.target.dialect}:${ast.target.kind})`
     case "collate":
       return `collate(${groupingKeyOfExpression(ast.value)},${ast.collation.map(escapeGroupingText).join(",")})`
+    case "function":
+      return `function(${escapeGroupingText(ast.name)},${ast.args.map(groupingKeyOfExpression).join(",")})`
     case "isNull":
     case "isNotNull":
     case "not":
