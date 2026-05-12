@@ -416,6 +416,32 @@ const badForeignKeyArity = Table.foreignKey(["orgId", "role"] as const, () => or
 }))
 void badForeignKeyArity
 
+// @ts-expect-error foreign keys must reference columns on the target table
+const badForeignKeyReferencedColumn = Table.foreignKey("orgId", () => orgs, "missing")(Table.make("bad_fk_referenced_column", {
+  orgId: C.uuid()
+}))
+void badForeignKeyReferencedColumn
+
+// @ts-expect-error rich foreign key local columns must exist on the source table
+const badRichForeignKeyLocalColumn = Table.foreignKey({
+  columns: ["missing"] as const,
+  target: () => orgs,
+  referencedColumns: ["id"] as const
+})(Table.make("bad_rich_fk_local_column", {
+  orgId: C.uuid()
+}))
+void badRichForeignKeyLocalColumn
+
+// @ts-expect-error rich foreign keys must reference columns on the target table
+const badRichForeignKeyReferencedColumn = Table.foreignKey({
+  columns: ["orgId"] as const,
+  target: () => orgs,
+  referencedColumns: ["missing"] as const
+})(Table.make("bad_rich_fk_referenced_column", {
+  orgId: C.uuid()
+}))
+void badRichForeignKeyReferencedColumn
+
 // @ts-expect-error rich primary key columns must exist on the target table
 const badRichPrimaryKeyColumn = Table.primaryKey({ columns: ["missing"] as const })(Table.make("bad_rich_primary_key_column", {
   id: C.uuid()
