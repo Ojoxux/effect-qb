@@ -46,7 +46,20 @@ type Frame<
   readonly polarity: Direction
 }
 
-type SourceNameOfKey<Key extends string> = Key extends `${infer SourceName}.${string}` ? SourceName : never
+type SourceNameOfKey<
+  Key extends string,
+  Current extends string = ""
+> = string extends Key
+  ? string
+  : Key extends `\\.${infer Rest}`
+    ? SourceNameOfKey<Rest, `${Current}.`>
+    : Key extends `\\\\${infer Rest}`
+      ? SourceNameOfKey<Rest, `${Current}\\`>
+      : Key extends `.${string}`
+        ? Current
+        : Key extends `${infer Character}${infer Rest}`
+          ? SourceNameOfKey<Rest, `${Current}${Character}`>
+          : never
 
 type EqLiteralValueOf<
   EqLiterals,

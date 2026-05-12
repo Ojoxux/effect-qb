@@ -2,28 +2,32 @@ import type * as Expression from "../scalar.js"
 import type * as ExpressionAst from "../expression-ast.js"
 import type * as JsonPath from "../json/path.js"
 
+type EscapePredicateBackslashes<Value extends string> = string extends Value
+  ? string
+  : Value extends `${infer Head}\\${infer Tail}`
+    ? `${Head}\\\\${EscapePredicateBackslashes<Tail>}`
+    : Value
+
+type EscapePredicateDots<Value extends string> = string extends Value
+  ? string
+  : Value extends `${infer Head}.${infer Tail}`
+    ? `${Head}\\.${EscapePredicateDots<Tail>}`
+    : Value
+
+type EscapePredicateSegment<Value extends string> =
+  EscapePredicateDots<EscapePredicateBackslashes<Value>>
+
+type EscapeJsonPathSegment<Value extends string> = EscapePredicateSegment<Value>
+
 export type ColumnKey<
   TableName extends string,
   ColumnName extends string
-> = `${TableName}.${ColumnName}`
+> = `${EscapePredicateSegment<TableName>}.${EscapePredicateSegment<ColumnName>}`
 
 export type ColumnKeyOfAst<Ast extends ExpressionAst.Any> =
   [Ast] extends [ExpressionAst.ColumnNode<infer TableName extends string, infer ColumnName extends string>]
     ? ColumnKey<TableName, ColumnName>
     : never
-
-type EscapeJsonPathBackslashes<Value extends string> =
-  Value extends `${infer Head}\\${infer Tail}`
-    ? `${Head}\\\\${EscapeJsonPathBackslashes<Tail>}`
-    : Value
-
-type EscapeJsonPathDots<Value extends string> =
-  Value extends `${infer Head}.${infer Tail}`
-    ? `${Head}\\.${EscapeJsonPathDots<Tail>}`
-    : Value
-
-type EscapeJsonPathSegment<Value extends string> =
-  EscapeJsonPathDots<EscapeJsonPathBackslashes<Value>>
 
 type JsonPathKey<
   Segments extends ExpressionAst.JsonSegmentTuple,
