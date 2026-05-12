@@ -9,6 +9,22 @@ const pad = (value: number, width = 2): string => value.toString().padStart(widt
 const formatLocalDate = (value: Date): string =>
   `${value.getUTCFullYear()}-${pad(value.getUTCMonth() + 1)}-${pad(value.getUTCDate())}`
 
+const localDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/
+
+const isValidLocalDateString = (value: string): boolean => {
+  const match = localDatePattern.exec(value)
+  if (match === null) {
+    return false
+  }
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const parsed = new Date(Date.UTC(year, month - 1, day))
+  return parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+}
+
 const formatLocalTime = (value: Date): string => {
   const milliseconds = value.getUTCMilliseconds()
   const base = `${pad(value.getUTCHours())}:${pad(value.getUTCMinutes())}:${pad(value.getUTCSeconds())}`
@@ -124,12 +140,14 @@ const normalizeLocalDate = (value: unknown): string => {
     return formatLocalDate(value)
   }
   const raw = expectString(value, "local date").trim()
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+  if (isValidLocalDateString(raw)) {
     return raw
   }
-  const parsed = new Date(raw)
-  if (!Number.isNaN(parsed.getTime())) {
-    return formatLocalDate(parsed)
+  if (!localDatePattern.test(raw)) {
+    const parsed = new Date(raw)
+    if (!Number.isNaN(parsed.getTime())) {
+      return formatLocalDate(parsed)
+    }
   }
   throw new Error("Expected a local-date value")
 }
