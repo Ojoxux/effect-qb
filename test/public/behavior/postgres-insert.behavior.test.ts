@@ -225,6 +225,16 @@ describe("postgres insert behavior", () => {
     }))).toThrow("Expected a local-date value")
   })
 
+  test("rejects insert values that violate target column schemas after normalization", () => {
+    const labels = Postgres.Table.make("labels", {
+      code: Postgres.Column.varchar(3)
+    })
+
+    expect(() => render(Postgres.Query.insert(labels, {
+      code: "toolong"
+    }))).toThrow()
+  })
+
   test("canonicalizes unnest insert arrays using the target column runtime contract", () => {
     const metrics = Postgres.Table.make("unnest_metrics", {
       total: Postgres.Column.number(),
