@@ -833,6 +833,57 @@ const assertMatchingSetProjections = (
   }
 }
 
+const assertNoGroupedMutationClauses = (
+  ast: Pick<QueryAst.Ast, "groupBy" | "having">,
+  statement: string
+): void => {
+  if (ast.groupBy.length > 0) {
+    throw new Error(`groupBy(...) is not supported for ${statement} statements`)
+  }
+  if (ast.having.length > 0) {
+    throw new Error(`having(...) is not supported for ${statement} statements`)
+  }
+}
+
+const assertNoStatementQueryClauses = (
+  ast: QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
+  statement: string
+): void => {
+  if (ast.distinct) {
+    throw new Error(`distinct(...) is not supported for ${statement} statements`)
+  }
+  if (ast.where.length > 0) {
+    throw new Error(`where(...) is not supported for ${statement} statements`)
+  }
+  if ((ast.fromSources?.length ?? 0) > 0 || ast.from) {
+    throw new Error(`from(...) is not supported for ${statement} statements`)
+  }
+  if (ast.joins.length > 0) {
+    throw new Error(`join(...) is not supported for ${statement} statements`)
+  }
+  if (ast.groupBy.length > 0) {
+    throw new Error(`groupBy(...) is not supported for ${statement} statements`)
+  }
+  if (ast.having.length > 0) {
+    throw new Error(`having(...) is not supported for ${statement} statements`)
+  }
+  if (ast.orderBy.length > 0) {
+    throw new Error(`orderBy(...) is not supported for ${statement} statements`)
+  }
+  if (ast.limit) {
+    throw new Error(`limit(...) is not supported for ${statement} statements`)
+  }
+  if (ast.offset) {
+    throw new Error(`offset(...) is not supported for ${statement} statements`)
+  }
+  if (ast.lock) {
+    throw new Error(`lock(...) is not supported for ${statement} statements`)
+  }
+  if (Object.keys(ast.select).length > 0) {
+    throw new Error(`returning(...) is not supported for ${statement} statements`)
+  }
+}
+
 export const renderQueryAst = (
   ast: QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
   state: RenderState,
@@ -927,6 +978,7 @@ export const renderQueryAst = (
       if (insertAst.distinct) {
         throw new Error("distinct(...) is not supported for insert statements")
       }
+      assertNoGroupedMutationClauses(insertAst, "insert")
       const targetSource = insertAst.into!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       sql = `insert into ${target}`
@@ -1015,6 +1067,7 @@ export const renderQueryAst = (
       if (updateAst.distinct) {
         throw new Error("distinct(...) is not supported for update statements")
       }
+      assertNoGroupedMutationClauses(updateAst, "update")
       const targetSource = updateAst.target!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targets = updateAst.targets ?? [targetSource]
@@ -1078,6 +1131,7 @@ export const renderQueryAst = (
       if (deleteAst.distinct) {
         throw new Error("distinct(...) is not supported for delete statements")
       }
+      assertNoGroupedMutationClauses(deleteAst, "delete")
       const targetSource = deleteAst.target!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targets = deleteAst.targets ?? [targetSource]
@@ -1131,10 +1185,8 @@ export const renderQueryAst = (
     }
     case "truncate": {
       const truncateAst = ast as QueryAst.Ast<Record<string, unknown>, any, "truncate">
+      assertNoStatementQueryClauses(truncateAst, "truncate")
       const targetSource = truncateAst.target!
-      if (truncateAst.where.length > 0) {
-        throw new Error("where(...) is not supported for truncate statements")
-      }
       if (dialect.name === "mysql" && (truncateAst.truncate?.restartIdentity || truncateAst.truncate?.cascade)) {
         throw new Error("Unsupported mysql truncate options")
       }
@@ -1187,25 +1239,26 @@ export const renderQueryAst = (
     case "savepoint":
     case "rollbackTo":
     case "releaseSavepoint": {
+      assertNoStatementQueryClauses(ast, ast.kind)
       sql = renderTransactionClause(ast.transaction!, dialect)
       break
     }
     case "createTable": {
       const createTableAst = ast as QueryAst.Ast<Record<string, unknown>, any, "createTable">
-      if (createTableAst.where.length > 0) {
-        throw new Error("where(...) is not supported for createTable statements")
-      }
+      assertNoStatementQueryClauses(createTableAst, "createTable")
       sql = renderCreateTableSql(createTableAst.target!, state, dialect, createTableAst.ddl?.kind === "createTable" && createTableAst.ddl.ifNotExists)
       break
     }
     case "dropTable": {
       const dropTableAst = ast as QueryAst.Ast<Record<string, unknown>, any, "dropTable">
+      assertNoStatementQueryClauses(dropTableAst, "dropTable")
       const ifExists = dropTableAst.ddl?.kind === "dropTable" && dropTableAst.ddl.ifExists
       sql = `drop table${ifExists ? " if exists" : ""} ${renderSourceReference(dropTableAst.target!.source, dropTableAst.target!.tableName, dropTableAst.target!.baseTableName, state, dialect)}`
       break
     }
     case "createIndex": {
       const createIndexAst = ast as QueryAst.Ast<Record<string, unknown>, any, "createIndex">
+      assertNoStatementQueryClauses(createIndexAst, "createIndex")
       sql = renderCreateIndexSql(
         createIndexAst.target!,
         createIndexAst.ddl as Extract<QueryAst.DdlClause, { readonly kind: "createIndex" }>,
@@ -1216,6 +1269,7 @@ export const renderQueryAst = (
     }
     case "dropIndex": {
       const dropIndexAst = ast as QueryAst.Ast<Record<string, unknown>, any, "dropIndex">
+      assertNoStatementQueryClauses(dropIndexAst, "dropIndex")
       sql = renderDropIndexSql(
         dropIndexAst.target!,
         dropIndexAst.ddl as Extract<QueryAst.DdlClause, { readonly kind: "dropIndex" }>,
