@@ -695,6 +695,20 @@ void badMysqlCreateTablePostgres
 const badPostgresCreateIndexMysql = Postgres.Query.createIndex(mysqlUsers, ["email"] as const)
 void badPostgresCreateIndexMysql
 
+// @ts-expect-error postgres predicates cannot use mysql expressions
+const badPostgresPredicateMysql = Postgres.Query.eq(mysqlUsers.email, "alice@example.com")
+void badPostgresPredicateMysql
+
+// @ts-expect-error mysql predicates cannot use postgres expressions
+const badMysqlPredicatePostgres = Mysql.Query.eq(postgresUsers.email, "alice@example.com")
+void badMysqlPredicatePostgres
+
+// @ts-expect-error postgres mutation values cannot use mysql expressions
+const badPostgresMutationMysqlExpression = Postgres.Query.insert(postgresUsers, {
+  email: Mysql.Query.literal("alice@example.com")
+})
+void badPostgresMutationMysqlExpression
+
 const mysqlDialect: typeof mysqlUsers.id[typeof Expression.TypeId]["dbType"]["dialect"] = "mysql"
 const postgresDialect: typeof postgresUsers.id[typeof Expression.TypeId]["dbType"]["dialect"] = "postgres"
 
