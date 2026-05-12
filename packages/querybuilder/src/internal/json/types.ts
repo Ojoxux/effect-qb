@@ -452,23 +452,50 @@ export type JsonBuildArray<
 
 export type JsonTextResult<Value> = Value extends JsonPrimitive ? `${Value}` : string
 
-export type JsonTypeName<Value> =
-  NormalizeJsonLiteral<Value> extends null ? "null"
-    : NormalizeJsonLiteral<Value> extends string ? "string"
-      : NormalizeJsonLiteral<Value> extends number ? "number"
-        : NormalizeJsonLiteral<Value> extends boolean ? "boolean"
-          : NormalizeJsonLiteral<Value> extends readonly unknown[] ? "array"
-            : NormalizeJsonLiteral<Value> extends object ? "object"
+type JsonTypeNameOfNormalized<Value> =
+  Value extends null ? "null"
+    : Value extends string ? "string"
+      : Value extends number ? "number"
+        : Value extends boolean ? "boolean"
+          : Value extends readonly unknown[] ? "array"
+            : Value extends object ? "object"
               : "unknown"
 
-export type JsonLengthResult<Value> =
-  NormalizeJsonLiteral<Value> extends readonly unknown[] ? number :
-    NormalizeJsonLiteral<Value> extends object ? number :
+export type JsonTypeName<Value> =
+  [NormalizeJsonLiteral<Value>] extends [never]
+    ? "unknown"
+    : NormalizeJsonLiteral<Value> extends infer Normalized
+      ? Normalized extends unknown
+        ? JsonTypeNameOfNormalized<Normalized>
+        : never
+      : never
+
+type JsonLengthResultOfNormalized<Value> =
+  Value extends readonly unknown[] ? number :
+    Value extends object ? number :
       null
 
-export type JsonKeysResult<Value> =
-  NormalizeJsonLiteral<Value> extends readonly unknown[]
+export type JsonLengthResult<Value> =
+  [NormalizeJsonLiteral<Value>] extends [never]
     ? null
-    : NormalizeJsonLiteral<Value> extends object
-      ? readonly Extract<keyof NormalizeJsonLiteral<Value>, string>[]
-    : null
+    : NormalizeJsonLiteral<Value> extends infer Normalized
+      ? Normalized extends unknown
+        ? JsonLengthResultOfNormalized<Normalized>
+        : never
+      : never
+
+type JsonKeysResultOfNormalized<Value> =
+  Value extends readonly unknown[]
+    ? null
+    : Value extends object
+      ? readonly Extract<keyof Value, string>[]
+      : null
+
+export type JsonKeysResult<Value> =
+  [NormalizeJsonLiteral<Value>] extends [never]
+    ? null
+    : NormalizeJsonLiteral<Value> extends infer Normalized
+      ? Normalized extends unknown
+        ? JsonKeysResultOfNormalized<Normalized>
+        : never
+      : never
