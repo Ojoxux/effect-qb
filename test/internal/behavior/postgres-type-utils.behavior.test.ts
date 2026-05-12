@@ -17,3 +17,9 @@ test("canonicalizes quoted qualified postgres type names", () => {
   expect(canonicalizePostgresTypeName("\"AuditSchema\".\"StatusType\"[]")).toBe("\"AuditSchema\".\"StatusType\"[]")
   expect(canonicalizePostgresTypeName("\"audit\"\"schema\".\"status\"\"type\"[]")).toBe("\"audit\"\"schema\".\"status\"\"type\"[]")
 })
+
+test("infers kind from quoted qualified postgres type names", () => {
+  expect(inferPostgresTypeKind("\"public\".\"status\"[]")).toBe("status[]")
+  expect(inferPostgresTypeKind("\"AuditSchema\".\"StatusType\"[]")).toBe("StatusType[]")
+  expect(inferPostgresTypeKind("\"audit\"\"schema\".\"status\"\"type\"[]")).toBe("status\"type[]")
+})
