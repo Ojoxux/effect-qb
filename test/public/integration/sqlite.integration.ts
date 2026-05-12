@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 
-import { Column as C, Executor, Json as J, Query as Q, Table } from "#sqlite"
+import { Column as C, Executor, Function as F, Json as J, Query as Q, Table } from "#sqlite"
 
 const runSqlite = <A, E>(effect: Effect.Effect<A, E, never>) =>
   Effect.runPromise(Effect.provide(effect, SqliteClient.layer({
@@ -379,6 +379,30 @@ test("sqlite delete returning executes against deleted rows", async () => {
       email: "alice@example.com"
     }
   ])
+})
+
+test("sqlite temporal helpers execute against SQLite built-ins", async () => {
+  const result = await runSqlite(Effect.gen(function*() {
+    const executor = Executor.make()
+
+    return yield* executor.execute(Q.select({
+      currentDate: F.currentDate(),
+      currentTime: F.currentTime(),
+      currentTimestamp: F.currentTimestamp(),
+      localTime: F.localTime(),
+      localTimestamp: F.localTimestamp(),
+      now: F.now()
+    }))
+  }))
+
+  expect(result).toHaveLength(1)
+  const row = result[0]!
+  expect(row.currentDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  expect(row.currentTime).toMatch(/^\d{2}:\d{2}:\d{2}(?:\.\d{3})?$/)
+  expect(row.currentTimestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?$/)
+  expect(row.localTime).toMatch(/^\d{2}:\d{2}:\d{2}(?:\.\d{3})?$/)
+  expect(row.localTimestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?$/)
+  expect(row.now).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?$/)
 })
 
 test("sqlite JSON string scalars are stored as valid JSON text scalars", async () => {

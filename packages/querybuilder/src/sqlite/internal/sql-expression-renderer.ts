@@ -535,9 +535,13 @@ const renderFunctionCall = (
       case "current_date":
       case "current_time":
       case "current_timestamp":
-      case "localtime":
-      case "localtimestamp":
         return name
+      case "localtime":
+        return "time('now', 'localtime')"
+      case "localtimestamp":
+        return "datetime('now', 'localtime')"
+      case "now":
+        return "current_timestamp"
       default:
         return `${name}()`
     }
