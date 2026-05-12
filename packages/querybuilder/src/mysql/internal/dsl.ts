@@ -5872,7 +5872,13 @@ type AsCurriedResult<
     EmptyFacts
   >
 
-  type MergeApi = <
+  type MergeUnsupportedError<Dialect extends string> = {
+    readonly __effect_qb_error__: "effect-qb: merge(...) is only supported by the postgres dialect"
+    readonly __effect_qb_dialect__: Dialect
+    readonly __effect_qb_hint__: "Use postgres.Query.merge(...) or dialect-specific insert/update/delete logic"
+  }
+
+  type MergeSupportedApi = <
     Target extends MutationTargetLike,
     Source extends SourceLike,
     On extends PredicateInput,
@@ -5928,6 +5934,8 @@ type AsCurriedResult<
     "ready",
     EmptyFacts
   >
+
+  type MergeApi = Dialect extends "postgres" ? MergeSupportedApi : MergeUnsupportedError<Dialect>
 
   const mutationRuntime = makeDslMutationRuntime({
     makePlan,
@@ -6041,7 +6049,7 @@ type AsCurriedResult<
     EmptyFacts
   > => mutationRuntime.truncate(target, options)
 
-  const merge: MergeApi = <
+  const merge = (<
     Target extends MutationTargetLike,
     Source extends SourceLike,
     On extends PredicateInput,
@@ -6096,7 +6104,7 @@ type AsCurriedResult<
     any,
     "ready",
     EmptyFacts
-  > => mutationRuntime.merge(target, source, on, options)
+  > => mutationRuntime.merge(target, source, on, options)) as unknown as MergeApi
 
   type TransactionApi = (options?: TransactionOptions) => QueryPlan<
     {},
