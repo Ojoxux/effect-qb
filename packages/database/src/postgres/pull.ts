@@ -51,6 +51,21 @@ const indent = (value: string, spaces = 2): string =>
 const renderStringLiteral = (value: string): string =>
   JSON.stringify(value)
 
+const safeUnquotedSqlIdentifier = /^[a-z_][a-z0-9_$]*$/
+
+const renderSqlIdentifier = (value: string): string =>
+  safeUnquotedSqlIdentifier.test(value)
+    ? value
+    : `"${value.replaceAll("\"", "\"\"")}"`
+
+const renderQualifiedDdlType = (
+  schemaName: string | undefined,
+  name: string
+): string =>
+  schemaName === undefined || schemaName === "public"
+    ? renderSqlIdentifier(name)
+    : `${renderSqlIdentifier(schemaName)}.${renderSqlIdentifier(name)}`
+
 const renderPropertyKey = (value: string): string =>
   isIdentifier(value)
     ? value
@@ -1280,30 +1295,26 @@ const inferKindFromDdl = (ddlType: string): string => {
 
 const inferSchemaNameFromDdl = (ddlType: string): string | undefined => {
   const withoutParams = ddlType.trim().replace(/\(.+\)$/, "").replace(/\[\]$/, "")
-  const match = /^(?:"([^"]+)"|([A-Za-z_][A-Za-z0-9_$]*))\.(?:"([^"]+)"|([A-Za-z_][A-Za-z0-9_$]*))$/.exec(withoutParams)
-  if (match === null) {
-    return undefined
-  }
-  return match[1] ?? match[2]
+  return parseQualifiedNameLiteral(withoutParams)?.schemaName
 }
 
 const inferTypeNameFromDdl = (ddlType: string): {
   readonly schemaName?: string
   readonly kind: string
 } => {
-  const normalized = ddlType.trim().replace(/\s+/g, " ").toLowerCase()
+  const normalized = ddlType.trim().replace(/\s+/g, " ")
   const withoutArray = normalized.replace(/\[\]$/, "")
   const withoutParams = withoutArray.replace(/\(.+\)$/, "")
-  const match = /^(?:"([^"]+)"|([A-Za-z_][A-Za-z0-9_$]*))\.(?:"([^"]+)"|([A-Za-z_][A-Za-z0-9_$]*))$/.exec(withoutParams)
-  if (match === null) {
+  const parsed = parseQualifiedNameLiteral(withoutParams)
+  if (parsed === undefined) {
     return {
       schemaName: undefined,
       kind: inferKindFromDdl(ddlType)
     }
   }
   return {
-    schemaName: match[1] ?? match[2],
-    kind: match[3] ?? match[4]!
+    schemaName: parsed.schemaName,
+    kind: parsed.name
   }
 }
 
@@ -1392,10 +1403,10 @@ const renderColumnBase = (
     readonly baseType: string
     readonly arrayDepth: number
   } => {
-    let current = normalizeType(value)
+    let current = value.trim()
     let arrayDepth = 0
     while (current.endsWith("[]")) {
-      current = current.slice(0, -2)
+      current = current.slice(0, -2).trim()
       arrayDepth += 1
     }
     return { baseType: current, arrayDepth }
@@ -1455,9 +1466,7 @@ const renderColumnBase = (
   }
   if (column.typeKind === "e") {
     const expression = context.enumExpressionByKey?.get(enumKey(column.typeSchema, column.dbTypeKind))
-    const qualified = column.typeSchema === undefined || column.typeSchema === "public"
-      ? column.dbTypeKind
-      : `${column.typeSchema}.${column.dbTypeKind}`
+    const qualified = renderQualifiedDdlType(column.typeSchema, column.dbTypeKind)
     return {
       code: expression === undefined
         ? `${COLUMN_ALIAS}.custom(${SCHEMA_ALIAS}.String, ${renderDbTypeDescriptor(column, context)})`
@@ -2241,6 +2250,25 @@ const collectExpressionReferences = (
   })
 }
 
+const enumColumnKey = (
+  column: ColumnModel,
+  enumKeys: ReadonlySet<string>
+): string | undefined => {
+  const direct = enumKey(column.typeSchema, column.dbTypeKind)
+  if (enumKeys.has(direct)) {
+    return direct
+  }
+  let baseDdlType = column.ddlType.trim()
+  while (baseDdlType.endsWith("[]")) {
+    baseDdlType = baseDdlType.slice(0, -2).trim()
+  }
+  const inferred = inferTypeNameFromDdl(baseDdlType)
+  const inferredKey = enumKey(inferred.schemaName ?? column.typeSchema, inferred.kind)
+  return enumKeys.has(inferredKey)
+    ? inferredKey
+    : undefined
+}
+
 const countTableReferences = (
   table: TableModel,
   enumKeys: ReadonlySet<string>
@@ -2253,8 +2281,8 @@ const countTableReferences = (
   const columnEnumUsageByKey = new Map<string, number>()
   const sequenceUsageByKey = new Map<string, number>()
   for (const column of table.columns) {
-    if (column.typeKind === "e") {
-      const key = enumKey(column.typeSchema, column.dbTypeKind)
+    const key = enumColumnKey(column, enumKeys)
+    if (key !== undefined) {
       enumUsageByKey.set(key, (enumUsageByKey.get(key) ?? 0) + 1)
       columnEnumUsageByKey.set(key, (columnEnumUsageByKey.get(key) ?? 0) + 1)
     }

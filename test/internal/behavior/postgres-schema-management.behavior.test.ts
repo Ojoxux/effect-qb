@@ -921,8 +921,7 @@ const users = Table.make("users", {
 
       expect(plan.updates).toHaveLength(1)
       const after = plan.updates[0]?.after ?? ""
-      expect(after).toContain(`const StatusType = AuditSchema.enum("StatusType", ["active"])`)
-      expect(after).toContain(`statuses: StatusType.column().pipe(Column.array())`)
+      expect(after).toContain(`statuses: AuditSchema.enum("StatusType", ["active"]).column().pipe(Column.array())`)
       expect(after).not.toContain("Column.custom(Schema.Unknown")
     } finally {
       await rm(tempDir, { recursive: true, force: true })
