@@ -812,6 +812,14 @@ describe("postgres dialect behavior", () => {
     expect(rendered.params).toEqual([])
   })
 
+  test("rejects invalid postgres window order directions before rendering SQL", () => {
+    const { users } = makePostgresSocialGraph()
+
+    expect(() => Postgres.Function.rowNumber({
+      orderBy: [{ value: users.id, direction: unsafeAny("sideways") }]
+    })).toThrow("window order direction must be asc or desc")
+  })
+
   test("renders aliased postgres subqueries as derived tables", () => {
     const { users, posts } = makePostgresSocialGraph()
 

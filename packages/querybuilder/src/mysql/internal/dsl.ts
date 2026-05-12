@@ -1744,10 +1744,16 @@ const profile: QueryDialectProfile<Dialect, TextDb, NumericDb, BoolDb, Timestamp
     spec: WindowSpecInput<PartitionBy, OrderBy> | OrderedWindowSpecInput<PartitionBy, Extract<OrderBy, NonEmptyWindowOrderTerms>> | undefined
   ) => {
     const partitionBy = [...(spec?.partitionBy ?? [])] as unknown as PartitionBy
-    const orderBy = (spec?.orderBy ?? []).map((term) => ({
-      value: term.value,
-      direction: term.direction ?? "asc"
-    })) as {
+    const orderBy = (spec?.orderBy ?? []).map((term) => {
+      const direction = term.direction ?? "asc"
+      if (direction !== "asc" && direction !== "desc") {
+        throw new Error("window order direction must be asc or desc")
+      }
+      return {
+        value: term.value,
+        direction
+      }
+    }) as {
       readonly [K in keyof OrderBy]: OrderBy[K] extends WindowOrderTermInput<infer Value extends WindowOrderInput>
         ? { readonly value: Value; readonly direction: OrderDirection }
         : never

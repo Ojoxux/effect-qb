@@ -603,6 +603,12 @@ const invalidRowNumber = F.rowNumber({
 })
 void invalidRowNumber
 
+const invalidWindowDirection = F.rowNumber({
+  // @ts-expect-error window order direction must be asc or desc
+  orderBy: [{ value: users.id, direction: "sideways" }]
+})
+void invalidWindowDirection
+
 type ManualCapabilityUnion = Q.MergeCapabilities<"read", "write">
 const manualReadCapability: ManualCapabilityUnion = "read"
 const manualWriteCapability: ManualCapabilityUnion = "write"

@@ -533,6 +533,14 @@ describe("sqlite behavior", () => {
     ).toThrow("effect-qb: unknown index column 'missing'")
   })
 
+  test("rejects invalid sqlite window order directions before rendering SQL", () => {
+    const { users } = makeSqliteSocialGraph()
+
+    expect(() => Sqlite.Function.rowNumber({
+      orderBy: [{ value: users.id, direction: "sideways" as any }]
+    })).toThrow("window order direction must be asc or desc")
+  })
+
   test("rejects sqlite mutation modifiers that would otherwise be ignored", () => {
     const { users, posts } = makeSqliteSocialGraph()
 
