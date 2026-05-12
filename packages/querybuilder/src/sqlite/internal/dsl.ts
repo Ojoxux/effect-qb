@@ -4697,6 +4697,12 @@ type LockUnsupportedError<Dialect extends string> = {
   readonly __effect_qb_hint__: "Use postgres.Query.lock(...), mysql.Query.lock(...), or sqlite transaction control without row locks"
 }
 
+type SetAllUnsupportedError<Dialect extends string, Operator extends string> = {
+  readonly __effect_qb_error__: `effect-qb: ${Operator}All(...) is not supported by the sqlite dialect`
+  readonly __effect_qb_dialect__: Dialect
+  readonly __effect_qb_hint__: "Use unionAll(...) for duplicate-preserving unions or use the non-ALL set operator"
+}
+
 type SqliteCteStatementError<PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>> =
   PlanValue & {
     readonly __effect_qb_error__: "effect-qb: sqlite cte sources only accept select-like query plans"
@@ -6668,6 +6674,8 @@ export const sqliteDsl = {
 const exportedLateral = lateral as unknown as LateralUnsupportedError<Dialect>
 const exportedTruncate = truncate as unknown as TruncateUnsupportedError<Dialect>
 const exportedLock = lock as unknown as LockUnsupportedError<Dialect>
+const exportedIntersectAll = intersectAll as unknown as SetAllUnsupportedError<Dialect, "intersect">
+const exportedExceptAll = exceptAll as unknown as SetAllUnsupportedError<Dialect, "except">
 
 export {
   literal,
@@ -6753,9 +6761,9 @@ export {
   union,
   unionAll,
   intersect,
-  intersectAll,
+  exportedIntersectAll as intersectAll,
   except,
-  exceptAll,
+  exportedExceptAll as exceptAll,
   exportedSelect as select,
   where,
   having,

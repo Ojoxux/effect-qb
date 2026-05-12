@@ -117,6 +117,14 @@ Q.lock("ignore")(Q.update(users, { visits: 3 }))
 // @ts-expect-error sqlite does not support row locking
 Q.lock("update")(selectUsers)
 
+Q.unionAll(selectUsers, selectUsers)
+
+// @ts-expect-error sqlite does not support INTERSECT ALL
+Q.intersectAll(selectUsers, selectUsers)
+
+// @ts-expect-error sqlite does not support EXCEPT ALL
+Q.exceptAll(selectUsers, selectUsers)
+
 // @ts-expect-error sqlite does not support mutation order/limit clauses
 Q.orderBy(users.email)(Q.update(users, { visits: 3 }))
 
