@@ -112,6 +112,48 @@ describe("postgres insert behavior", () => {
     )
   })
 
+  test("rejects nested insert-select source selections at runtime", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text(),
+      bio: Postgres.Column.text().pipe(Postgres.Column.nullable)
+    })
+
+    const source = Postgres.Query.select({
+      user: {
+        id: users.id,
+        email: users.email,
+        bio: users.bio
+      }
+    }).pipe(
+      Postgres.Query.from(users)
+    )
+
+    expect(() =>
+      Postgres.Query.insert(users).pipe(
+        Postgres.Query.from(unsafeAny(source))
+      )
+    ).toThrow("insert sources require a flat selection object")
+  })
+
+  test("rejects mutation plans used as insert sources at runtime", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const source = Postgres.Query.insert(users, {
+      id: userId,
+      email: "alice@example.com"
+    })
+
+    expect(() =>
+      Postgres.Query.insert(users).pipe(
+        Postgres.Query.from(unsafeAny(source))
+      )
+    ).toThrow("insert sources only accept select-like query plans")
+  })
+
   test("rejects invalid rendered postgres insert source kinds", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
     const users = Postgres.Table.make("users", {
@@ -200,6 +242,21 @@ describe("postgres insert behavior", () => {
       id: userId,
       email: "alice@example.com"
     }))).toThrow("effect-qb: unknown conflict target column")
+  })
+
+  test("rejects onConflict on non-insert statements at runtime", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    expect(() =>
+      Postgres.Query.onConflict(["email"] as const, {
+        update: {
+          email: "alice@example.com"
+        }
+      })(unsafeAny(Postgres.Query.delete(users)))
+    ).toThrow("onConflict(...) is not supported for delete statements")
   })
 
   test("rejects invalid rendered postgres conflict discriminants", () => {

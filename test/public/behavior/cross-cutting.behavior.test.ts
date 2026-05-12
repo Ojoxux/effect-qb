@@ -255,6 +255,102 @@ describe("cross-cutting statement behavior", () => {
     expect(() => Postgres.Renderer.make().render(plan)).toThrow()
   })
 
+  test("rejects postgres merge sources that reuse the target source name", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    expect(() =>
+      Postgres.Query.merge(
+        users,
+        users,
+        Postgres.Query.eq(users.id, users.id),
+        {
+          whenMatched: {
+            delete: true
+          }
+        }
+      )
+    ).toThrow("merge(...) source name must differ from target source name: users")
+  })
+
+  test("rejects structurally incomplete merge sources at runtime", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+    const fakeSource = {
+      name: "incoming_users",
+      baseName: "incoming_users"
+    }
+
+    expect(() =>
+      Postgres.Query.merge(users, fakeSource, true, {
+        whenMatched: {
+          delete: true
+        }
+      })
+    ).toThrow("merge(...) requires an aliased source")
+  })
+
+  test("rejects non-mysql tuple mutation targets at runtime", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+    const posts = Postgres.Table.make("posts", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      userId: Postgres.Column.uuid(),
+      title: Postgres.Column.text()
+    })
+
+    expect(() =>
+      Postgres.Query.update([users, posts], {
+        users: {
+          email: "alice@example.com"
+        },
+        posts: {
+          title: "hello"
+        }
+      })
+    ).toThrow("update(...) only supports multiple mutation targets for mysql")
+
+    expect(() => Postgres.Query.delete([users, posts])).toThrow(
+      "delete(...) only supports multiple mutation targets for mysql"
+    )
+  })
+
+  test("rejects single-element mutation target tuples at runtime", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    expect(() =>
+      Postgres.Query.insert([users], {
+        id: "user-id",
+        email: "alice@example.com"
+      })
+    ).toThrow("insert(...) requires a table target, not a single-element target tuple")
+
+    expect(() =>
+      Postgres.Query.update([users], {
+        users: {
+          email: "alice@example.com"
+        }
+      })
+    ).toThrow("update(...) requires a table target, not a single-element target tuple")
+
+    expect(() => Postgres.Query.delete([users])).toThrow(
+      "delete(...) requires a table target, not a single-element target tuple"
+    )
+
+    expect(() => Postgres.Query.truncate([users])).toThrow(
+      "truncate(...) requires a table target, not a single-element target tuple"
+    )
+  })
+
   test("rejects invalid rendered postgres merge payload kinds", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
     const users = Postgres.Table.make("users", {
@@ -356,21 +452,39 @@ describe("cross-cutting statement behavior", () => {
       email: Postgres.Column.text()
     })
 
-    const mergePlan = Postgres.Query.merge(users, incomingUsers, Postgres.Query.eq(users.id, incomingUsers.id), {
-      whenMatched: {
-        update: {
-          email: incomingUsers.email
+    expect(() =>
+      Postgres.Query.merge(users, incomingUsers, Postgres.Query.eq(users.id, incomingUsers.id), {
+        whenMatched: {
+          update: {
+            email: incomingUsers.email
+          }
         }
-      }
-    }).pipe(
-      Postgres.Query.returning({
-        merged: Postgres.Query.literal(true)
-      })
-    )
-
-    expect(() => Postgres.Renderer.make().render(mergePlan)).toThrow(
+      }).pipe(
+        Postgres.Query.returning({
+          merged: Postgres.Query.literal(true)
+        })
+      )
+    ).toThrow(
       "returning(...) is not supported for merge statements"
     )
+  })
+
+  test("rejects runtime returning projections on select statements", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    expect(() =>
+      Postgres.Query.select({
+        id: users.id
+      }).pipe(
+        Postgres.Query.from(users),
+        Postgres.Query.returning({
+          email: users.email
+        })
+      )
+    ).toThrow("returning(...) is not supported for select statements")
   })
 
   test("rejects runtime distinct modifiers on mutation statements", () => {
@@ -588,13 +702,13 @@ describe("cross-cutting statement behavior", () => {
       email: Postgres.Column.text()
     })
 
-    const createTablePlan = Postgres.Query.createTable(users).pipe(
-      Postgres.Query.returning({
-        created: Postgres.Query.literal(true)
-      })
-    )
-
-    expect(() => Postgres.Renderer.make().render(createTablePlan)).toThrow(
+    expect(() =>
+      Postgres.Query.createTable(users).pipe(
+        Postgres.Query.returning({
+          created: Postgres.Query.literal(true)
+        })
+      )
+    ).toThrow(
       "returning(...) is not supported for createTable statements"
     )
   })
@@ -605,13 +719,13 @@ describe("cross-cutting statement behavior", () => {
       email: Postgres.Column.text()
     })
 
-    const createIndexPlan = Postgres.Query.createIndex(users, ["email"]).pipe(
-      Postgres.Query.returning({
-        created: Postgres.Query.literal(true)
-      })
-    )
-
-    expect(() => Postgres.Renderer.make().render(createIndexPlan)).toThrow(
+    expect(() =>
+      Postgres.Query.createIndex(users, ["email"]).pipe(
+        Postgres.Query.returning({
+          created: Postgres.Query.literal(true)
+        })
+      )
+    ).toThrow(
       "returning(...) is not supported for createIndex statements"
     )
   })

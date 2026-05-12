@@ -122,6 +122,123 @@ describe("select sources behavior", () => {
     )
   })
 
+  test("rejects mutation plans as set operator operands", () => {
+    const selected = Postgres.Query.select({
+      email: pgUsers.email
+    }).pipe(Postgres.Query.from(pgUsers))
+    const inserted = Postgres.Query.insert(pgUsers, {
+      id: "11111111-1111-1111-1111-111111111111",
+      email: "alice@example.com"
+    }).pipe(
+      Postgres.Query.returning({
+        email: pgUsers.email
+      })
+    )
+
+    expect(() => Postgres.Query.union(unsafeAny(inserted), selected)).toThrow(
+      "set operator operands only accept select-like query plans"
+    )
+    expect(() => Postgres.Query.union(selected, unsafeAny(inserted))).toThrow(
+      "set operator operands only accept select-like query plans"
+    )
+  })
+
+  test("rejects query modifiers on set operator plans instead of ignoring them", () => {
+    const active = Postgres.Query.select({
+      email: pgUsers.email
+    }).pipe(Postgres.Query.from(pgUsers))
+    const archived = Postgres.Query.select({
+      email: pgUsers.email
+    }).pipe(Postgres.Query.from(pgUsers))
+    const setPlan = Postgres.Query.unionAll(active, archived)
+
+    expect(() =>
+      renderPostgres(Postgres.Query.distinct()(unsafeAny(setPlan)))
+    ).toThrow("distinct(...) is not supported for set statements")
+
+    expect(() =>
+      renderPostgres(Postgres.Query.limit(1)(unsafeAny(setPlan)))
+    ).toThrow("limit(...) is not supported for set statements")
+
+    expect(() =>
+      renderPostgres(Postgres.Query.orderBy(Postgres.Query.literal(1))(unsafeAny(setPlan)))
+    ).toThrow("orderBy(...) is not supported for set statements")
+  })
+
+  test("rejects duplicate source names before rendering ambiguous joins", () => {
+    expect(() =>
+      Postgres.Query.select({
+        id: pgUsers.id
+      }).pipe(
+        Postgres.Query.from(pgUsers),
+        Postgres.Query.innerJoin(pgUsers, Postgres.Query.eq(pgUsers.id, pgUsers.id))
+      )
+    ).toThrow("query source name is already in scope: users")
+  })
+
+  test("rejects replacing a select from source with another from source", () => {
+    const sourced = Postgres.Query.select({
+      id: pgUsers.id
+    }).pipe(
+      Postgres.Query.from(pgUsers)
+    )
+
+    expect(() => Postgres.Query.from(pgPosts)(unsafeAny(sourced))).toThrow(
+      "select statements accept only one from(...) source; use joins for additional sources"
+    )
+  })
+
+  test("rejects select joins before a base from source exists", () => {
+    const joinOnly = Postgres.Query.select({
+      id: pgPosts.id
+    })
+
+    expect(() => Postgres.Query.crossJoin(pgPosts)(unsafeAny(joinOnly))).toThrow(
+      "select joins require a from(...) source before joining"
+    )
+
+    expect(() => Postgres.Query.innerJoin(pgPosts, true)(unsafeAny(joinOnly))).toThrow(
+      "select joins require a from(...) source before joining"
+    )
+  })
+
+  test("rejects structurally incomplete source-like objects", () => {
+    const fakeSource = {
+      name: "users",
+      baseName: "users"
+    }
+    const fakeDerivedSource = {
+      kind: "derived",
+      name: "users",
+      baseName: "users"
+    }
+
+    expect(() =>
+      Postgres.Query.select({
+        id: pgUsers.id
+      }).pipe(
+        Postgres.Query.from(unsafeAny(fakeSource))
+      )
+    ).toThrow("from(...) requires an aliased source in select/update statements")
+
+    expect(() =>
+      Postgres.Query.select({
+        id: pgUsers.id
+      }).pipe(
+        Postgres.Query.from(unsafeAny(fakeDerivedSource))
+      )
+    ).toThrow("from(...) requires an aliased source in select/update statements")
+
+    expect(() =>
+      Postgres.Query.select({
+        id: pgUsers.id
+      }).pipe(
+        Postgres.Query.from(pgUsers),
+        Postgres.Query.crossJoin(unsafeAny(fakeSource))
+      )
+    ).toThrow("join(...) requires an aliased source in select/update/delete statements")
+  })
+
   test("renders standalone values, unnest, and generate series sources in postgres", () => {
     const valuesSource = Postgres.Query.values([
       { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") },
@@ -437,6 +554,42 @@ describe("select sources behavior", () => {
 
     expect(renderPostgres(plan).sql).toBe(
       'with "post_titles" as (select "posts"."userId" as "userId", "posts"."title" as "title" from "public"."posts"), "active_titles" as (select "post_titles"."userId" as "userId", "post_titles"."title" as "title" from "post_titles" where ("post_titles"."title" is not null)) select "active_titles"."title" as "title" from "active_titles"'
+    )
+  })
+
+  test("rejects nested ctes that shadow an outer cte name with a different plan", () => {
+    const outerItems = Postgres.Query.select({
+      id: pgUsers.id,
+      email: pgUsers.email
+    }).pipe(
+      Postgres.Query.from(pgUsers),
+      Postgres.Query.with("shared_items")
+    )
+    const innerItems = Postgres.Query.select({
+      postId: pgPosts.id,
+      title: pgPosts.title
+    }).pipe(
+      Postgres.Query.from(pgPosts),
+      Postgres.Query.with("shared_items")
+    )
+    const postItems = Postgres.Query.select({
+      postId: innerItems.postId,
+      title: innerItems.title
+    }).pipe(
+      Postgres.Query.from(innerItems),
+      Postgres.Query.as("post_items")
+    )
+
+    const plan = Postgres.Query.select({
+      email: outerItems.email,
+      title: postItems.title
+    }).pipe(
+      Postgres.Query.from(outerItems),
+      Postgres.Query.crossJoin(postItems)
+    )
+
+    expect(() => renderPostgres(plan)).toThrow(
+      "common table expression name is already registered with a different plan: shared_items"
     )
   })
 

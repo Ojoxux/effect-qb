@@ -30,7 +30,8 @@ export const renderSqlitePlan = <PlanValue extends Query.Plan.Any>(
     params: [],
     valueMappings: options.valueMappings,
     ctes: [],
-    cteNames: new Set<string>()
+    cteNames: new Set<string>(),
+    cteSources: new Map<string, unknown>()
   }
   const rendered = renderQueryAst(
     Query.getAst(plan as Query.Plan.Any) as any,

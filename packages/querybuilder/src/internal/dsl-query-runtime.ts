@@ -183,6 +183,13 @@ export const makeDslQueryRuntime = (ctx: DslQueryRuntimeContext) => {
       const current = plan[Plan.TypeId]
       const currentAst = ctx.getAst(plan)
       const currentQuery = ctx.getQueryState(plan)
+      if (
+        currentQuery.statement !== "insert" &&
+        currentQuery.statement !== "update" &&
+        currentQuery.statement !== "delete"
+      ) {
+        throw new Error(`returning(...) is not supported for ${currentQuery.statement} statements`)
+      }
       return ctx.makePlan({
         selection,
         required: [...ctx.currentRequiredList(current.required), ...ctx.extractRequiredRuntime(selection)].filter((name, index, list) =>

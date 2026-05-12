@@ -19,6 +19,11 @@ const users = Table.make("users", {
   email: C.text()
 })
 
+const posts = Table.make("posts", {
+  id: C.uuid().pipe(C.primaryKey),
+  userId: C.uuid()
+})
+
 const active = Q.select({
   email: users.email
 }).pipe(
@@ -45,6 +50,15 @@ const exceptAllEmail: ExceptAllRow["email"] = "alice@example.com"
 void unionAllEmail
 void intersectAllEmail
 void exceptAllEmail
+
+const replacedFromSource = Q.select({
+  id: users.id
+}).pipe(
+  Q.from(users),
+  // @ts-expect-error select plans accept only one from(...) source; use joins for additional sources
+  Q.from(posts)
+)
+void replacedFromSource
 
 const valuesSource = Postgres.Query.values([
   { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") },

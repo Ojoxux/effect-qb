@@ -42,7 +42,8 @@ export const renderDdlExpressionSql = (expression: DdlExpressionLike): string =>
     : renderExpression(expression as Expression.Any, {
         params: [],
         ctes: [],
-        cteNames: new Set()
+        cteNames: new Set(),
+        cteSources: new Map()
       }, inlineLiteralDialect)
 
 const stripRedundantOuterParens = (value: string): string => {

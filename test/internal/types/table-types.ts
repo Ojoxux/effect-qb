@@ -530,6 +530,13 @@ const badWhere = Q.where("nope")
 // @ts-expect-error joins require a base source to already exist
 const badJoin = Q.select({ postId: posts.id }).pipe(Q.innerJoin(posts, true))
 
+const badDuplicateJoin = Q.select({ userId: users.id }).pipe(
+  Q.from(users),
+  // @ts-expect-error duplicate source names must be aliased before joining
+  Q.innerJoin(users, Q.eq(users.id, users.id))
+)
+void badDuplicateJoin
+
 class UsersClass extends Table.Class<UsersClass>("users_class")({
   id: C.uuid().pipe(C.primaryKey, C.generated(Q.literal("generated-user-id"))),
   email: C.text()

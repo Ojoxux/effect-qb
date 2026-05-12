@@ -56,6 +56,28 @@ const incompleteInsertSelectSource = Q.select({
 // @ts-expect-error insert-select sources must be source-complete
 const incompleteInsertSelectPlan = Q.insert(users).pipe(Q.from(incompleteInsertSelectSource))
 
+const nestedInsertSelectSource = Q.select({
+  user: {
+    id: users.id,
+    email: users.email,
+    bio: users.bio
+  }
+}).pipe(
+  Q.from(users)
+)
+
+// @ts-expect-error insert-select sources must use a flat selection object
+const nestedInsertSelectPlan = Q.insert(users).pipe(Q.from(nestedInsertSelectSource))
+
+const mutationInsertSelectSource = Q.insert(users, {
+  id: "user-id",
+  email: "alice@example.com",
+  bio: null
+})
+
+// @ts-expect-error insert-select sources only accept select-like query plans
+const mutationInsertSelectPlan = Q.insert(users).pipe(Q.from(mutationInsertSelectSource))
+
 const defaultInsertPlan = Q.insert(auditLogs)
 
 const insertConflictPlan = Q.insert(users, {
@@ -125,6 +147,8 @@ void valuesSource
 void insertUnnestPlan
 void insertSelectPlan
 void incompleteInsertSelectPlan
+void nestedInsertSelectPlan
+void mutationInsertSelectPlan
 void defaultInsertPlan
 void insertConflictPlan
 void insertStringConflictPlan

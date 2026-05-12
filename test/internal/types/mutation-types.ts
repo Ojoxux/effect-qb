@@ -400,6 +400,18 @@ const mysqlJoinedDelete = Mysql.Query.limit(2)(
 
 const mysqlMultiDelete = Mysql.Query.delete([mysqlMutationUsers, mysqlMutationPosts])
 
+// @ts-expect-error mysql multi-target updates require unique source names
+const badMysqlDuplicateMultiUpdateTarget = Mysql.Query.update([mysqlMutationUsers, mysqlMutationUsers], {
+  users: {
+    email: "duplicate@example.com"
+  }
+})
+void badMysqlDuplicateMultiUpdateTarget
+
+// @ts-expect-error mysql multi-target deletes require unique source names
+const badMysqlDuplicateMultiDeleteTarget = Mysql.Query.delete([mysqlMutationUsers, mysqlMutationUsers])
+void badMysqlDuplicateMultiDeleteTarget
+
 // @ts-expect-error mysql multi-target updates cannot include postgres tables
 const badMysqlMultiUpdatePostgresTarget = Mysql.Query.update([mysqlMutationUsers, pgPosts], {
   users: {

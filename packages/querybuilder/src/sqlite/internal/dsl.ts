@@ -6470,6 +6470,7 @@ type AsCurriedResult<
   type MergeApi = Dialect extends "postgres" ? MergeSupportedApi : MergeUnsupportedError<Dialect>
 
   const mutationRuntime = makeDslMutationRuntime({
+    profile,
     makePlan,
     getAst,
     getQueryState,

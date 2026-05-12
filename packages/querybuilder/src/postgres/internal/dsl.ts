@@ -5406,6 +5406,36 @@ type MergeRequiredFromPredicate<
   Available extends Record<string, Plan.AnySource>
 > = Predicate extends PredicateInput ? AddExpressionRequired<never, Available, Predicate> : never
 
+type BroadString<Value extends string> = string extends Value ? true : false
+
+type SameSourceName<
+  Left extends string,
+  Right extends string
+> = [Left] extends [Right] ? [Right] extends [Left] ? true : false : false
+
+type MergeSourceNameConflictError<
+  TargetName extends string,
+  SourceName extends string
+> = {
+  readonly __effect_qb_error__: "effect-qb: merge source name must differ from target source name"
+  readonly __effect_qb_target_source_name__: TargetName
+  readonly __effect_qb_using_source_name__: SourceName
+  readonly __effect_qb_hint__: "Alias the merge source with Table.alias(...), Query.as(...), or Query.with(...)"
+}
+
+type MergeSourceNameConstraint<
+  Target extends MutationTargetLike,
+  Source extends SourceLike,
+  TargetName extends string = SourceNameOf<Target>,
+  SourceName extends string = SourceNameOf<Source>
+> = BroadString<TargetName> extends true
+  ? unknown
+  : BroadString<SourceName> extends true
+    ? unknown
+    : SameSourceName<TargetName, SourceName> extends true
+      ? MergeSourceNameConflictError<TargetName, SourceName>
+      : unknown
+
 type AsCurriedInput<Dialect extends string> =
   | ExpressionInput
   | ValuesInput<any, any, Dialect>
@@ -6394,7 +6424,7 @@ type AsCurriedResult<
     target: Target,
     source: Source & (
       SourceRequiredOf<Source> extends never ? unknown : SourceRequirementError<Source>
-    ),
+    ) & MergeSourceNameConstraint<Target, Source>,
     on: On,
     options: MergeOptions<Target, MatchedValues, InsertValues, MatchedPredicate, NotMatchedPredicate>
   ) => QueryPlan<
@@ -6440,6 +6470,7 @@ type AsCurriedResult<
   >
 
   const mutationRuntime = makeDslMutationRuntime({
+    profile,
     makePlan,
     getAst,
     getQueryState,
@@ -6509,62 +6540,12 @@ type AsCurriedResult<
     EmptyFacts
   > => mutationRuntime.truncate(target, options)
 
-  const merge: MergeApi = <
-    Target extends MutationTargetLike,
-    Source extends SourceLike,
-    On extends PredicateInput,
-    MatchedValues extends MutationInputOf<Table.UpdateOf<Target>> = MutationInputOf<Table.UpdateOf<Target>>,
-    InsertValues extends MutationInputOf<Table.InsertOf<Target>> = MutationInputOf<Table.InsertOf<Target>>,
-    MatchedPredicate extends PredicateInput | undefined = undefined,
-    NotMatchedPredicate extends PredicateInput | undefined = undefined
-  >(
-    target: Target,
-    source: Source & (
-      SourceRequiredOf<Source> extends never ? unknown : SourceRequirementError<Source>
-    ),
-    on: On,
-    options: MergeOptions<Target, MatchedValues, InsertValues, MatchedPredicate, NotMatchedPredicate>
-  ): QueryPlan<
-    {},
-    Exclude<
-      AddExpressionRequired<
-        MergeRequiredFromPredicate<
-          MatchedPredicate,
-          AddAvailable<AddAvailable<{}, SourceNameOf<Target>>, SourceNameOf<Source>>
-        > | MergeRequiredFromPredicate<
-          NotMatchedPredicate,
-          AddAvailable<AddAvailable<{}, SourceNameOf<Target>>, SourceNameOf<Source>>
-        > | MutationRequiredFromValues<MatchedValues> | MutationRequiredFromValues<InsertValues>,
-        AddAvailable<AddAvailable<{}, SourceNameOf<Target>>, SourceNameOf<Source>>,
-        On
-      >,
-      SourceNameOf<Target> | SourceNameOf<Source>
-    >,
-    AddAvailable<AddAvailable<{}, SourceNameOf<Target>>, SourceNameOf<Source>>,
-    TableDialectOf<Target> | SourceDialectOf<Source>,
-    never,
-    SourceNameOf<Target> | SourceNameOf<Source>,
-    Exclude<
-      AddExpressionRequired<
-        MergeRequiredFromPredicate<
-          MatchedPredicate,
-          AddAvailable<AddAvailable<{}, SourceNameOf<Target>>, SourceNameOf<Source>>
-        > | MergeRequiredFromPredicate<
-          NotMatchedPredicate,
-          AddAvailable<AddAvailable<{}, SourceNameOf<Target>>, SourceNameOf<Source>>
-        > | MutationRequiredFromValues<MatchedValues> | MutationRequiredFromValues<InsertValues>,
-        AddAvailable<AddAvailable<{}, SourceNameOf<Target>>, SourceNameOf<Source>>,
-        On
-      >,
-      SourceNameOf<Target> | SourceNameOf<Source>
-    >,
-    TrueFormula,
-    MergeCapabilities<"write", SourceCapabilitiesOf<Source>>,
-    "merge",
-    any,
-    "ready",
-    EmptyFacts
-  > => mutationRuntime.merge(target, source, on, options)
+  const merge = ((
+    target: MutationTargetLike,
+    source: SourceLike,
+    on: PredicateInput,
+    options: Record<string, unknown>
+  ) => mutationRuntime.merge(target, source, on, options)) as MergeApi
 
   type TransactionApi = (options?: TransactionOptions) => QueryPlan<
     {},

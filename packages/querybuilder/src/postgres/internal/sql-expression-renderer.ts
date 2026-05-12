@@ -944,7 +944,8 @@ const nestedRenderState = (state: RenderState): RenderState => ({
   params: state.params,
   valueMappings: state.valueMappings,
   ctes: [],
-  cteNames: new Set(state.cteNames)
+  cteNames: new Set(state.cteNames),
+  cteSources: new Map(state.cteSources)
 })
 
 const assertMatchingSetProjections = (
@@ -995,7 +996,8 @@ const assertNoInsertQueryClauses = (
 
 const assertNoStatementQueryClauses = (
   ast: QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
-  statement: string
+  statement: string,
+  options: { readonly allowSelection?: boolean } = {}
 ): void => {
   if (ast.distinct) {
     throw new Error(`distinct(...) is not supported for ${statement} statements`)
@@ -1027,7 +1029,7 @@ const assertNoStatementQueryClauses = (
   if (ast.lock) {
     throw new Error(`lock(...) is not supported for ${statement} statements`)
   }
-  if (Object.keys(ast.select).length > 0) {
+  if (options.allowSelection !== true && Object.keys(ast.select).length > 0) {
     throw new Error(`returning(...) is not supported for ${statement} statements`)
   }
 }
@@ -1094,6 +1096,7 @@ export const renderQueryAst = (
     }
     case "set": {
       const setAst = ast as QueryAst.Ast<Record<string, unknown>, any, "set">
+      assertNoStatementQueryClauses(setAst, "set", { allowSelection: true })
       const base = renderQueryAst(
         Query.getAst(setAst.setBase as Query.Plan.Any) as QueryAst.Ast<
           Record<string, unknown>,
@@ -1508,8 +1511,13 @@ const renderSourceReference = (
       readonly plan: Query.Plan.Any
       readonly recursive?: boolean
     }
+    const registeredCteSource = state.cteSources.get(cte.name)
+    if (registeredCteSource !== undefined && registeredCteSource !== cte.plan) {
+      throw new Error(`common table expression name is already registered with a different plan: ${cte.name}`)
+    }
     if (!state.cteNames.has(cte.name)) {
       state.cteNames.add(cte.name)
+      state.cteSources.set(cte.name, cte.plan)
       const rendered = renderQueryAst(
         Query.getAst(cte.plan) as QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
         state,

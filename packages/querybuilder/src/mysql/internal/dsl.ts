@@ -5033,6 +5033,33 @@ type MutationTargetTupleDialectConstraint<
   Dialect extends string
 > = Exclude<TableDialectOf<Targets[number]>, Dialect> extends never ? unknown : never
 
+type DuplicateMutationTargetSourceName<
+  Targets extends readonly MutationTargetLike[],
+  Seen extends string = never
+> = Targets extends readonly [infer Head extends MutationTargetLike, ...infer Tail extends readonly MutationTargetLike[]]
+  ? SourceNameOf<Head> extends infer Name extends string
+    ? string extends Name
+      ? DuplicateMutationTargetSourceName<Tail, Seen>
+      : Name extends Seen
+        ? Name
+        : DuplicateMutationTargetSourceName<Tail, Seen | Name>
+    : never
+  : never
+
+type MutationTargetTupleDuplicateNameError<Name extends string> = {
+  readonly __effect_qb_error__: "effect-qb: mutation target source names must be unique"
+  readonly __effect_qb_duplicate_source_name__: Name
+  readonly __effect_qb_hint__: "Alias duplicate mutation targets with Table.alias(...)"
+}
+
+type MutationTargetTupleUniqueNamesConstraint<
+  Targets extends MutationTargetTuple
+> = DuplicateMutationTargetSourceName<Targets> extends infer Name extends string
+  ? [Name] extends [never]
+    ? unknown
+    : MutationTargetTupleDuplicateNameError<Name>
+  : unknown
+
 type MutationRequiredFromValues<Values extends Record<string, unknown>> = {
   [K in keyof Values]: Values[K] extends Expression.Any ? RequiredFromDependencies<DependenciesOf<Values[K]>> : never
 }[keyof Values]
@@ -6192,7 +6219,7 @@ type AsCurriedResult<
 
   interface UpdateApi {
     <Targets extends MutationTargetTuple, Values extends UpdateInputOfTarget<Targets>>(
-      target: Dialect extends "mysql" ? Targets & MutationTargetTupleDialectConstraint<Targets, Dialect> : never,
+      target: Dialect extends "mysql" ? Targets & MutationTargetTupleDialectConstraint<Targets, Dialect> & MutationTargetTupleUniqueNamesConstraint<Targets> : never,
       values: Values & NestedUpdateValuesNonEmptyConstraint<Values> & MutationValuesDialectConstraint<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
     ): QueryPlan<
       {},
@@ -6276,7 +6303,7 @@ type AsCurriedResult<
       EmptyFacts
     >
     <Targets extends MutationTargetTuple>(
-      target: Dialect extends "mysql" ? Targets & MutationTargetTupleDialectConstraint<Targets, Dialect> : never
+      target: Dialect extends "mysql" ? Targets & MutationTargetTupleDialectConstraint<Targets, Dialect> & MutationTargetTupleUniqueNamesConstraint<Targets> : never
     ): QueryPlan<
       {},
       never,
@@ -6379,6 +6406,7 @@ type AsCurriedResult<
   type MergeApi = Dialect extends "postgres" ? MergeSupportedApi : MergeUnsupportedError<Dialect>
 
   const mutationRuntime = makeDslMutationRuntime({
+    profile,
     makePlan,
     getAst,
     getQueryState,

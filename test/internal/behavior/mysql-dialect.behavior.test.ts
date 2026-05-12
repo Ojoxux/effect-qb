@@ -938,6 +938,16 @@ describe("mysql dialect behavior", () => {
     ])
   })
 
+  test("rejects mysql multi-target updates with duplicate source names", () => {
+    const { users } = makeMysqlSocialGraph()
+
+    expect(() => Mysql.Query.update([users, users], {
+      users: {
+        email: "duplicate@example.com"
+      }
+    })).toThrow("mutation target source names must be unique: users")
+  })
+
   test("rejects mysql mutation offsets that cannot be rendered", () => {
     const { users } = makeMysqlSocialGraph()
 
@@ -997,6 +1007,14 @@ describe("mysql dialect behavior", () => {
       "delete `users`, `posts` from `users`, `posts` where (`posts`.`userId` = `users`.`id`)"
     )
     expect(rendered.params).toEqual([])
+  })
+
+  test("rejects mysql multi-target deletes with duplicate source names", () => {
+    const { users } = makeMysqlSocialGraph()
+
+    expect(() => Mysql.Query.delete([users, users])).toThrow(
+      "mutation target source names must be unique: users"
+    )
   })
 
   test("renders mysql multi-row and source-backed inserts", () => {

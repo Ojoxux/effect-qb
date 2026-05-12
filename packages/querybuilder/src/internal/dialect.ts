@@ -17,6 +17,7 @@ export interface RenderState {
     readonly recursive?: boolean
   }[]
   readonly cteNames: Set<string>
+  readonly cteSources: Map<string, unknown>
   readonly rowLocalColumns?: boolean
 }
 

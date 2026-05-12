@@ -43,6 +43,14 @@ const mergePlan = Q.merge(
 const completeMergePlan: Q.CompletePlan<typeof mergePlan> = mergePlan;
 void completeMergePlan;
 
+// @ts-expect-error merge source names must differ from the target source name
+const duplicateMergeSourceName = Q.merge(users, users, Q.eq(users.id, users.id), {
+  whenMatched: {
+    delete: true,
+  },
+});
+void duplicateMergeSourceName;
+
 // @ts-expect-error merge requires at least one matched or not-matched action
 const missingMergeActions = Q.merge(
   users,
