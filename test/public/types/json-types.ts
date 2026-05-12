@@ -57,6 +57,22 @@ const nestedVariantDocs = Table.make("nested_variant_docs", {
   payload: C.jsonb(nestedVariantPayloadSchema)
 })
 
+const dottedPathPayloadSchema = Schema.Struct({
+  "a.b": Schema.Struct({
+    kind: Schema.Literal("flat", "other")
+  }),
+  a: Schema.Struct({
+    b: Schema.Struct({
+      kind: Schema.Literal("nested", "other")
+    })
+  })
+})
+
+const dottedPathDocs = Table.make("dotted_path_docs", {
+  id: C.uuid().pipe(C.primaryKey),
+  payload: C.jsonb(dottedPathPayloadSchema)
+})
+
 const cityPath = J.json.path(
   J.json.key("profile"),
   J.json.key("address"),
@@ -118,6 +134,10 @@ const nestedVariantKindExpr = J.jsonb.text(
   nestedVariantDocs.payload,
   J.jsonb.path(J.jsonb.key("details"), J.jsonb.key("kind"))
 )
+const dottedFlatKindExpr = J.jsonb.text(
+  dottedPathDocs.payload,
+  J.jsonb.path(J.jsonb.key("a.b"), J.jsonb.key("kind"))
+)
 
 const option3Payload = Q.select({
   payload: variantDocs.payload
@@ -168,6 +188,12 @@ const nestedChild2Payload = Q.select({
   Q.where(Q.eq(nestedVariantKindExpr, "child2"))
 )
 
+const dottedFlatPayload = Q.select({
+  payload: dottedPathDocs.payload
+}).pipe(
+  Q.from(dottedPathDocs),
+  Q.where(Q.eq(dottedFlatKindExpr, "flat"))
+)
 
 type City = E.RuntimeOf<typeof cityExpr>
 type CityText = E.RuntimeOf<typeof cityTextExpr>
@@ -202,6 +228,7 @@ type Option2Or3PayloadViaOrRow = Q.ResultRow<typeof option2Or3PayloadViaOr>
 type Option3KindSelectedRow = Q.ResultRow<typeof option3KindSelected>
 type Option2Or3KindSelectedViaOrRow = Q.ResultRow<typeof option2Or3KindSelectedViaOr>
 type NestedChild2PayloadRow = Q.ResultRow<typeof nestedChild2Payload>
+type DottedFlatPayloadRow = Q.ResultRow<typeof dottedFlatPayload>
 
 const city: City = "Paris"
 const cityText: CityText = "Paris"
@@ -255,6 +282,9 @@ const option3SelectedKind: "option3" = option3KindSelectedRow.kind
 const option2Or3SelectedViaOrKind: "option2" | "option3" = option2Or3KindSelectedViaOrRow.kind
 const nestedChild2PayloadKind: "child2" = nestedChild2PayloadRow.payload.details.kind
 const nestedChild2SelectedKind: "child2" = nestedChild2PayloadRow.kind
+declare const dottedFlatPayloadRow: DottedFlatPayloadRow
+const dottedFlatKeyKind: "flat" = dottedFlatPayloadRow.payload["a.b"].kind
+const dottedNestedKeyKind: "nested" | "other" = dottedFlatPayloadRow.payload.a.b.kind
 // @ts-expect-error discriminator equality should remove unrelated jsonb union members
 option3PayloadRow.payload.option1Value
 // @ts-expect-error discriminator IN should remove excluded jsonb union members

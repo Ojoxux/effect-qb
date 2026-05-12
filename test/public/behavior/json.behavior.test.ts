@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { describe, expect, test } from "bun:test"
+import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
 import * as Mysql from "#mysql"
@@ -110,6 +111,68 @@ describe("json behavior", () => {
       "profile",
       "address",
       "city"
+    ])
+  })
+
+  test("json path predicate facts keep dotted key segments distinct", () => {
+    const docs = Postgres.Table.make("docs", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      payload: Postgres.Column.jsonb(Schema.Struct({
+        "a.b": Schema.Struct({
+          kind: Schema.Literal("flat", "other")
+        }),
+        a: Schema.Struct({
+          b: Schema.Struct({
+            kind: Schema.Literal("nested", "other")
+          })
+        })
+      }))
+    })
+    const flatKind = Postgres.Json.jsonb.text(
+      docs.payload,
+      Postgres.Json.jsonb.path(
+        Postgres.Json.jsonb.key("a.b"),
+        Postgres.Json.jsonb.key("kind")
+      )
+    )
+
+    const plan = Postgres.Query.select({
+      payload: docs.payload
+    }).pipe(
+      Postgres.Query.from(docs),
+      Postgres.Query.where(Postgres.Query.eq(flatKind, "flat"))
+    )
+
+    const rows = Effect.runSync(Postgres.Executor.make({
+      driver: Postgres.Executor.driver("postgres", () => Effect.succeed([
+        {
+          payload: {
+            "a.b": {
+              kind: "flat"
+            },
+            a: {
+              b: {
+                kind: "nested"
+              }
+            }
+          }
+        }
+      ]))
+    }).execute(plan))
+
+    expect(rows).toEqual([
+      {
+        payload: {
+          "a.b": {
+            kind: "flat"
+          },
+          a: {
+            b: {
+              kind: "nested"
+            }
+          }
+        }
+      }
     ])
   })
 
