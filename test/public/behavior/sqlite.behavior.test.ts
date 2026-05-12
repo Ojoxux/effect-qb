@@ -497,6 +497,21 @@ describe("sqlite behavior", () => {
     expect(rendered.params).toEqual(["json-string-1", "\"42\""])
   })
 
+  test("rejects invalid rendered sqlite insert source kinds", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const docs = Sqlite.Table.make("docs", {
+      id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),
+      title: Sqlite.Column.text()
+    })
+    const seed = Sqlite.Query.as(Sqlite.Query.values([
+      { id: "doc-1", title: "First" }
+    ] as const), "seed")
+    const plan = Sqlite.Query.insert(docs).pipe(Sqlite.Query.from(seed as any))
+    ;(plan as any)[queryAst].insertSource.kind = "copy"
+
+    expect(() => render(plan)).toThrow("Unsupported insert source kind")
+  })
+
   test("renders sqlite DDL without postgres-only constraint clauses", () => {
     const employees = makeSqliteEmployees()
 

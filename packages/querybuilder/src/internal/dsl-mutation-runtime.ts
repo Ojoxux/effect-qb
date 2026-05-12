@@ -19,6 +19,22 @@ type DslMutationRuntimeContext = {
   readonly sourceDetails: (source: any) => { readonly sourceName: string; readonly sourceBaseName: string }
 }
 
+export const expectInsertSourceKind = <
+  Source extends { readonly kind: string } | undefined
+>(
+  source: Source
+): Source => {
+  if (
+    source !== undefined &&
+    source.kind !== "values" &&
+    source.kind !== "query" &&
+    source.kind !== "unnest"
+  ) {
+    throw new Error("Unsupported insert source kind")
+  }
+  return source
+}
+
 export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
   const insert = (target: any, values?: Record<string, unknown>) => {
     const { sourceName, sourceBaseName } = ctx.targetSourceDetails(target)

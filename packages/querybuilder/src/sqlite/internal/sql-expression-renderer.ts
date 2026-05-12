@@ -7,6 +7,7 @@ import * as QueryAst from "../../internal/query-ast.js"
 import type { RenderState, RenderValueContext, SqlDialect } from "../../internal/dialect.js"
 import * as ExpressionAst from "../../internal/expression-ast.js"
 import * as JsonPath from "../../internal/json/path.js"
+import { expectInsertSourceKind } from "../../internal/dsl-mutation-runtime.js"
 import { expectDdlClauseKind } from "../../internal/dsl-transaction-ddl-runtime.js"
 import {
   renderJsonSelectSql,
@@ -1143,17 +1144,18 @@ export const renderQueryAst = (
       assertNoInsertQueryClauses(insertAst)
       const targetSource = insertAst.into!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
+      const insertSource = expectInsertSourceKind(insertAst.insertSource)
       sql = `insert into ${target}`
-      if (insertAst.insertSource?.kind === "values") {
-        const columns = insertAst.insertSource.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")
-        const rows = insertAst.insertSource.rows.map((row) =>
+      if (insertSource?.kind === "values") {
+        const columns = insertSource.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")
+        const rows = insertSource.rows.map((row) =>
           `(${row.values.map((entry) => renderExpression(entry.value, state, dialect)).join(", ")})`
         ).join(", ")
         sql += ` (${columns}) values ${rows}`
-      } else if (insertAst.insertSource?.kind === "query") {
-        const columns = insertAst.insertSource.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")
+      } else if (insertSource?.kind === "query") {
+        const columns = insertSource.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")
         const renderedQuery = renderQueryAst(
-          Query.getAst(insertAst.insertSource.query as Query.Plan.Any) as QueryAst.Ast<
+          Query.getAst(insertSource.query as Query.Plan.Any) as QueryAst.Ast<
             Record<string, unknown>,
             any,
             QueryAst.QueryStatement
@@ -1162,20 +1164,19 @@ export const renderQueryAst = (
           dialect
         )
         sql += ` (${columns}) ${renderedQuery.sql}`
-      } else if (insertAst.insertSource?.kind === "unnest") {
-        const unnestSource = insertAst.insertSource
-        const columns = unnestSource.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")
+      } else if (insertSource?.kind === "unnest") {
+        const columns = insertSource.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")
         if (dialect.name === "postgres") {
           const table = targetSource.source as Table.AnyTable
           const fields = table[Table.TypeId].fields
-          const rendered = unnestSource.values.map((entry) =>
+          const rendered = insertSource.values.map((entry) =>
             `cast(${dialect.renderLiteral(encodeArrayValues(entry.values, fields[entry.columnName]!, state, dialect), state)} as ${renderCastType(dialect, fields[entry.columnName]!.metadata.dbType)}[])`
           ).join(", ")
           sql += ` (${columns}) select * from unnest(${rendered})`
         } else {
           const table = targetSource.source as Table.AnyTable
           const fields = table[Table.TypeId].fields
-          const encodedValues = unnestSource.values.map((entry) => ({
+          const encodedValues = insertSource.values.map((entry) => ({
             columnName: entry.columnName,
             values: encodeArrayValues(entry.values, fields[entry.columnName]!, state, dialect)
           }))

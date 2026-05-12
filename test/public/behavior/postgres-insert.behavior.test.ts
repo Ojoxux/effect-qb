@@ -112,6 +112,21 @@ describe("postgres insert behavior", () => {
     )
   })
 
+  test("rejects invalid rendered postgres insert source kinds", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+    const seed = unsafeAny(Postgres.Query.as(Postgres.Query.values([
+      { id: Postgres.Query.literal(userId), email: "alice@example.com" }
+    ] as const), "seed"))
+    const plan = Postgres.Query.insert(users).pipe(Postgres.Query.from(seed))
+    ;(plan as any)[queryAst].insertSource.kind = "copy"
+
+    expect(() => render(plan)).toThrow("Unsupported insert source kind")
+  })
+
   test("renders postgres default-only inserts and rich conflict clauses", () => {
     const auditLogs = Postgres.Table.make("audit_logs", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey, Postgres.Column.default(Postgres.Query.literal("audit-log-id"))),
