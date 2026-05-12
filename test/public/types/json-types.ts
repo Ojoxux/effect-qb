@@ -20,6 +20,16 @@ const docs = Table.make("docs", {
   payloadJsonb: C.jsonb(payloadSchema)
 })
 
+const metricsSchema = Schema.Struct({
+  count: Schema.Number,
+  active: Schema.Boolean
+})
+
+const metricDocs = Table.make("metric_docs", {
+  id: C.uuid().pipe(C.primaryKey),
+  payload: C.json(metricsSchema)
+})
+
 const variantPayloadSchema = Schema.Union(
   Schema.Struct({
     kind: Schema.Literal("option1"),
@@ -109,6 +119,8 @@ const wildcardPath = J.jsonb.path(
 
 const cityExpr = J.json.get(docs.payload, cityPath)
 const cityTextExpr = J.json.text(docs.payload, cityPath)
+const metricCountTextExpr = J.json.text(metricDocs.payload, J.json.key("count"))
+const metricActiveTextExpr = J.json.text(metricDocs.payload, J.json.key("active"))
 const typeNameExpr = J.json.typeOf(docs.payload)
 const lengthExpr = J.json.length(docs.payload)
 const keysExpr = J.json.keys(docs.payload)
@@ -250,6 +262,8 @@ const invalidGroupedJsonPathCollision = Q.select({
 
 type City = E.RuntimeOf<typeof cityExpr>
 type CityText = E.RuntimeOf<typeof cityTextExpr>
+type MetricCountText = E.RuntimeOf<typeof metricCountTextExpr>
+type MetricActiveText = E.RuntimeOf<typeof metricActiveTextExpr>
 type JsonTypeName = E.RuntimeOf<typeof typeNameExpr>
 type JsonLength = E.RuntimeOf<typeof lengthExpr>
 type JsonKeys = E.RuntimeOf<typeof keysExpr>
@@ -288,6 +302,8 @@ type GroupedCityTextRow = Q.ResultRow<typeof groupedCityText>
 
 const city: City = "Paris"
 const cityText: CityText = "Paris"
+const metricCountText: MetricCountText = "1"
+const metricActiveText: MetricActiveText = "true"
 const jsonTypeName: JsonTypeName = "object"
 const jsonLength: JsonLength = 2
 const jsonKeys: JsonKeys = ["profile", "note"]
@@ -371,6 +387,8 @@ nestedChild2PayloadRow.payload.details.child1Value
 const badNestedChild2SelectedKind: NestedChild2PayloadRow["kind"] = "child1"
 void city
 void cityText
+void metricCountText
+void metricActiveText
 void jsonTypeName
 void jsonLength
 void jsonKeys
