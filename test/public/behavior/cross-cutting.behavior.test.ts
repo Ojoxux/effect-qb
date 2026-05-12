@@ -379,6 +379,24 @@ describe("cross-cutting statement behavior", () => {
     )
   })
 
+  test("rejects runtime row locks that specify both nowait and skipLocked", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const lockedSelect = Postgres.Query.select({
+      id: users.id
+    }).pipe(
+      Postgres.Query.from(users),
+      Postgres.Query.lock("update", { nowait: true, skipLocked: true })
+    )
+
+    expect(() => Postgres.Renderer.make().render(lockedSelect)).toThrow(
+      "lock(...) cannot specify both nowait and skipLocked"
+    )
+  })
+
   test("rejects runtime returning projections on ddl statements", () => {
     const users = Postgres.Table.make("users", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),

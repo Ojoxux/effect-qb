@@ -4497,10 +4497,15 @@ type TransactionOptions = {
   readonly readOnly?: boolean
 }
 
-type LockOptions = {
-  readonly nowait?: boolean
-  readonly skipLocked?: boolean
-}
+type LockOptions =
+  | {
+    readonly nowait?: boolean
+    readonly skipLocked?: false
+  }
+  | {
+    readonly nowait?: false
+    readonly skipLocked?: boolean
+  }
 
 type UpsertConflictOptions = {
   readonly update?: Record<string, unknown>

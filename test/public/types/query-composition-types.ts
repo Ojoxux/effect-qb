@@ -194,6 +194,14 @@ const lockPlan = Q.select({
   userId: users.id
 }).pipe(
   Q.from(users),
+  Q.lock("update", { nowait: true })
+)
+
+Q.select({
+  userId: users.id
+}).pipe(
+  Q.from(users),
+  // @ts-expect-error lock options cannot specify both nowait and skipLocked
   Q.lock("update", { nowait: true, skipLocked: true })
 )
 

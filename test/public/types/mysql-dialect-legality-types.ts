@@ -56,6 +56,21 @@ const returningMutation = Q.insert(users, {
   })
 )
 
+const lockedPlan = Q.select({
+  id: users.id
+}).pipe(
+  Q.from(users),
+  Q.lock("update", { skipLocked: true })
+)
+
+Q.select({
+  id: users.id
+}).pipe(
+  Q.from(users),
+  // @ts-expect-error lock options cannot specify both nowait and skipLocked
+  Q.lock("update", { nowait: true, skipLocked: true })
+)
+
 const insertCtePlan = Q.insert(users, {
   id: "user-id",
   email: "alice@example.com"
@@ -76,5 +91,6 @@ void restartIdentityTruncate
 void unsupportedCreateIndexOption
 void unsupportedDropIndexOption
 void returningMutation
+void lockedPlan
 void insertCte
 void mergePlan
