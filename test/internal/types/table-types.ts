@@ -548,6 +548,23 @@ const mysqlUsers = Mysql.Table.make("mysql_users", {
   id: Mysql.Column.uuid(),
   email: Mysql.Column.text()
 })
+const mysqlOrgs = Mysql.Table.make("mysql_orgs", {
+  id: Mysql.Column.uuid(),
+  name: Mysql.Column.text()
+})
+
+// @ts-expect-error mysql foreign key local columns must exist on the source table
+const badMysqlForeignKeyLocalColumn = Mysql.Table.foreignKey("missing", () => mysqlOrgs, "id")(Mysql.Table.make("bad_mysql_fk_local_column", {
+  orgId: Mysql.Column.uuid()
+}))
+void badMysqlForeignKeyLocalColumn
+
+// @ts-expect-error mysql foreign keys must reference columns on the target table
+const badMysqlForeignKeyReferencedColumn = Mysql.Table.foreignKey("orgId", () => mysqlOrgs, "missing")(Mysql.Table.make("bad_mysql_fk_referenced_column", {
+  orgId: Mysql.Column.uuid()
+}))
+void badMysqlForeignKeyReferencedColumn
+
 const postgresUsers = Postgres.Table.make("postgres_users", {
   id: Postgres.Column.uuid(),
   email: Postgres.Column.text()
