@@ -63,6 +63,23 @@ const insertConflictPlan = Q.insert(users, {
   where: Q.isNotNull(Q.excluded(users.bio))
 }))
 
+const invalidConflictTargetPredicatePlan = Q.insert(users, {
+  id: "user-id",
+  email: "alice@example.com",
+  bio: "writer"
+}).pipe(Q.onConflict({
+  columns: ["email"] as const,
+  where: Q.isNotNull(auditLogs.note)
+}, {
+  update: {
+    bio: Q.excluded(users.bio)
+  }
+}))
+
+// @ts-expect-error conflict target predicates must be backed by available sources before rendering
+const invalidConflictTargetPredicateComplete: Q.CompletePlan<typeof invalidConflictTargetPredicatePlan> = invalidConflictTargetPredicatePlan
+void invalidConflictTargetPredicateComplete
+
 void valuesSource
 void insertUnnestPlan
 void insertSelectPlan
