@@ -1,9 +1,13 @@
 import { mkdtemp, rm } from "node:fs/promises"
 import { join } from "node:path"
 
+import * as SqlClient from "@effect/sql/SqlClient"
 import { describe, expect, test } from "bun:test"
+import * as Effect from "effect/Effect"
 
-import { readMigrationFiles } from "../../../packages/database/src/postgres/migrate.js"
+import { readMigrationFiles, ensureMigrationTable } from "../../../packages/database/src/postgres/migrate.js"
+import { withoutManagedMigrationTable } from "../../../packages/database/src/postgres/push.js"
+import type { SchemaModel } from "effect-qb/postgres/metadata"
 
 const repoRoot = process.cwd()
 
@@ -34,5 +38,64 @@ describe("postgres migrations", () => {
     } finally {
       await rm(tempDir, { recursive: true, force: true })
     }
+  })
+
+  test("renders quoted qualified migration table identifiers", async () => {
+    const statements: string[] = []
+    const sql = {
+      unsafe<Row extends object>(statement: string) {
+        statements.push(statement)
+        return Effect.succeed([] as ReadonlyArray<Row>)
+      }
+    } as unknown as SqlClient.SqlClient
+
+    await Effect.runPromise(
+      Effect.provideService(
+        ensureMigrationTable(`"tenant.a"."effect.db_migrations"`),
+        SqlClient.SqlClient,
+        sql
+      )
+    )
+
+    expect(statements).toEqual([
+      `create table if not exists "tenant.a"."effect.db_migrations" (
+    id bigint generated always as identity primary key,
+    name text not null unique,
+    checksum text,
+    applied_at timestamptz not null default now()
+  )`,
+      `alter table "tenant.a"."effect.db_migrations" add column if not exists checksum text`,
+      `alter table "tenant.a"."effect.db_migrations" alter column checksum drop not null`
+    ])
+  })
+
+  test("filters quoted qualified managed migration tables from schema plans", () => {
+    const model: SchemaModel = {
+      dialect: "postgres",
+      enums: [],
+      tables: [
+        {
+          kind: "table",
+          schemaName: "tenant.a",
+          name: "effect.db_migrations",
+          columns: [],
+          options: []
+        },
+        {
+          kind: "table",
+          schemaName: "tenant.a",
+          name: "users",
+          columns: [],
+          options: []
+        }
+      ]
+    }
+
+    expect(withoutManagedMigrationTable(model, `"tenant.a"."effect.db_migrations"`).tables).toEqual([
+      expect.objectContaining({
+        schemaName: "tenant.a",
+        name: "users"
+      })
+    ])
   })
 })
