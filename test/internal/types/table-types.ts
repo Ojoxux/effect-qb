@@ -542,6 +542,20 @@ class BadUsersClass extends Table.Class<BadUsersClass>("bad_users_class")({
   slug: C.text()
 }) {}
 
+class BadUsersClassIndexOption extends Table.Class<BadUsersClassIndexOption>("bad_users_class_index_option")({
+  id: C.uuid()
+}) {
+  // @ts-expect-error class table option columns must exist on the declared table
+  static readonly [Table.options] = [Table.index("missing")]
+}
+
+class BadUsersClassUniqueOption extends Table.Class<BadUsersClassUniqueOption>("bad_users_class_unique_option")({
+  id: C.uuid()
+}) {
+  // @ts-expect-error class table unique option columns must exist on the declared table
+  static readonly [Table.options] = [Table.unique("missing")]
+}
+
 const classColumn = UsersClass.id
 void classColumn
 
