@@ -149,6 +149,9 @@ export const toDriverValue = (
   if (value === null) {
     return null
   }
+  if (value instanceof Date && Number.isNaN(value.getTime())) {
+    throw new Error("Expected a valid Date value")
+  }
   const dbType = context.dbType
   const encoded = encodeWithSchema(context.runtimeSchema, value)
   let current = encoded.value
