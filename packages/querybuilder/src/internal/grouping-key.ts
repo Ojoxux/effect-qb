@@ -28,11 +28,19 @@ const isExpression = (value: unknown): value is Expression.Any =>
 const expressionGroupingKey = (value: unknown): string =>
   isExpression(value) ? groupingKeyOfExpression(value) : "missing"
 
+const escapeGroupingText = (value: string): string =>
+  value
+    .replace(/\\/g, "\\\\")
+    .replace(/,/g, "\\,")
+    .replace(/\|/g, "\\|")
+    .replace(/=/g, "\\=")
+    .replace(/>/g, "\\>")
+
 const jsonSegmentGroupingKey = (segment: unknown): string => {
   if (segment !== null && typeof segment === "object" && "kind" in segment) {
     switch ((segment as { readonly kind: string }).kind) {
       case "key":
-        return `key:${(segment as JsonPath.KeySegment).key}`
+        return `key:${escapeGroupingText((segment as JsonPath.KeySegment).key)}`
       case "index":
         return `index:${(segment as JsonPath.IndexSegment).index}`
       case "wildcard":
@@ -46,7 +54,7 @@ const jsonSegmentGroupingKey = (segment: unknown): string => {
     }
   }
   if (typeof segment === "string") {
-    return `key:${segment}`
+    return `key:${escapeGroupingText(segment)}`
   }
   if (typeof segment === "number") {
     return `index:${segment}`
@@ -65,7 +73,7 @@ const jsonOpaquePathGroupingKey = (value: unknown): string => {
     return `jsonpath:${jsonPathGroupingKey(value.segments)}`
   }
   if (typeof value === "string") {
-    return `jsonpath:${value}`
+    return `jsonpath:${escapeGroupingText(value)}`
   }
   if (isExpression(value)) {
     return `jsonpath:${groupingKeyOfExpression(value)}`
@@ -75,7 +83,7 @@ const jsonOpaquePathGroupingKey = (value: unknown): string => {
 
 const jsonEntryGroupingKey = (
   entry: { readonly key: string; readonly value: Expression.Any }
-): string => `${entry.key}=>${groupingKeyOfExpression(entry.value)}`
+): string => `${escapeGroupingText(entry.key)}=>${groupingKeyOfExpression(entry.value)}`
 
 export const groupingKeyOfExpression = (expression: Expression.Any): string => {
   const ast = (expression as Expression.Any & {
@@ -132,7 +140,7 @@ export const groupingKeyOfExpression = (expression: Expression.Any): string => {
     case "jsonKeyExists":
     case "jsonHasAnyKeys":
     case "jsonHasAllKeys":
-      return `json(${ast.kind},${expressionGroupingKey(ast.base)},${(ast.keys ?? []).join(",")})`
+      return `json(${ast.kind},${expressionGroupingKey(ast.base)},${(ast.keys ?? []).map(escapeGroupingText).join(",")})`
     case "jsonConcat":
     case "jsonMerge":
       return `json(${ast.kind},${expressionGroupingKey(ast.left)},${expressionGroupingKey(ast.right)},)`

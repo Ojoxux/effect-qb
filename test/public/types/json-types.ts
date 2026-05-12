@@ -69,9 +69,21 @@ const dottedPathPayloadSchema = Schema.Struct({
   })
 })
 
+const collisionPayloadSchema = Schema.Struct({
+  "a,key:b": Schema.String,
+  a: Schema.Struct({
+    b: Schema.String
+  })
+})
+
 const dottedPathDocs = Table.make("dotted_path_docs", {
   id: C.uuid().pipe(C.primaryKey),
   payload: C.jsonb(dottedPathPayloadSchema)
+})
+
+const jsonPathCollisionDocs = Table.make("json_path_collision_docs", {
+  id: C.uuid().pipe(C.primaryKey),
+  payload: C.jsonb(collisionPayloadSchema)
 })
 
 const cityPath = J.json.path(
@@ -138,6 +150,14 @@ const nestedVariantKindExpr = J.jsonb.text(
 const dottedFlatKindExpr = J.jsonb.text(
   dottedPathDocs.payload,
   J.jsonb.path(J.jsonb.key("a.b"), J.jsonb.key("kind"))
+)
+const flatSegmentCollisionExpr = J.jsonb.text(
+  jsonPathCollisionDocs.payload,
+  J.jsonb.path(J.jsonb.key("a,key:b"))
+)
+const nestedSegmentCollisionExpr = J.jsonb.text(
+  jsonPathCollisionDocs.payload,
+  J.jsonb.path(J.jsonb.key("a"), J.jsonb.key("b"))
 )
 
 const option3Payload = Q.select({
@@ -210,6 +230,14 @@ const invalidGroupedCityText = Q.select({
 }).pipe(
   Q.from(docs),
   Q.groupBy(typeNameExpr)
+)
+
+const invalidGroupedJsonPathCollision = Q.select({
+  flatKey: flatSegmentCollisionExpr,
+  count: F.count(jsonPathCollisionDocs.id)
+}).pipe(
+  Q.from(jsonPathCollisionDocs),
+  Q.groupBy(nestedSegmentCollisionExpr)
 )
 
 type City = E.RuntimeOf<typeof cityExpr>
@@ -310,6 +338,9 @@ const completeGroupedCityText: Q.CompletePlan<typeof groupedCityText> = groupedC
 type InvalidGroupedCityText = Q.CompletePlan<typeof invalidGroupedCityText>
 const invalidGroupedCityTextError: BrandedErrorOf<InvalidGroupedCityText> =
   "effect-qb: invalid grouped selection"
+type InvalidGroupedJsonPathCollision = Q.CompletePlan<typeof invalidGroupedJsonPathCollision>
+const invalidGroupedJsonPathCollisionError: BrandedErrorOf<InvalidGroupedJsonPathCollision> =
+  "effect-qb: invalid grouped selection"
 // @ts-expect-error discriminator equality should remove unrelated jsonb union members
 option3PayloadRow.payload.option1Value
 // @ts-expect-error discriminator IN should remove excluded jsonb union members
@@ -373,6 +404,7 @@ void groupedCityTextCity
 void groupedCityTextCount
 void completeGroupedCityText
 void invalidGroupedCityTextError
+void invalidGroupedJsonPathCollisionError
 void badOption3SelectedKind
 void badOption2Or3SelectedViaOrKind
 void badNestedChild2SelectedKind

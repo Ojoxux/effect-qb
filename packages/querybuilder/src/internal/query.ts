@@ -281,8 +281,57 @@ type JoinGroupingKeys<Keys extends readonly string[]> = Keys extends readonly []
       ? `${Head},${JoinGroupingKeys<Tail>}`
       : string
 
+type EscapeGroupingBackslashes<Value extends string> = string extends Value
+  ? string
+  : Value extends `${infer Head}\\${infer Tail}`
+    ? `${Head}\\\\${EscapeGroupingBackslashes<Tail>}`
+    : Value
+
+type EscapeGroupingCommas<Value extends string> = string extends Value
+  ? string
+  : Value extends `${infer Head},${infer Tail}`
+    ? `${Head}\\,${EscapeGroupingCommas<Tail>}`
+    : Value
+
+type EscapeGroupingPipes<Value extends string> = string extends Value
+  ? string
+  : Value extends `${infer Head}|${infer Tail}`
+    ? `${Head}\\|${EscapeGroupingPipes<Tail>}`
+    : Value
+
+type EscapeGroupingEquals<Value extends string> = string extends Value
+  ? string
+  : Value extends `${infer Head}=${infer Tail}`
+    ? `${Head}\\=${EscapeGroupingEquals<Tail>}`
+    : Value
+
+type EscapeGroupingGreaterThan<Value extends string> = string extends Value
+  ? string
+  : Value extends `${infer Head}>${infer Tail}`
+    ? `${Head}\\>${EscapeGroupingGreaterThan<Tail>}`
+    : Value
+
+type EscapeGroupingText<Value extends string> =
+  EscapeGroupingGreaterThan<
+    EscapeGroupingEquals<
+      EscapeGroupingPipes<
+        EscapeGroupingCommas<
+          EscapeGroupingBackslashes<Value>
+        >
+      >
+    >
+  >
+
+type JsonStringKeysGroupingKey<Keys extends readonly string[]> = Keys extends readonly []
+  ? ""
+  : Keys extends readonly [infer Head extends string]
+    ? EscapeGroupingText<Head>
+    : Keys extends readonly [infer Head extends string, ...infer Tail extends readonly string[]]
+      ? `${EscapeGroupingText<Head>},${JsonStringKeysGroupingKey<Tail>}`
+      : string
+
 type JsonSegmentGroupingKey<Segment> =
-  Segment extends JsonPath.KeySegment<infer Key extends string> ? `key:${Key}` :
+  Segment extends JsonPath.KeySegment<infer Key extends string> ? `key:${EscapeGroupingText<Key>}` :
     Segment extends JsonPath.IndexSegment<infer Index extends number> ? `index:${Index}` :
       Segment extends JsonPath.WildcardSegment ? "wildcard" :
         Segment extends JsonPath.SliceSegment<infer Start extends number | undefined, infer End extends number | undefined>
@@ -290,7 +339,7 @@ type JsonSegmentGroupingKey<Segment> =
           : Segment extends JsonPath.DescendSegment
             ? "descend"
             : Segment extends string
-              ? `key:${Segment}`
+              ? `key:${EscapeGroupingText<Segment>}`
               : Segment extends number
                 ? `index:${Segment}`
                 : "unknown"
@@ -306,13 +355,13 @@ type JsonPathGroupingKey<Segments extends readonly any[]> = Segments extends rea
 type JsonOpaquePathGroupingKey<Value> =
   Value extends JsonPath.Path<infer Segments extends readonly JsonPath.CanonicalSegment[]>
     ? `jsonpath:${JsonPathGroupingKey<Segments>}` :
-  Value extends string ? `jsonpath:${Value}` :
+  Value extends string ? `jsonpath:${EscapeGroupingText<Value>}` :
     Value extends Expression.Any ? `jsonpath:${GroupingKeyOfExpression<Value>}` :
       "jsonpath:unknown"
 
 type JsonEntryGroupingKey<Entry> =
   Entry extends { readonly key: infer Key extends string; readonly value: infer Value extends Expression.Any }
-    ? `${Key}=>${GroupingKeyOfExpression<Value>}`
+    ? `${EscapeGroupingText<Key>}=>${GroupingKeyOfExpression<Value>}`
     : "entry:unknown"
 
 type JsonEntriesGroupingKey<Entries extends readonly { readonly key: string; readonly value: Expression.Any }[]> = Entries extends readonly []
@@ -357,7 +406,7 @@ type GroupingKeyOfAst<Ast extends ExpressionAst.Any> =
           ? Kind extends "jsonGet" | "jsonPath" | "jsonAccess" | "jsonTraverse" | "jsonGetText" | "jsonPathText" | "jsonAccessText" | "jsonTraverseText"
             ? `json(${Kind},${GroupingKeyOfExpression<Extract<Ast["value"] | Ast["base"] | Ast["left"], Expression.Any>>},${JsonPathGroupingKey<Extract<Ast["segments"] | Ast["path"], readonly any[]>>})`
             : Kind extends "jsonHasKey" | "jsonKeyExists" | "jsonHasAnyKeys" | "jsonHasAllKeys"
-              ? `json(${Kind},${GroupingKeyOfExpression<Extract<Ast["value"] | Ast["base"] | Ast["left"], Expression.Any>>},${JoinGroupingKeys<Extract<Ast["keys"], readonly string[]> & readonly string[]>})`
+              ? `json(${Kind},${GroupingKeyOfExpression<Extract<Ast["value"] | Ast["base"] | Ast["left"], Expression.Any>>},${JsonStringKeysGroupingKey<Extract<Ast["keys"], readonly string[]> & readonly string[]>})`
               : Kind extends "jsonConcat" | "jsonMerge" | "jsonDelete" | "jsonDeletePath" | "jsonRemove" | "jsonSet" | "jsonInsert"
                 ? `json(${Kind},${GroupingKeyOfExpression<Extract<Ast["left"] | Ast["base"] | Ast["value"], Expression.Any>>},${GroupingKeyOfExpression<Extract<Ast["right"] | Ast["newValue"] | Ast["insert"], Expression.Any>>},${JsonPathGroupingKey<Extract<Ast["segments"] | Ast["path"], readonly any[]>>})`
                 : Kind extends "jsonPathExists" | "jsonPathMatch"
