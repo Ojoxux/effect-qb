@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema"
 
 import { Column as C, Scalar as E, Function as F, Json as J, Query as Q, Table } from "effect-qb/postgres"
+import type { BrandedErrorOf } from "../../helpers/branded-error.ts"
 
 const payloadSchema = Schema.Struct({
   profile: Schema.Struct({
@@ -195,6 +196,22 @@ const dottedFlatPayload = Q.select({
   Q.where(Q.eq(dottedFlatKindExpr, "flat"))
 )
 
+const groupedCityText = Q.select({
+  city: cityTextExpr,
+  count: F.count(docs.id)
+}).pipe(
+  Q.from(docs),
+  Q.groupBy(cityTextExpr)
+)
+
+const invalidGroupedCityText = Q.select({
+  city: cityTextExpr,
+  count: F.count(docs.id)
+}).pipe(
+  Q.from(docs),
+  Q.groupBy(typeNameExpr)
+)
+
 type City = E.RuntimeOf<typeof cityExpr>
 type CityText = E.RuntimeOf<typeof cityTextExpr>
 type JsonTypeName = E.RuntimeOf<typeof typeNameExpr>
@@ -229,6 +246,7 @@ type Option3KindSelectedRow = Q.ResultRow<typeof option3KindSelected>
 type Option2Or3KindSelectedViaOrRow = Q.ResultRow<typeof option2Or3KindSelectedViaOr>
 type NestedChild2PayloadRow = Q.ResultRow<typeof nestedChild2Payload>
 type DottedFlatPayloadRow = Q.ResultRow<typeof dottedFlatPayload>
+type GroupedCityTextRow = Q.ResultRow<typeof groupedCityText>
 
 const city: City = "Paris"
 const cityText: CityText = "Paris"
@@ -273,6 +291,7 @@ declare const option2Or3PayloadViaOrRow: Option2Or3PayloadViaOrRow
 declare const option3KindSelectedRow: Option3KindSelectedRow
 declare const option2Or3KindSelectedViaOrRow: Option2Or3KindSelectedViaOrRow
 declare const nestedChild2PayloadRow: NestedChild2PayloadRow
+declare const groupedCityTextRow: GroupedCityTextRow
 const option3PayloadKind: "option3" = option3PayloadRow.payload.kind
 const option3PayloadValue: string = option3PayloadRow.payload.option3Value
 const conservativeOption3RuntimeKind: "option1" | "option2" | "option3" = option3PayloadRuntimeRow.payload.kind
@@ -285,6 +304,12 @@ const nestedChild2SelectedKind: "child2" = nestedChild2PayloadRow.kind
 declare const dottedFlatPayloadRow: DottedFlatPayloadRow
 const dottedFlatKeyKind: "flat" = dottedFlatPayloadRow.payload["a.b"].kind
 const dottedNestedKeyKind: "nested" | "other" = dottedFlatPayloadRow.payload.a.b.kind
+const groupedCityTextCity: CityText = groupedCityTextRow.city
+const groupedCityTextCount: number = groupedCityTextRow.count
+const completeGroupedCityText: Q.CompletePlan<typeof groupedCityText> = groupedCityText
+type InvalidGroupedCityText = Q.CompletePlan<typeof invalidGroupedCityText>
+const invalidGroupedCityTextError: BrandedErrorOf<InvalidGroupedCityText> =
+  "effect-qb: invalid grouped selection"
 // @ts-expect-error discriminator equality should remove unrelated jsonb union members
 option3PayloadRow.payload.option1Value
 // @ts-expect-error discriminator IN should remove excluded jsonb union members
@@ -344,6 +369,10 @@ void option3SelectedKind
 void option2Or3SelectedViaOrKind
 void nestedChild2PayloadKind
 void nestedChild2SelectedKind
+void groupedCityTextCity
+void groupedCityTextCount
+void completeGroupedCityText
+void invalidGroupedCityTextError
 void badOption3SelectedKind
 void badOption2Or3SelectedViaOrKind
 void badNestedChild2SelectedKind

@@ -1,4 +1,5 @@
 import * as Expression from "../internal/scalar.js"
+import type * as ExpressionAst from "../internal/expression-ast.js"
 import type { JsonPathUsageError } from "../internal/json/errors.js"
 import * as JsonPath from "../internal/json/path.js"
 import type {
@@ -144,17 +145,37 @@ type JsonNullabilityOf<Output> =
     ? Exclude<Output, null> extends never ? "always" : "maybe"
     : "never"
 
+type JsonPathSegmentsOf<Target extends JsonPath.Path<any> | JsonPath.CanonicalSegment> =
+  Target extends JsonPath.Path<infer Segments extends readonly JsonPath.CanonicalSegment[]> ? Segments :
+    Target extends JsonPath.CanonicalSegment ? readonly [Target] :
+      readonly []
+
+type JsonGetAccessKind<Target extends JsonPath.Path<any> | JsonPath.CanonicalSegment> =
+  Target extends JsonPath.Path<any>
+    ? JsonPath.IsExactPath<Target> extends true ? "jsonPath" : "jsonTraverse"
+    : Target extends JsonPath.ExactSegment ? "jsonGet" : "jsonAccess"
+
+type JsonTextAccessKind<Target extends JsonPath.Path<any> | JsonPath.CanonicalSegment> =
+  Target extends JsonPath.Path<any>
+    ? JsonPath.IsExactPath<Target> extends true ? "jsonPathText" : "jsonTraverseText"
+    : Target extends JsonPath.ExactSegment ? "jsonGetText" : "jsonAccessText"
+
 type JsonResultExpression<
   Runtime,
-  Db extends Expression.DbType.Json<any, any>
+  Db extends Expression.DbType.Json<any, any>,
+  Kind extends Expression.ScalarKind = Expression.ScalarKind,
+  Dependencies extends Expression.BindingId = Expression.BindingId,
+  Ast extends ExpressionAst.Any = never
 > = Expression.Scalar<
   Runtime,
   Db,
   JsonNullabilityOf<Runtime>,
   string,
-  Expression.ScalarKind,
-  Expression.BindingId
->
+  Kind,
+  Dependencies
+> & ([Ast] extends [never] ? unknown : {
+  readonly [ExpressionAst.TypeId]: Ast
+})
 
 type JsonDbOf<Base extends PostgresJsonExpression<any>> =
   Expression.DbTypeOf<Base> extends Expression.DbType.Json<"postgres", infer Variant>
@@ -167,7 +188,10 @@ type JsonGetResultExpression<
   Operation extends string
 > = JsonResultExpression<
   JsonPathOutputOf<Expression.RuntimeOf<Base>, Target, Operation>,
-  JsonDbOf<Base>
+  JsonDbOf<Base>,
+  Expression.KindOf<Base>,
+  Expression.DependenciesOf<Base>,
+  ExpressionAst.JsonAccessNode<JsonGetAccessKind<Target>, Base, JsonPathSegmentsOf<Target>>
 >
 
 type JsonTextRuntime<
@@ -185,9 +209,11 @@ type JsonTextResultExpression<
   Expression.DbType.Base<"postgres", "text">,
   JsonNullabilityOf<JsonTextRuntime<Base, Target>>,
   string,
-  Expression.ScalarKind,
-  Expression.BindingId
->
+  Expression.KindOf<Base>,
+  Expression.DependenciesOf<Base>
+> & {
+  readonly [ExpressionAst.TypeId]: ExpressionAst.JsonAccessNode<JsonTextAccessKind<Target>, Base, JsonPathSegmentsOf<Target>>
+}
 
 const exactPath = <Segments extends readonly JsonPath.CanonicalSegment[]>(
   ...segments: Segments & ExactJsonPathSegmentsGuard<Segments>
