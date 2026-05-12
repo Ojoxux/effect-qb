@@ -92,4 +92,25 @@ describe("cross-cutting statement behavior", () => {
     expect(Mysql.Renderer.make().render(Mysql.Query.releaseSavepoint("before_merge")).sql).toBe("release savepoint `before_merge`")
     expect(() => Mysql.Renderer.make().render(mergePlan)).toThrow("Unsupported merge statement for mysql")
   })
+
+  test("rejects runtime filters on statements that cannot be filtered", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const filteredTruncate = Postgres.Query.truncate(users).pipe(
+      Postgres.Query.where(true)
+    )
+    const filteredCreateTable = Postgres.Query.createTable(users).pipe(
+      Postgres.Query.where(true)
+    )
+
+    expect(() => Postgres.Renderer.make().render(filteredTruncate)).toThrow(
+      "where(...) is not supported for truncate statements"
+    )
+    expect(() => Postgres.Renderer.make().render(filteredCreateTable)).toThrow(
+      "where(...) is not supported for createTable statements"
+    )
+  })
 })
