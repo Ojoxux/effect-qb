@@ -639,6 +639,24 @@ const badMysqlFromPostgres = Mysql.Query.select({
 )
 void badMysqlFromPostgres
 
+const badPostgresJoinMysql = Postgres.Query.select({
+  id: postgresUsers.id
+}).pipe(
+  Postgres.Query.from(postgresUsers),
+  // @ts-expect-error postgres queries cannot join mysql sources
+  Postgres.Query.innerJoin(mysqlUsers, Postgres.Query.literal(true))
+)
+void badPostgresJoinMysql
+
+const badMysqlJoinPostgres = Mysql.Query.select({
+  id: mysqlUsers.id
+}).pipe(
+  Mysql.Query.from(mysqlUsers),
+  // @ts-expect-error mysql queries cannot join postgres sources
+  Mysql.Query.innerJoin(postgresUsers, Mysql.Query.literal(true))
+)
+void badMysqlJoinPostgres
+
 const mysqlDialect: typeof mysqlUsers.id[typeof Expression.TypeId]["dbType"]["dialect"] = "mysql"
 const postgresDialect: typeof postgresUsers.id[typeof Expression.TypeId]["dbType"]["dialect"] = "postgres"
 
