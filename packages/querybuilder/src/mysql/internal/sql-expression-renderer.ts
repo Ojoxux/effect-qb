@@ -4,7 +4,7 @@ import * as Query from "../../internal/query.js"
 import * as Expression from "../../internal/scalar.js"
 import * as Table from "../../internal/table.js"
 import * as QueryAst from "../../internal/query-ast.js"
-import type { RenderState, SqlDialect } from "../../internal/dialect.js"
+import type { RenderState, RenderValueContext, SqlDialect } from "../../internal/dialect.js"
 import * as ExpressionAst from "../../internal/expression-ast.js"
 import * as JsonPath from "../../internal/json/path.js"
 import {
@@ -54,14 +54,59 @@ const renderCastType = (
   }
 }
 
+const renderMysqlDdlString = (value: string): string =>
+  `'${value.replaceAll("'", "''")}'`
+
+const renderMysqlDdlBytes = (value: Uint8Array): string =>
+  `x'${Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("")}'`
+
+const renderMysqlDdlLiteral = (
+  value: unknown,
+  state: RenderState,
+  context: RenderValueContext = {}
+): string => {
+  const driverValue = toDriverValue(value, {
+    dialect: "mysql",
+    valueMappings: state.valueMappings,
+    ...context
+  })
+  if (driverValue === null) {
+    return "null"
+  }
+  switch (typeof driverValue) {
+    case "boolean":
+      return driverValue ? "true" : "false"
+    case "number":
+      if (!Number.isFinite(driverValue)) {
+        throw new Error("Expected a finite numeric value")
+      }
+      return String(driverValue)
+    case "bigint":
+      return driverValue.toString()
+    case "string":
+      return renderMysqlDdlString(driverValue)
+    case "object":
+      if (driverValue instanceof Uint8Array) {
+        return renderMysqlDdlBytes(driverValue)
+      }
+      break
+  }
+  throw new Error("Unsupported mysql DDL literal value")
+}
+
 const renderDdlExpression = (
   expression: DdlExpressionLike,
   state: RenderState,
   dialect: SqlDialect
-): string =>
-  SchemaExpression.isSchemaExpression(expression)
-    ? SchemaExpression.render(expression)
-    : renderExpression(expression, state, dialect)
+): string => {
+  if (SchemaExpression.isSchemaExpression(expression)) {
+    return SchemaExpression.render(expression)
+  }
+  return renderExpression(expression, state, {
+    ...dialect,
+    renderLiteral: renderMysqlDdlLiteral
+  })
+}
 
 const renderMysqlMutationLimit = (
   expression: Expression.Any,

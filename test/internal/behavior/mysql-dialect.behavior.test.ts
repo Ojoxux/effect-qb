@@ -1102,11 +1102,11 @@ describe("mysql dialect behavior", () => {
     expect(Mysql.Renderer.make().render(Mysql.Query.createTable(memberships, {
       ifNotExists: true
     })).sql).toBe(
-      'create table if not exists `memberships` (`id` char(36) not null, `orgId` char(36) not null, `role` text not null, `note` text, primary key (`id`), foreign key (`orgId`) references `orgs` (`id`), unique (`orgId`, `role`), constraint `role_not_empty` check ((`role` <> ?)))'
+      "create table if not exists `memberships` (`id` char(36) not null, `orgId` char(36) not null, `role` text not null, `note` text, primary key (`id`), foreign key (`orgId`) references `orgs` (`id`), unique (`orgId`, `role`), constraint `role_not_empty` check ((`role` <> '')))"
     )
     expect(Mysql.Renderer.make().render(Mysql.Query.createTable(memberships, {
       ifNotExists: true
-    })).params).toEqual([""])
+    })).params).toEqual([])
     expect(Mysql.Renderer.make().render(Mysql.Query.createIndex(memberships, ["role", "orgId"] as const, {
       ifNotExists: true
     })).sql).toBe(
