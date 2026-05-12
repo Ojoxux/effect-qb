@@ -4462,6 +4462,32 @@ type ValuesRowsShapeInput<Rows extends ValuesRowsInput> =
 
 type UnnestColumnsInput = Record<string, readonly [ExpressionInput, ...ExpressionInput[]]>
 
+type IsNever<Value> = [Value] extends [never] ? true : false
+
+type IsUnion<Value, All = Value> = Value extends any
+  ? ([All] extends [Value] ? false : true)
+  : never
+
+type UnnestColumnKeys<Columns extends UnnestColumnsInput> =
+  Extract<keyof Columns, string>
+
+type UnnestColumnLengths<Columns extends UnnestColumnsInput> =
+  Columns[UnnestColumnKeys<Columns>]["length"]
+
+type UnnestColumnsShapeInput<Columns extends UnnestColumnsInput> =
+  IsNever<UnnestColumnKeys<Columns>> extends true
+    ? {
+        readonly __effect_qb_error__: "effect-qb: unnest requires at least one column array"
+      }
+    : number extends UnnestColumnLengths<Columns>
+      ? unknown
+      : IsUnion<UnnestColumnLengths<Columns>> extends true
+        ? {
+            readonly __effect_qb_error__: "effect-qb: unnest column arrays must have the same length"
+            readonly __effect_qb_column_lengths__: UnnestColumnLengths<Columns>
+          }
+        : unknown
+
 type UnnestRowShape<Shape extends Record<string, readonly unknown[]>> = {
   readonly [K in keyof Shape]: Shape[K] extends readonly (infer Item)[] ? Item : never
 }
@@ -5198,7 +5224,7 @@ type AsCurriedResult<
     Columns extends UnnestColumnsInput,
     Alias extends string
   >(
-    columns: Columns,
+    columns: Columns & UnnestColumnsShapeInput<Columns>,
     alias: Alias
   ) => UnnestSource<
     UnnestOutputShape<Columns, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
