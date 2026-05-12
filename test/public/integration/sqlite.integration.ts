@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test"
+import * as SqlClient from "@effect/sql/SqlClient"
 import { SqliteClient } from "@effect/sql-sqlite-bun"
 import * as Chunk from "effect/Chunk"
 import * as Effect from "effect/Effect"
@@ -159,6 +160,55 @@ test("sqlite executor supports returning upserts, JSON1 queries, and savepoint r
   expect(result.afterRollback).toEqual([
     {
       note: "updated"
+    }
+  ])
+})
+
+test("sqlite JSON string scalars are stored as valid JSON text scalars", async () => {
+  const docs = Table.make("json_string_docs", {
+    id: C.text().pipe(C.primaryKey),
+    payload: C.json(Schema.String)
+  })
+
+  const result = await runSqlite(Effect.gen(function*() {
+    const executor = Executor.make()
+
+    yield* executor.execute(Q.createTable(docs))
+    yield* executor.execute(Q.insert(docs, {
+      id: "json-string-1",
+      payload: "42"
+    }))
+
+    const rows = yield* executor.execute(Q.select({
+      payload: docs.payload
+    }).pipe(Q.from(docs)))
+
+    const sql = yield* SqlClient.SqlClient
+    const raw = yield* sql.unsafe<{
+      readonly raw: string
+      readonly valid: number
+      readonly typeName: string
+    }>(
+      "select payload as raw, json_valid(payload) as valid, json_type(payload) as typeName from json_string_docs",
+      []
+    )
+
+    return {
+      rows,
+      raw
+    }
+  }))
+
+  expect(result.rows).toEqual([
+    {
+      payload: "42"
+    }
+  ])
+  expect(result.raw).toEqual([
+    {
+      raw: "\"42\"",
+      valid: 1,
+      typeName: "text"
     }
   ])
 })

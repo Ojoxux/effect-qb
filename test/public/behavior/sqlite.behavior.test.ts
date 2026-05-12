@@ -119,6 +119,23 @@ describe("sqlite behavior", () => {
     ])
   })
 
+  test("encodes sqlite JSON string scalar literals as JSON text", () => {
+    const docs = Sqlite.Table.make("json_string_docs", {
+      id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),
+      payload: Sqlite.Column.json(Schema.String)
+    })
+
+    const rendered = render(Sqlite.Query.insert(docs, {
+      id: "json-string-1",
+      payload: "42"
+    }))
+
+    expect(rendered.sql).toBe(
+      'insert into "json_string_docs" ("id", "payload") values (?, ?)'
+    )
+    expect(rendered.params).toEqual(["json-string-1", "\"42\""])
+  })
+
   test("renders sqlite DDL without postgres-only constraint clauses", () => {
     const employees = makeSqliteEmployees()
 

@@ -63,8 +63,7 @@ type SqliteJsonWitness = Expression.DbType.Base<"sqlite", "json"> & {
 sqliteDatatypeModule.json = () => ({
   ...withMetadata("json"),
   driverValueMapping: {
-    toDriver: (value: unknown) =>
-      typeof value === "string" ? value : JSON.stringify(value)
+    toDriver: (value: unknown) => JSON.stringify(value)
   }
 }) as SqliteJsonWitness
 
