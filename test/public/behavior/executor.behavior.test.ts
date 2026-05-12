@@ -344,6 +344,11 @@ describe("executor behavior", () => {
           createdAt: "2026-03-18 10:00:00",
           total: "0012.3400",
           counter: "0042"
+        },
+        {
+          createdAt: "2026-03-18 10:00:00",
+          total: "-0.00",
+          counter: "-0"
         }
       ]))
     }).execute(plan))
@@ -358,6 +363,11 @@ describe("executor behavior", () => {
         createdAt: "2026-03-18T10:00:00",
         total: "12.34",
         counter: "42"
+      },
+      {
+        createdAt: "2026-03-18T10:00:00",
+        total: "0",
+        counter: "0"
       }
     ])
   })
