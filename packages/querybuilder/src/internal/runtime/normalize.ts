@@ -43,12 +43,17 @@ const expectString = (value: unknown, label: string): string => {
   throw new Error(`Expected ${label} as string`)
 }
 
+const finiteNumberStringPattern = /^[+-]?(?:(?:\d+\.?\d*)|(?:\.\d+))(?:[eE][+-]?\d+)?$/
+
 const normalizeNumber = (value: unknown): number => {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value
   }
-  if (typeof value === "string" && value.trim() !== "") {
-    const parsed = Number(value)
+  if (typeof value === "string") {
+    const trimmed = value.trim()
+    const parsed = finiteNumberStringPattern.test(trimmed)
+      ? Number(trimmed)
+      : Number.NaN
     if (Number.isFinite(parsed)) {
       return parsed
     }
