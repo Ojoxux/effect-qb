@@ -653,6 +653,36 @@ describe("json behavior", () => {
     ])
   })
 
+  test("mysql renders negative json array indexes with last-relative syntax", () => {
+    const docs = makeJsonTable(Mysql)
+
+    const lastTagPath = Mysql.Json.json.path(
+      Mysql.Json.json.key("profile"),
+      Mysql.Json.json.key("tags"),
+      Mysql.Json.json.index(-1)
+    )
+    const penultimateTagPath = Mysql.Json.json.path(
+      Mysql.Json.json.key("profile"),
+      Mysql.Json.json.key("tags"),
+      Mysql.Json.json.index(-2)
+    )
+
+    const plan = Mysql.Query.select({
+      lastTag: Mysql.Json.json.get(docs.payload, lastTagPath),
+      penultimateTag: Mysql.Json.json.get(docs.payload, penultimateTagPath)
+    }).pipe(Mysql.Query.from(docs))
+
+    const rendered = Mysql.Renderer.make().render(plan)
+
+    expect(rendered.sql).toBe(
+      "select json_extract(`docs`.`payload`, ?) as `lastTag`, json_extract(`docs`.`payload`, ?) as `penultimateTag` from `docs`"
+    )
+    expect(rendered.params).toEqual([
+      "$.profile.tags[last]",
+      "$.profile.tags[last-1]"
+    ])
+  })
+
   test("mysql preserves nested json delete paths as one path argument", () => {
     const docs = makeJsonTable(Mysql)
     const cityPath = Mysql.Json.json.path(
