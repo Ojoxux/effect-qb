@@ -709,6 +709,14 @@ const badPostgresMutationMysqlExpression = Postgres.Query.insert(postgresUsers, 
 })
 void badPostgresMutationMysqlExpression
 
+// @ts-expect-error postgres merge cannot target mysql tables
+const badPostgresMergeMysqlTarget = Postgres.Query.merge(mysqlUsers, postgresUsers, Postgres.Query.literal(true))
+void badPostgresMergeMysqlTarget
+
+// @ts-expect-error postgres merge cannot use mysql sources
+const badPostgresMergeMysqlSource = Postgres.Query.merge(postgresUsers, mysqlUsers, Postgres.Query.literal(true))
+void badPostgresMergeMysqlSource
+
 const mysqlDialect: typeof mysqlUsers.id[typeof Expression.TypeId]["dbType"]["dialect"] = "mysql"
 const postgresDialect: typeof postgresUsers.id[typeof Expression.TypeId]["dbType"]["dialect"] = "postgres"
 
