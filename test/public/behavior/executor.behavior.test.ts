@@ -689,6 +689,42 @@ describe("executor behavior", () => {
     })
   })
 
+  test("normalized driver mode rejects non-finite JSON numbers", () => {
+    const docs = Table.make("normalized_json_number_docs", {
+      payload: C.json(Schema.Number)
+    })
+
+    const plan = Q.select({
+      payload: docs.payload
+    }).pipe(
+      Q.from(docs)
+    )
+
+    const result = Effect.runSync(Effect.either(Executor.make({
+      driverMode: "normalized",
+      driver: Executor.driver("postgres", () => Effect.succeed([
+        {
+          payload: Number.NaN
+        }
+      ]))
+    }).execute(plan)))
+
+    expect(result).toMatchObject({
+      _tag: "Left",
+      left: {
+        _tag: "RowDecodeError",
+        stage: "schema",
+        projection: {
+          alias: "payload"
+        },
+        dbType: {
+          dialect: "postgres",
+          kind: "json"
+        }
+      }
+    })
+  })
+
   test("fromDriver enforces structured record cast fields", () => {
     const plan = Q.select({
       profile: Cast.to("{}", Type.record("user_profile", {
