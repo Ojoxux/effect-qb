@@ -2161,15 +2161,27 @@ export type DialectCompatiblePlan<
   ? CompletePlan<PlanValue>
   : DialectCompatibilityError<PlanValue, EngineDialect>
 
+type SelectLikeStatement = "select" | "set"
+
+type NestedPlanStatementError<
+  PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>
+> = PlanValue & {
+  readonly __effect_qb_error__: "effect-qb: subquery expressions only accept select-like query plans"
+  readonly __effect_qb_statement__: StatementOfPlan<PlanValue>
+  readonly __effect_qb_hint__: "Use select(...) or a set operator as the nested subquery expression"
+}
+
 /** Nested-plan compatibility used by subquery expressions such as `exists(...)`. */
 export type DialectCompatibleNestedPlan<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
   EngineDialect extends string
 > = IsDialectCompatible<PlanValue[typeof RowSet.TypeId]["dialect"], EngineDialect> extends true
-  ? AggregationCompatiblePlan<PlanValue>
+  ? StatementOfPlan<PlanValue> extends SelectLikeStatement
+    ? AggregationCompatiblePlan<PlanValue>
+    : NestedPlanStatementError<PlanValue>
   : DialectCompatibilityError<PlanValue, EngineDialect>
 
-type SetOperandStatement = "select" | "set"
+type SetOperandStatement = SelectLikeStatement
 type IsUnion<Value, All = Value> = Value extends any ? ([All] extends [Value] ? false : true) : never
 
 type SingleSelectedExpressionError<

@@ -1393,6 +1393,22 @@ const renderSourceReference = (
   return dialect.renderTableReference(tableName, baseTableName, schemaName)
 }
 
+const renderSubqueryExpressionPlan = (
+  plan: Query.Plan.Any,
+  state: RenderState,
+  dialect: SqlDialect
+): string => {
+  const statement = Query.getQueryState(plan).statement
+  if (statement !== "select" && statement !== "set") {
+    throw new Error("subquery expressions only accept select-like query plans")
+  }
+  return renderQueryAst(
+    Query.getAst(plan) as QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
+    state,
+    dialect
+  ).sql
+}
+
 /**
  * Renders a scalar expression AST into SQL text.
  *
@@ -1561,35 +1577,15 @@ export const renderExpression = (
         `when ${renderExpression(branch.when, state, dialect)} then ${renderExpression(branch.then, state, dialect)}`
       ).join(" ")} else ${renderExpression(ast.else, state, dialect)} end`
     case "exists":
-      return `exists (${renderQueryAst(
-        Query.getAst(ast.plan) as QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
-        state,
-        dialect
-      ).sql})`
+      return `exists (${renderSubqueryExpressionPlan(ast.plan, state, dialect)})`
     case "scalarSubquery":
-      return `(${renderQueryAst(
-        Query.getAst(ast.plan) as QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
-        state,
-        dialect
-      ).sql})`
+      return `(${renderSubqueryExpressionPlan(ast.plan, state, dialect)})`
     case "inSubquery":
-      return `(${renderExpression(ast.left, state, dialect)} in (${renderQueryAst(
-        Query.getAst(ast.plan) as QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
-        state,
-        dialect
-      ).sql}))`
+      return `(${renderExpression(ast.left, state, dialect)} in (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
     case "comparisonAny":
-      return `(${renderExpression(ast.left, state, dialect)} ${renderComparisonOperator(ast.operator)} any (${renderQueryAst(
-        Query.getAst(ast.plan) as QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
-        state,
-        dialect
-      ).sql}))`
+      return `(${renderExpression(ast.left, state, dialect)} ${renderComparisonOperator(ast.operator)} any (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
     case "comparisonAll":
-      return `(${renderExpression(ast.left, state, dialect)} ${renderComparisonOperator(ast.operator)} all (${renderQueryAst(
-        Query.getAst(ast.plan) as QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
-        state,
-        dialect
-      ).sql}))`
+      return `(${renderExpression(ast.left, state, dialect)} ${renderComparisonOperator(ast.operator)} all (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
     case "window": {
       if (!Array.isArray(ast.partitionBy) || !Array.isArray(ast.orderBy) || typeof ast.function !== "string") {
         break
