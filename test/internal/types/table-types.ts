@@ -683,6 +683,18 @@ void badMysqlDeletePostgres
 const badPostgresTruncateMysql = Postgres.Query.truncate(mysqlUsers)
 void badPostgresTruncateMysql
 
+// @ts-expect-error postgres ddl cannot target mysql tables
+const badPostgresCreateTableMysql = Postgres.Query.createTable(mysqlUsers)
+void badPostgresCreateTableMysql
+
+// @ts-expect-error mysql ddl cannot target postgres tables
+const badMysqlCreateTablePostgres = Mysql.Query.createTable(postgresUsers)
+void badMysqlCreateTablePostgres
+
+// @ts-expect-error postgres ddl indexes cannot target mysql tables
+const badPostgresCreateIndexMysql = Postgres.Query.createIndex(mysqlUsers, ["email"] as const)
+void badPostgresCreateIndexMysql
+
 const mysqlDialect: typeof mysqlUsers.id[typeof Expression.TypeId]["dbType"]["dialect"] = "mysql"
 const postgresDialect: typeof postgresUsers.id[typeof Expression.TypeId]["dbType"]["dialect"] = "postgres"
 
