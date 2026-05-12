@@ -4871,6 +4871,11 @@ type MutationOrderLimitSupported<PlanValue extends QueryPlan<any, any, any, any,
       ? StatementOfPlan<PlanValue> extends "update" | "delete" ? unknown : never
       : never
 
+type MutationTargetTupleDialectConstraint<
+  Targets extends MutationTargetTuple,
+  Dialect extends string
+> = Exclude<TableDialectOf<Targets[number]>, Dialect> extends never ? unknown : never
+
 type MutationRequiredFromValues<Values extends Record<string, unknown>> = {
   [K in keyof Values]: Values[K] extends Expression.Any ? RequiredFromDependencies<DependenciesOf<Values[K]>> : never
 }[keyof Values]
@@ -5899,7 +5904,7 @@ type AsCurriedResult<
 
   interface UpdateApi {
     <Targets extends MutationTargetTuple, Values extends UpdateInputOfTarget<Targets>>(
-      target: Dialect extends "mysql" ? Targets : never,
+      target: Dialect extends "mysql" ? Targets & MutationTargetTupleDialectConstraint<Targets, Dialect> : never,
       values: Values
     ): QueryPlan<
       {},
@@ -5981,7 +5986,7 @@ type AsCurriedResult<
       EmptyFacts
     >
     <Targets extends MutationTargetTuple>(
-      target: Dialect extends "mysql" ? Targets : never
+      target: Dialect extends "mysql" ? Targets & MutationTargetTupleDialectConstraint<Targets, Dialect> : never
     ): QueryPlan<
       {},
       never,
