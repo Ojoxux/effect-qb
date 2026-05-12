@@ -159,4 +159,22 @@ describe("cross-cutting statement behavior", () => {
       "distinct(...) is not supported for delete statements"
     )
   })
+
+  test("rejects runtime offset modifiers on insert statements", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const offsetInsert = Postgres.Query.insert(users, {
+      id: "00000000-0000-0000-0000-000000000001",
+      email: "alice@example.com"
+    }).pipe(
+      Postgres.Query.offset(10)
+    )
+
+    expect(() => Postgres.Renderer.make().render(offsetInsert)).toThrow(
+      "offset(...) is not supported for insert statements"
+    )
+  })
 })
