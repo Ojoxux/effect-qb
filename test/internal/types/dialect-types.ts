@@ -80,6 +80,23 @@ const myPlan = Mysql.Query.select({
   Mysql.Query.from(myUsers)
 )
 
+// @ts-expect-error postgres set operators do not accept mysql left operands
+const postgresSetWithMysqlLeft = Postgres.Query.union(myPlan, pgPlan)
+
+// @ts-expect-error postgres set operators do not accept mysql right operands
+const postgresSetWithMysqlRight = Postgres.Query.union(pgPlan, myPlan)
+
+// @ts-expect-error mysql set operators do not accept postgres left operands
+const mysqlSetWithPostgresLeft = Mysql.Query.union(pgPlan, myPlan)
+
+// @ts-expect-error mysql set operators do not accept postgres right operands
+const mysqlSetWithPostgresRight = Mysql.Query.union(myPlan, pgPlan)
+
+void postgresSetWithMysqlLeft
+void postgresSetWithMysqlRight
+void mysqlSetWithPostgresLeft
+void mysqlSetWithPostgresRight
+
 const pgValuesSource = Postgres.Query.values([
   { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") },
   { id: Postgres.Query.literal(2), email: Postgres.Query.literal("bob@example.com") }
