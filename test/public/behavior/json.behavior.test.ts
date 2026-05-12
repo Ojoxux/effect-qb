@@ -420,6 +420,27 @@ describe("json behavior", () => {
     ])
   })
 
+  test("postgres escapes control characters in rendered json path keys", () => {
+    const docs = makeJsonbTable(Postgres)
+    const controlPath = Postgres.Json.jsonb.path(
+      Postgres.Json.jsonb.key("line\nbreak"),
+      Postgres.Json.jsonb.key("tab\tkey")
+    )
+
+    const plan = Postgres.Query.select({
+      exists: Postgres.Json.jsonb.pathExists(docs.payload, controlPath)
+    }).pipe(Postgres.Query.from(docs))
+
+    const rendered = Postgres.Renderer.make().render(plan)
+
+    expect(rendered.sql).toBe(
+      'select ("docs"."payload" @? $1) as "exists" from "public"."docs"'
+    )
+    expect(rendered.params).toEqual([
+      '$."line\\nbreak"."tab\\tkey"'
+    ])
+  })
+
   test("postgres renders jsonb set without creating missing keys", () => {
     const docs = makeJsonbTable(Postgres)
 
@@ -637,6 +658,27 @@ describe("json behavior", () => {
       "$.profile.address.city",
       "Paris",
       "$.profile.address.city"
+    ])
+  })
+
+  test("mysql escapes control characters in rendered json path keys", () => {
+    const docs = makeJsonTable(Mysql)
+    const controlPath = Mysql.Json.json.path(
+      Mysql.Json.json.key("line\nbreak"),
+      Mysql.Json.json.key("tab\tkey")
+    )
+
+    const plan = Mysql.Query.select({
+      value: Mysql.Json.json.get(docs.payload, controlPath)
+    }).pipe(Mysql.Query.from(docs))
+
+    const rendered = Mysql.Renderer.make().render(plan)
+
+    expect(rendered.sql).toBe(
+      "select json_extract(`docs`.`payload`, ?) as `value` from `docs`"
+    )
+    expect(rendered.params).toEqual([
+      '$."line\\nbreak"."tab\\tkey"'
     ])
   })
 
