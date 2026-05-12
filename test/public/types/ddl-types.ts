@@ -28,6 +28,8 @@ const createIndexPlan = Q.createIndex(memberships, ["role", "orgId"])
 const dropIndexPlan = Q.dropIndex(memberships, ["role", "orgId"], {
   ifExists: true
 })
+const createSingleColumnIndexPlan = Q.createIndex(memberships, "role")
+const dropSingleColumnIndexPlan = Q.dropIndex(memberships, "role")
 
 type CreateTableStatement = Q.StatementOfPlan<typeof createTablePlan>
 type DropTableStatement = Q.StatementOfPlan<typeof dropTablePlan>
@@ -56,6 +58,8 @@ void createTableCapability
 void dropTableCapability
 void createIndexCapability
 void dropIndexCapability
+void createSingleColumnIndexPlan
+void dropSingleColumnIndexPlan
 
 // @ts-expect-error ddl plans cannot be filtered
 Q.where(Q.eq(memberships.id, "membership-id"))(createTablePlan)

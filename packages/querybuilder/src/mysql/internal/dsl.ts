@@ -4426,6 +4426,11 @@ type ValidateDdlColumns<
   Columns extends readonly string[]
 > = Exclude<Columns[number], SchemaColumnNames<Target>> extends never ? Columns : never
 
+type ValidateDdlColumnInput<
+  Target extends SchemaTableLike,
+  Columns extends DdlColumnInput
+> = ValidateDdlColumns<Target, NormalizeDdlColumns<Columns>> extends never ? never : Columns
+
 type ValidateTargetColumns<
   Target extends MutationTargetLike,
   Columns extends readonly string[]
@@ -6522,7 +6527,7 @@ type AsCurriedResult<
 
   type CreateIndexApi = <Target extends SchemaTableLike, const Columns extends DdlColumnInput>(
     target: Target,
-    columns: Columns & ValidateDdlColumns<Target, NormalizeDdlColumns<Columns>>,
+    columns: Columns & ValidateDdlColumnInput<Target, Columns>,
     options?: CreateIndexOptions
   ) => QueryPlan<
     {},
@@ -6539,7 +6544,7 @@ type AsCurriedResult<
 
   type DropIndexApi = <Target extends SchemaTableLike, const Columns extends DdlColumnInput>(
     target: Target,
-    columns: Columns & ValidateDdlColumns<Target, NormalizeDdlColumns<Columns>>,
+    columns: Columns & ValidateDdlColumnInput<Target, Columns>,
     options?: DropIndexOptions
   ) => QueryPlan<
     {},
