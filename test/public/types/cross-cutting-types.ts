@@ -43,6 +43,14 @@ const mergePlan = Q.merge(
 const completeMergePlan: Q.CompletePlan<typeof mergePlan> = mergePlan;
 void completeMergePlan;
 
+// @ts-expect-error merge requires at least one matched or not-matched action
+const missingMergeActions = Q.merge(
+  users,
+  incomingUsers,
+  Q.eq(users.id, incomingUsers.id),
+);
+void missingMergeActions;
+
 const badMergeMysqlPredicate = Q.merge(
   users,
   incomingUsers,
