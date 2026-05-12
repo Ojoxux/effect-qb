@@ -718,6 +718,19 @@ const widenedPostgresInsertPostgresEmail: Postgres.Query.MutationInputOf<Postgre
   Postgres.Query.literal("alice@example.com")
 void widenedPostgresInsertPostgresEmail
 
+const widenedPostgresWhereMysqlPredicate: Postgres.Query.PredicateInput = Mysql.Query.literal(true)
+const widenedPostgresWhereMysqlPlan = Postgres.Query.select({
+  id: users.id
+}).pipe(
+  Postgres.Query.from(users),
+  Postgres.Query.where(widenedPostgresWhereMysqlPredicate)
+)
+const widenedPostgresWhereMysqlRendered = Postgres.Renderer.make().render(
+  // @ts-expect-error widened predicate inputs must still preserve expression dialect
+  widenedPostgresWhereMysqlPlan
+)
+void widenedPostgresWhereMysqlRendered
+
 // @ts-expect-error postgres merge cannot target mysql tables
 const badPostgresMergeMysqlTarget = Postgres.Query.merge(mysqlUsers, postgresUsers, Postgres.Query.literal(true), {
   whenMatched: {
