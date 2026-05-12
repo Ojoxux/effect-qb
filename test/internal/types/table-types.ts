@@ -24,6 +24,23 @@ const events = analytics.table("events", {
   id: C.uuid().pipe(C.primaryKey),
   userId: C.uuid()
 })
+const schemaTablePrimaryKey = analytics.table("schema_table_primary_key", {
+  id: C.uuid(),
+  slug: C.text()
+}, Table.primaryKey(["id", "slug"] as const))
+void schemaTablePrimaryKey
+
+// @ts-expect-error schema-scoped table option columns must exist on the declared table
+const badSchemaTableOptionColumn = analytics.table("bad_schema_table_option_column", {
+  id: C.uuid()
+}, Table.index("missing"))
+void badSchemaTableOptionColumn
+
+const schemaTableNullablePrimaryKeyOption = Table.primaryKey("slug")
+// @ts-expect-error schema-scoped table primary key columns cannot be nullable
+const badSchemaTablePrimaryKeyNullable = analytics.table("bad_schema_table_primary_key_nullable", { slug: C.text().pipe(C.nullable) }, schemaTableNullablePrimaryKeyOption)
+void badSchemaTablePrimaryKeyNullable
+
 const auditLog = Table.make("audit_log", {
   createdAt: C.timestamp().pipe(C.default(F.now())),
   publishedAt: C.timestamptz().pipe(C.default(F.now()))
