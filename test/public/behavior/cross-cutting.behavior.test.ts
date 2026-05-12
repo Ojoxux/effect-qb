@@ -284,6 +284,21 @@ describe("cross-cutting statement behavior", () => {
     )
   })
 
+  test("rejects runtime filters on ddl index statements", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const createIndexPlan = Postgres.Query.createIndex(users, ["email"]).pipe(
+      Postgres.Query.where(true)
+    )
+
+    expect(() => Postgres.Renderer.make().render(createIndexPlan)).toThrow(
+      "where(...) is not supported for createIndex statements"
+    )
+  })
+
   test("rejects runtime sources on transaction statements", () => {
     const users = Postgres.Table.make("users", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
