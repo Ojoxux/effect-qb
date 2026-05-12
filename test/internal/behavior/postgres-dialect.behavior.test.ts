@@ -165,6 +165,26 @@ describe("postgres dialect behavior", () => {
     expect(rendered.params).toEqual(["alice@example.com", "alice@example.com"])
   })
 
+  test("groups by collated expressions", () => {
+    const { users } = makePostgresSocialGraph()
+    const collatedEmail = Postgres.Query.collate(users.email, "C")
+
+    const plan = Postgres.Query.select({
+      collatedEmail,
+      userCount: Postgres.Function.count(users.id)
+    }).pipe(
+      Postgres.Query.from(users),
+      Postgres.Query.groupBy(collatedEmail)
+    )
+
+    const rendered = Postgres.Renderer.make().render(plan)
+
+    expect(rendered.sql).toBe(
+      'select ("users"."email" collate "C") as "collatedEmail", count("users"."id") as "userCount" from "public"."users" group by ("users"."email" collate "C")'
+    )
+    expect(rendered.params).toEqual([])
+  })
+
   test("renders explicit casts with postgres syntax", () => {
     const { users } = makePostgresSocialGraph()
 

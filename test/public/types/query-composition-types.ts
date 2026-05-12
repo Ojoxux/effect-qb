@@ -293,6 +293,17 @@ const regexGroupedPlan = Q.select({
 const completeRegexGroupedPlan: Q.CompletePlan<typeof regexGroupedPlan> = regexGroupedPlan
 void completeRegexGroupedPlan
 
+const collatedGroupedPlan = Q.select({
+  collatedEmail: Q.collate(users.email, "C"),
+  userCount: F.count(users.id)
+}).pipe(
+  Q.from(users),
+  Q.groupBy(Q.collate(users.email, "C"))
+)
+
+const completeCollatedGroupedPlan: Q.CompletePlan<typeof collatedGroupedPlan> = collatedGroupedPlan
+void completeCollatedGroupedPlan
+
 const invalidDottedGroupedPlan = Q.select({
   splitStatus: splitGroupingTable["b.status"],
   statusCount: F.count(dottedGroupingTable.status)
