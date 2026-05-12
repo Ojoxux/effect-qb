@@ -4783,6 +4783,50 @@ type ConflictActionInput<
   readonly where?: Dialect extends "postgres" ? PredicateInput : MysqlConflictWhereError<PredicateInput>
 }
 
+type ConflictTargetPredicate<Target> =
+  Target extends { readonly where?: infer Predicate } ? Extract<Predicate, PredicateInput> : never
+
+type ConflictActionPredicate<Options> =
+  Options extends { readonly where?: infer Predicate } ? Extract<Predicate, PredicateInput> : never
+
+type MutationDialectFromValues<
+  Values extends Record<string, unknown>,
+  Dialect extends string,
+  TextDb extends Expression.DbType.Any,
+  NumericDb extends Expression.DbType.Any,
+  BoolDb extends Expression.DbType.Any,
+  TimestampDb extends Expression.DbType.Any,
+  NullDb extends Expression.DbType.Any
+> = {
+  [K in keyof Values]: Values[K] extends ExpressionInput
+    ? DialectOfDialectInput<Values[K], Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
+    : never
+}[keyof Values]
+
+type ConflictRequired<
+  UpdateValues extends MutationInputOf<any> | undefined,
+  Options,
+  ConflictTarget
+> =
+  | MutationRequiredFromValues<Exclude<UpdateValues, undefined>>
+  | RequiredFromInput<ConflictActionPredicate<Options>>
+  | RequiredFromInput<ConflictTargetPredicate<ConflictTarget>>
+
+type ConflictDialect<
+  UpdateValues extends MutationInputOf<any> | undefined,
+  Options,
+  ConflictTarget,
+  Dialect extends string,
+  TextDb extends Expression.DbType.Any,
+  NumericDb extends Expression.DbType.Any,
+  BoolDb extends Expression.DbType.Any,
+  TimestampDb extends Expression.DbType.Any,
+  NullDb extends Expression.DbType.Any
+> =
+  | MutationDialectFromValues<Exclude<UpdateValues, undefined>, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
+  | DialectOfDialectInput<ConflictActionPredicate<Options>, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
+  | DialectOfDialectInput<ConflictTargetPredicate<ConflictTarget>, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
+
 type MergeWhenMatchedDelete<
   Predicate extends PredicateInput | undefined = undefined
 > = {
@@ -5896,21 +5940,22 @@ type AsCurriedResult<
     Target extends MutationTargetLike,
     const Columns extends DdlColumnInput,
     UpdateValues extends MutationInputOf<Table.UpdateOf<Target>> | undefined = MutationInputOf<Table.UpdateOf<Target>> | undefined,
-    Options extends ConflictActionInput<Target, Dialect, UpdateValues> = ConflictActionInput<Target, Dialect, UpdateValues>
+    Options extends ConflictActionInput<Target, Dialect, UpdateValues> = ConflictActionInput<Target, Dialect, UpdateValues>,
+    ConflictTarget extends ConflictTargetInput<Target, Dialect, Columns> = ConflictTargetInput<Target, Dialect, Columns>
   >(
-    target: ConflictTargetInput<Target, Dialect, Columns>,
+    target: ConflictTarget,
     options?: Options
   ) =>
     <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
       plan: PlanValue & RequireInsertStatement<PlanValue>
     ) => QueryPlan<
       SelectionOfPlan<PlanValue>,
-      Exclude<RequiredOfPlan<PlanValue> | MutationRequiredFromValues<Exclude<UpdateValues, undefined>> | RequiredFromInput<Extract<Options["where"], PredicateInput>>, AvailableNames<AvailableOfPlan<PlanValue>>>,
+      Exclude<RequiredOfPlan<PlanValue> | ConflictRequired<UpdateValues, Options, ConflictTarget>, AvailableNames<AvailableOfPlan<PlanValue>>>,
       AvailableOfPlan<PlanValue>,
-      PlanDialectOf<PlanValue>,
+      PlanDialectOf<PlanValue> | ConflictDialect<UpdateValues, Options, ConflictTarget, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
       GroupedOfPlan<PlanValue>,
       ScopedNamesOfPlan<PlanValue>,
-      Exclude<OutstandingOfPlan<PlanValue> | MutationRequiredFromValues<Exclude<UpdateValues, undefined>> | RequiredFromInput<Extract<Options["where"], PredicateInput>>, AvailableNames<AvailableOfPlan<PlanValue>>>,
+      Exclude<OutstandingOfPlan<PlanValue> | ConflictRequired<UpdateValues, Options, ConflictTarget>, AvailableNames<AvailableOfPlan<PlanValue>>>,
       AssumptionsOfPlan<PlanValue>,
       CapabilitiesOfPlan<PlanValue>,
       StatementOfPlan<PlanValue>,
@@ -6126,32 +6171,9 @@ type AsCurriedResult<
   ): QueryPlan<any, any, any, any, any, any, any, any, any, "insert", MutationTargetLike, "ready"> =>
     mutationRuntime.attachInsertSource(plan, source)
 
-  const onConflict: OnConflictApi = <
-    Target extends MutationTargetLike,
-    const Columns extends DdlColumnInput,
-    UpdateValues extends MutationInputOf<Table.UpdateOf<Target>> | undefined = MutationInputOf<Table.UpdateOf<Target>> | undefined,
-    Options extends ConflictActionInput<Target, Dialect, UpdateValues> = ConflictActionInput<Target, Dialect, UpdateValues>
-  >(
-    target: ConflictTargetInput<Target, Dialect, Columns>,
-    options: Options = {} as Options
-  ) =>
-    <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
-      plan: PlanValue & RequireInsertStatement<PlanValue>
-    ): QueryPlan<
-      SelectionOfPlan<PlanValue>,
-      Exclude<RequiredOfPlan<PlanValue> | MutationRequiredFromValues<Exclude<UpdateValues, undefined>> | RequiredFromInput<Extract<Options["where"], PredicateInput>>, AvailableNames<AvailableOfPlan<PlanValue>>>,
-      AvailableOfPlan<PlanValue>,
-      PlanDialectOf<PlanValue>,
-      GroupedOfPlan<PlanValue>,
-      ScopedNamesOfPlan<PlanValue>,
-      Exclude<OutstandingOfPlan<PlanValue> | MutationRequiredFromValues<Exclude<UpdateValues, undefined>> | RequiredFromInput<Extract<Options["where"], PredicateInput>>, AvailableNames<AvailableOfPlan<PlanValue>>>,
-      AssumptionsOfPlan<PlanValue>,
-      CapabilitiesOfPlan<PlanValue>,
-      StatementOfPlan<PlanValue>,
-      MutationTargetOfPlan<PlanValue>,
-      InsertSourceStateOfPlan<PlanValue>,
-      FactsOfPlan<PlanValue>
-    > => mutationRuntime.onConflict(target, options)(plan)
+  const onConflict = ((target: unknown, options: unknown = {}) =>
+    (plan: QueryPlan<any, any, any, any, any, any, any, any, any, any>) =>
+      mutationRuntime.onConflict(target, options)(plan)) as OnConflictApi
 
   const update: UpdateApi = ((
     target: MutationTargetInput,

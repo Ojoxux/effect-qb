@@ -132,10 +132,12 @@ export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
       const updateWhere = options.where === undefined
         ? undefined
         : ctx.toDialectExpression(options.where)
+      const targetWhere = conflictTarget.kind === "columns" ? conflictTarget.where : undefined
       const required = [
         ...ctx.currentRequiredList(current.required),
         ...updateAssignments.flatMap((entry) => Object.keys(entry.value[Expression.TypeId].dependencies)),
-        ...(updateWhere ? Object.keys(updateWhere[Expression.TypeId].dependencies) : [])
+        ...(updateWhere ? Object.keys(updateWhere[Expression.TypeId].dependencies) : []),
+        ...(targetWhere ? Object.keys(targetWhere[Expression.TypeId].dependencies) : [])
       ].filter((name, index, list) =>
         !(name in current.available) && list.indexOf(name) === index)
       return ctx.makePlan({
