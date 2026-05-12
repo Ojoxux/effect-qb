@@ -1024,6 +1024,9 @@ export const renderQueryAst = (
       if (updateAst.offset) {
         throw new Error("offset(...) is not supported for update statements")
       }
+      if (updateAst.lock) {
+        throw new Error("lock(...) is not supported for update statements")
+      }
       const targetSource = updateAst.target!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targets = updateAst.targets ?? [targetSource]
@@ -1195,6 +1198,9 @@ export const renderQueryAst = (
       const createTableAst = ast as QueryAst.Ast<Record<string, unknown>, any, "createTable">
       if (createTableAst.where.length > 0) {
         throw new Error("where(...) is not supported for createTable statements")
+      }
+      if (Object.keys(createTableAst.select as Record<string, unknown>).length > 0) {
+        throw new Error("returning(...) is not supported for createTable statements")
       }
       sql = renderCreateTableSql(createTableAst.target!, state, dialect, createTableAst.ddl?.kind === "createTable" && createTableAst.ddl.ifNotExists)
       break
