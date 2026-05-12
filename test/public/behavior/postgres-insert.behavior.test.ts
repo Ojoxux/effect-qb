@@ -235,6 +235,56 @@ describe("postgres insert behavior", () => {
     }))).toThrow()
   })
 
+  test("canonicalizes update values using the target column runtime contract", () => {
+    const metrics = Postgres.Table.make("update_metrics", {
+      id: Postgres.Column.text().pipe(Postgres.Column.primaryKey),
+      total: Postgres.Column.number(),
+      counter: Postgres.Column.int8()
+    })
+
+    const rendered = render(Postgres.Query.update(metrics, {
+      total: "-0.00",
+      counter: Postgres.Query.literal("0042")
+    }).pipe(
+      Postgres.Query.where(Postgres.Query.eq(metrics.id, "metric-1"))
+    ))
+
+    expect(rendered.params).toEqual([
+      "0",
+      "42",
+      "metric-1"
+    ])
+  })
+
+  test("canonicalizes conflict update values using the target column runtime contract", () => {
+    const metrics = Postgres.Table.make("conflict_metrics", {
+      id: Postgres.Column.text().pipe(Postgres.Column.primaryKey),
+      total: Postgres.Column.number(),
+      counter: Postgres.Column.int8()
+    })
+
+    const rendered = render(Postgres.Query.onConflict({
+      columns: ["id"] as const
+    }, {
+      update: {
+        total: "-0.00",
+        counter: Postgres.Query.literal("0042")
+      }
+    })(Postgres.Query.insert(metrics, {
+      id: "metric-1",
+      total: "1.00",
+      counter: "2"
+    })))
+
+    expect(rendered.params).toEqual([
+      "metric-1",
+      "1",
+      "2",
+      "0",
+      "42"
+    ])
+  })
+
   test("canonicalizes unnest insert arrays using the target column runtime contract", () => {
     const metrics = Postgres.Table.make("unnest_metrics", {
       total: Postgres.Column.number(),
