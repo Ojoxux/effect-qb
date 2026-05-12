@@ -275,9 +275,11 @@ const nullableTitledSetPosts = Q.select({
   Q.from(setPosts)
 )
 
-// @ts-expect-error set operands must have matching narrowed result rows
 const unsafelyNarrowedUnion = Q.unionAll(titledSetPosts, nullableTitledSetPosts)
+type UnsafelyNarrowedUnionRow = Q.ResultRow<typeof unsafelyNarrowedUnion>
+const unsafelyNarrowedUnionNullTitle: UnsafelyNarrowedUnionRow["title"] = null
 void unsafelyNarrowedUnion
+void unsafelyNarrowedUnionNullTitle
 
 const incompleteSetOperand = Q.select({
   email: users.email

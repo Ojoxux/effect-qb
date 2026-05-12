@@ -1273,6 +1273,12 @@ export type AssumptionsOfPlan<
 export type FactsOfPlan<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any, any, any>
 > = QueryPlanState<PlanValue>["facts"]
+export type CommonSetFacts<
+  Left extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
+  Right extends QueryPlan<any, any, any, any, any, any, any, any, any, any>
+> = [FactsOfPlan<Left>] extends [FactsOfPlan<Right>]
+  ? [FactsOfPlan<Right>] extends [FactsOfPlan<Left>] ? FactsOfPlan<Left> : EmptyFacts
+  : EmptyFacts
 export type PredicateStateOfPlan<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any, any, any>
 > = PredicateState<AssumptionsOfPlan<PlanValue>, FactsOfPlan<PlanValue>>

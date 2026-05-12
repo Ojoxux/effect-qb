@@ -30,6 +30,7 @@ import {
   type AssumptionsOfPlan,
   type AvailableOfPlan,
   type CapabilitiesOfPlan,
+  type CommonSetFacts,
   type DialectCompatibleNestedPlan,
   type DependenciesOf,
   type DependencyRecord,
@@ -5525,7 +5526,7 @@ type AsCurriedResult<
     "set",
     any,
     "ready",
-    FactsOfPlan<LeftPlanValue>
+    CommonSetFacts<LeftPlanValue, RightPlanValue>
   >
 
   type SetOperationApi = <
