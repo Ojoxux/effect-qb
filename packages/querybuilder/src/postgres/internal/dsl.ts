@@ -4128,16 +4128,16 @@ type BinaryPredicateExpression<
     Alias extends string
   >(
     rows: readonly [Record<string, Expression.Any>, ...Record<string, Expression.Any>[]],
-    selection: ValuesOutputShape<Rows[0], Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
+    selection: ValuesOutputShape<Rows, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
     alias: Alias
   ): ValuesSource<
     Rows,
-    ValuesOutputShape<Rows[0], Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
+    ValuesOutputShape<Rows, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
     Alias,
     Dialect
   > => {
     const columns = makeColumnReferenceSelection(alias, selection as Record<string, Expression.Any>) as unknown as ValuesOutputShape<
-      Rows[0],
+      Rows,
       Dialect,
       TextDb,
       NumericDb,
@@ -4155,7 +4155,7 @@ type BinaryPredicateExpression<
     }
     return Object.assign(source, columns) as unknown as ValuesSource<
       Rows,
-      ValuesOutputShape<Rows[0], Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
+      ValuesOutputShape<Rows, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
       Alias,
       Dialect
     >
@@ -4430,6 +4430,36 @@ type InsertRowInput<Target extends MutationTargetLike> = MutationInputOf<Table.I
 type ValuesRowInput = Record<string, ExpressionInput>
 type ValuesRowsInput = readonly [ValuesRowInput, ...ValuesRowInput[]]
 
+type ValuesColumnInput<Row, Key extends PropertyKey> =
+  Row extends ValuesRowInput
+    ? Key extends keyof Row ? Row[Key] : never
+    : never
+
+type ValuesRowShapeMismatch<
+  First extends ValuesRowInput,
+  Row extends ValuesRowInput
+> =
+  | Exclude<Extract<keyof Row, string>, Extract<keyof First, string>>
+  | Exclude<Extract<keyof First, string>, Extract<keyof Row, string>>
+
+type ValuesRowsShapeMismatchesFor<
+  First extends ValuesRowInput,
+  Row
+> = Row extends ValuesRowInput ? ValuesRowShapeMismatch<First, Row> : never
+
+type ValuesRowsShapeMismatches<Rows extends ValuesRowsInput> =
+  Rows extends readonly [infer First extends ValuesRowInput, ...infer Rest extends ValuesRowInput[]]
+    ? ValuesRowsShapeMismatchesFor<First, Rest[number]>
+    : never
+
+type ValuesRowsShapeInput<Rows extends ValuesRowsInput> =
+  [ValuesRowsShapeMismatches<Rows>] extends [never]
+    ? unknown
+    : {
+        readonly __effect_qb_error__: "effect-qb: values rows must project the same columns"
+        readonly __effect_qb_mismatched_columns__: ValuesRowsShapeMismatches<Rows>
+      }
+
 type UnnestColumnsInput = Record<string, readonly [ExpressionInput, ...ExpressionInput[]]>
 
 type UnnestRowShape<Shape extends Record<string, readonly unknown[]>> = {
@@ -4437,7 +4467,7 @@ type UnnestRowShape<Shape extends Record<string, readonly unknown[]>> = {
 }
 
 type ValuesOutputShape<
-  Row extends ValuesRowInput,
+  Rows extends ValuesRowsInput,
   Dialect extends string,
   TextDb extends Expression.DbType.Any,
   NumericDb extends Expression.DbType.Any,
@@ -4445,7 +4475,7 @@ type ValuesOutputShape<
   TimestampDb extends Expression.DbType.Any,
   NullDb extends Expression.DbType.Any
 > = {
-  readonly [K in keyof Row]: DialectAsExpression<Row[K], Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
+  readonly [K in keyof Rows[0]]: DialectAsExpression<ValuesColumnInput<Rows[number], K>, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
 }
 
 type UnnestOutputShape<
@@ -5025,13 +5055,13 @@ type AsCurriedResult<
   >(
     value: ValuesInput<
       Rows,
-      ValuesOutputShape<Rows[0], Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
+      ValuesOutputShape<Rows, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
       Dialect
     >,
     alias: Alias
   ): ValuesSource<
     Rows,
-    ValuesOutputShape<Rows[0], Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
+    ValuesOutputShape<Rows, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
     Alias,
     Dialect
   >
@@ -5157,10 +5187,10 @@ type AsCurriedResult<
   export type ValuesApi = <
     Rows extends ValuesRowsInput
   >(
-    rows: Rows
+    rows: Rows & ValuesRowsShapeInput<Rows>
   ) => ValuesInput<
     Rows,
-    ValuesOutputShape<Rows[0], Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
+    ValuesOutputShape<Rows, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
     Dialect
   >
 
