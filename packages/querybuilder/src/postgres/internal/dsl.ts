@@ -4750,6 +4750,11 @@ type InsertSourceRequired<Source> =
       Source extends QueryPlan<any, any, any, any, any, any, any, any, any, any> ? RequiredOfPlan<Source> :
         never
 
+type InsertSourceDialect<Source> =
+  Source extends QueryPlan<any, any, any, any, any, any, any, any, any, any> ? PlanDialectOf<Source> :
+    Source extends SourceLike ? SourceDialectOf<Source> :
+      never
+
 type ConflictColumnTarget<
   Target extends MutationTargetLike,
   Columns extends DdlColumnInput
@@ -5103,7 +5108,7 @@ type InsertFromResult<
   SelectionOfPlan<PlanValue>,
   Exclude<InsertSourceRequired<CurrentSource>, AvailableNames<AvailableOfPlan<PlanValue>>>,
   AvailableOfPlan<PlanValue>,
-  PlanDialectOf<PlanValue>,
+  PlanDialectOf<PlanValue> | InsertSourceDialect<CurrentSource>,
   GroupedOfPlan<PlanValue>,
   ScopedNamesOfPlan<PlanValue>,
   Exclude<InsertSourceRequired<CurrentSource>, AvailableNames<AvailableOfPlan<PlanValue>>>,
@@ -5209,7 +5214,7 @@ export type PublicStructuredFromResult<
             SelectionOfPlan<PlanValue>,
             never,
             AvailableOfPlan<PlanValue>,
-            PlanDialectOf<PlanValue>,
+            PlanDialectOf<PlanValue> | SourceDialectOf<CurrentSource>,
             GroupedOfPlan<PlanValue>,
             ScopedNamesOfPlan<PlanValue>,
             never,
