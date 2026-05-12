@@ -269,6 +269,21 @@ describe("cross-cutting statement behavior", () => {
     )
   })
 
+  test("rejects runtime filters on ddl drop statements", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const dropTablePlan = Postgres.Query.dropTable(users).pipe(
+      Postgres.Query.where(true)
+    )
+
+    expect(() => Postgres.Renderer.make().render(dropTablePlan)).toThrow(
+      "where(...) is not supported for dropTable statements"
+    )
+  })
+
   test("rejects runtime sources on transaction statements", () => {
     const users = Postgres.Table.make("users", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
