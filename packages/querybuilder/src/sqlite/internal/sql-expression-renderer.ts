@@ -908,6 +908,24 @@ const assertNoGroupedMutationClauses = (
   }
 }
 
+const assertNoSqliteMutationModifiers = (
+  ast: Pick<QueryAst.Ast, "orderBy" | "limit" | "offset" | "lock">,
+  statement: string
+): void => {
+  if (ast.orderBy.length > 0) {
+    throw new Error(`orderBy(...) is not supported for ${statement} statements`)
+  }
+  if (ast.limit) {
+    throw new Error(`limit(...) is not supported for ${statement} statements`)
+  }
+  if (ast.offset) {
+    throw new Error(`offset(...) is not supported for ${statement} statements`)
+  }
+  if (ast.lock) {
+    throw new Error(`lock(...) is not supported for ${statement} statements`)
+  }
+}
+
 const assertNoStatementQueryClauses = (
   ast: QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
   statement: string
@@ -1127,10 +1145,14 @@ export const renderQueryAst = (
         throw new Error("distinct(...) is not supported for update statements")
       }
       assertNoGroupedMutationClauses(updateAst, "update")
+      assertNoSqliteMutationModifiers(updateAst, "update")
       const targetSource = updateAst.target!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targets = updateAst.targets ?? [targetSource]
       const fromSources = updateAst.fromSources ?? []
+      if (targets.length > 1) {
+        throw new Error("Unsupported sqlite multi-table update")
+      }
       const assignments = updateAst.set!.map((entry) =>
         renderMutationAssignment(entry, state, dialect)).join(", ")
       if (dialect.name === "mysql") {
@@ -1188,9 +1210,13 @@ export const renderQueryAst = (
         throw new Error("distinct(...) is not supported for delete statements")
       }
       assertNoGroupedMutationClauses(deleteAst, "delete")
+      assertNoSqliteMutationModifiers(deleteAst, "delete")
       const targetSource = deleteAst.target!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targets = deleteAst.targets ?? [targetSource]
+      if (targets.length > 1) {
+        throw new Error("Unsupported sqlite multi-table delete")
+      }
       if (dialect.name === "mysql") {
         const modifiers = ""
         const hasJoinedSources = deleteAst.joins.length > 0 || targets.length > 1

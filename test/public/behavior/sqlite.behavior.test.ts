@@ -332,6 +332,47 @@ describe("sqlite behavior", () => {
     ).toThrow("effect-qb: unknown index column 'missing'")
   })
 
+  test("rejects sqlite mutation modifiers that would otherwise be ignored", () => {
+    const { users, posts } = makeSqliteSocialGraph()
+
+    const orderedUpdate = Sqlite.Query.update(users, {
+      email: "updated@example.com"
+    }).pipe(
+      Sqlite.Query.orderBy(users.id)
+    )
+
+    expect(() => render(orderedUpdate)).toThrow(
+      "orderBy(...) is not supported for update statements"
+    )
+
+    const limitedDelete = Sqlite.Query.delete(users).pipe(
+      Sqlite.Query.limit(1)
+    )
+
+    expect(() => render(limitedDelete)).toThrow(
+      "limit(...) is not supported for delete statements"
+    )
+
+    const lockedUpdate = Sqlite.Query.update(users, {
+      email: "updated@example.com"
+    }).pipe(
+      Sqlite.Query.lock("ignore")
+    )
+
+    expect(() => render(lockedUpdate)).toThrow(
+      "lock(...) is not supported for update statements"
+    )
+
+    expect(() => render(Sqlite.Query.update([users, posts] as any, {
+      users: {
+        email: "updated@example.com"
+      },
+      posts: {
+        title: "published"
+      }
+    }))).toThrow("Unsupported sqlite multi-table update")
+  })
+
   test("rejects invalid sqlite transaction isolation levels at runtime", () => {
     expect(() =>
       render(Sqlite.Query.transaction({
