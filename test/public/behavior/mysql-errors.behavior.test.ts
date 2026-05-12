@@ -18,6 +18,14 @@ describe("mysql errors", () => {
     expect(descriptor.tag).toBe("@mysql/server/dup-entry")
   })
 
+  test("catalog type guards reject unknown well-shaped mysql codes", () => {
+    expect(Mysql.Errors.isMysqlErrorSymbol("ER_DUP_ENTRY")).toBe(true)
+    expect(Mysql.Errors.isMysqlErrorSymbol("ER_NOT_A_REAL_SYMBOL")).toBe(false)
+    expect(Mysql.Errors.isMysqlErrorNumber("1062")).toBe(true)
+    expect(Mysql.Errors.isMysqlErrorNumber("MY-015144")).toBe(true)
+    expect(Mysql.Errors.isMysqlErrorNumber("999999999")).toBe(false)
+  })
+
   test("query-requirement mapping marks write-required mysql sqlstate classes explicitly", () => {
     const writeRequirements = Mysql.Errors.requirements_of_mysql_error(
       Mysql.Errors.normalizeMysqlDriverError({
