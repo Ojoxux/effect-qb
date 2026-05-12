@@ -389,15 +389,36 @@ const expressionDriverContext = (
   driverValueMapping: expression[Expression.TypeId].driverValueMapping
 })
 
+const renderMySqlStructuredJsonLiteral = (
+  expression: Expression.Any,
+  state: RenderState
+): string | undefined => {
+  const ast = (expression as Expression.Any & {
+    readonly [ExpressionAst.TypeId]: ExpressionAst.Any
+  })[ExpressionAst.TypeId]
+  if (ast.kind !== "literal" || ast.value === null || typeof ast.value !== "object") {
+    return undefined
+  }
+  state.params.push(JSON.stringify(ast.value))
+  return "cast(? as json)"
+}
+
 const renderJsonInputExpression = (
   expression: Expression.Any,
   state: RenderState,
   dialect: SqlDialect
-): string =>
-  renderJsonSelectSql(
+): string => {
+  if (dialect.name === "mysql") {
+    const jsonLiteral = renderMySqlStructuredJsonLiteral(expression, state)
+    if (jsonLiteral !== undefined) {
+      return jsonLiteral
+    }
+  }
+  return renderJsonSelectSql(
     renderExpression(expression, state, dialect),
     expressionDriverContext(expression, state, dialect)
   )
+}
 
 const encodeArrayValues = (
   values: readonly unknown[],
@@ -578,7 +599,7 @@ const renderJsonExpression = (
         return `(${renderPostgresJsonValue(ast.left, state, dialect)} || ${renderPostgresJsonValue(ast.right, state, dialect)})`
       }
       if (dialect.name === "mysql") {
-        return `json_merge_preserve(${renderExpression(ast.left, state, dialect)}, ${renderExpression(ast.right, state, dialect)})`
+        return `json_merge_preserve(${renderJsonInputExpression(ast.left, state, dialect)}, ${renderJsonInputExpression(ast.right, state, dialect)})`
       }
       return undefined
     }
@@ -619,7 +640,7 @@ const renderJsonExpression = (
         return `to_json(${renderJsonInputExpression(base, state, dialect)})`
       }
       if (dialect.name === "mysql") {
-        return `cast(${renderExpression(base, state, dialect)} as json)`
+        return renderMySqlStructuredJsonLiteral(base, state) ?? `cast(${renderExpression(base, state, dialect)} as json)`
       }
       return undefined
     case "jsonToJsonb":
@@ -630,7 +651,7 @@ const renderJsonExpression = (
         return `to_jsonb(${renderJsonInputExpression(base, state, dialect)})`
       }
       if (dialect.name === "mysql") {
-        return `cast(${renderExpression(base, state, dialect)} as json)`
+        return renderMySqlStructuredJsonLiteral(base, state) ?? `cast(${renderExpression(base, state, dialect)} as json)`
       }
       return undefined
     case "jsonTypeOf":
@@ -724,11 +745,16 @@ const renderJsonExpression = (
         return `${functionName}(${renderPostgresJsonValue(base, state, dialect)}, ${renderPostgresJsonPathArray(segments, state, dialect)}, ${renderPostgresJsonValue(nextValue, state, dialect)}${extra})`
       }
       if (dialect.name === "mysql") {
+        const renderedBase = renderExpression(base, state, dialect)
         if (kind === "jsonInsert" && isJsonArrayIndexSegment(segments[segments.length - 1])) {
-          return `json_array_insert(${renderExpression(base, state, dialect)}, ${renderMySqlJsonInsertPath(segments, insertAfter, state, dialect)}, ${renderExpression(nextValue, state, dialect)})`
+          const renderedPath = renderMySqlJsonInsertPath(segments, insertAfter, state, dialect)
+          const renderedValue = renderJsonInputExpression(nextValue, state, dialect)
+          return `json_array_insert(${renderedBase}, ${renderedPath}, ${renderedValue})`
         }
         const functionName = kind === "jsonInsert" ? "json_insert" : createMissing ? "json_set" : "json_replace"
-        return `${functionName}(${renderExpression(base, state, dialect)}, ${renderMySqlJsonPath(segments, state, dialect)}, ${renderExpression(nextValue, state, dialect)})`
+        const renderedPath = renderMySqlJsonPath(segments, state, dialect)
+        const renderedValue = renderJsonInputExpression(nextValue, state, dialect)
+        return `${functionName}(${renderedBase}, ${renderedPath}, ${renderedValue})`
       }
       return undefined
     }
@@ -1618,7 +1644,7 @@ export const renderExpression = (
         return `(${left} @> ${right})`
       }
       if (dialect.name === "mysql" && isJsonExpression(ast.left) && isJsonExpression(ast.right)) {
-        return `json_contains(${renderExpression(ast.left, state, dialect)}, ${renderExpression(ast.right, state, dialect)})`
+        return `json_contains(${renderJsonInputExpression(ast.left, state, dialect)}, ${renderJsonInputExpression(ast.right, state, dialect)})`
       }
       throw new Error("Unsupported container operator for SQL rendering")
     case "containedBy":
@@ -1632,7 +1658,7 @@ export const renderExpression = (
         return `(${left} <@ ${right})`
       }
       if (dialect.name === "mysql" && isJsonExpression(ast.left) && isJsonExpression(ast.right)) {
-        return `json_contains(${renderExpression(ast.right, state, dialect)}, ${renderExpression(ast.left, state, dialect)})`
+        return `json_contains(${renderJsonInputExpression(ast.right, state, dialect)}, ${renderJsonInputExpression(ast.left, state, dialect)})`
       }
       throw new Error("Unsupported container operator for SQL rendering")
     case "overlaps":
@@ -1646,7 +1672,7 @@ export const renderExpression = (
         return `(${left} && ${right})`
       }
       if (dialect.name === "mysql" && isJsonExpression(ast.left) && isJsonExpression(ast.right)) {
-        return `json_overlaps(${renderExpression(ast.left, state, dialect)}, ${renderExpression(ast.right, state, dialect)})`
+        return `json_overlaps(${renderJsonInputExpression(ast.left, state, dialect)}, ${renderJsonInputExpression(ast.right, state, dialect)})`
       }
       throw new Error("Unsupported container operator for SQL rendering")
     case "isNull":

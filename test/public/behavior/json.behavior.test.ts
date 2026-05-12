@@ -570,7 +570,7 @@ describe("json behavior", () => {
     const rendered = Mysql.Renderer.make().render(plan)
 
     expect(rendered.sql).toBe(
-      "select json_extract(`docs`.`payload`, ?) as `profileJson`, json_unquote(json_extract(`docs`.`payload`, ?)) as `profileText`, json_extract(`docs`.`payload`, ?) as `cityJson`, json_unquote(json_extract(`docs`.`payload`, ?)) as `cityText`, json_extract(`docs`.`payload`, ?) as `wildcardJson`, json_contains_path(`docs`.`payload`, ?, ?) as `hasProfile`, json_contains_path(`docs`.`payload`, ?, ?, ?) as `hasAny`, json_contains_path(`docs`.`payload`, ?, ?, ?) as `hasAll`, json_contains(`docs`.`payload`, ?) as `contains`, json_contains(?, `docs`.`payload`) as `containedBy`, json_remove(`docs`.`payload`, ?) as `deleteNote`, json_remove(`docs`.`payload`, ?) as `removeNote`, json_set(`docs`.`payload`, ?, ?) as `setPostcode`, json_insert(`docs`.`payload`, ?, ?) as `insertSuite`, json_merge_preserve(?, ?) as `concatValue`, json_merge_preserve(?, ?) as `mergeValue`, json_object(?, ?, ?, ?) as `builtObject`, json_array(?, ?, true) as `builtArray`, cast(? as json) as `toJson`, cast(? as json) as `toJsonb`, json_type(`docs`.`payload`) as `typeName`, json_length(`docs`.`payload`) as `length`, json_keys(`docs`.`payload`) as `keys`, json_contains_path(`docs`.`payload`, ?, ?) as `pathExists` from `docs`"
+      "select json_extract(`docs`.`payload`, ?) as `profileJson`, json_unquote(json_extract(`docs`.`payload`, ?)) as `profileText`, json_extract(`docs`.`payload`, ?) as `cityJson`, json_unquote(json_extract(`docs`.`payload`, ?)) as `cityText`, json_extract(`docs`.`payload`, ?) as `wildcardJson`, json_contains_path(`docs`.`payload`, ?, ?) as `hasProfile`, json_contains_path(`docs`.`payload`, ?, ?, ?) as `hasAny`, json_contains_path(`docs`.`payload`, ?, ?, ?) as `hasAll`, json_contains(`docs`.`payload`, cast(? as json)) as `contains`, json_contains(cast(? as json), `docs`.`payload`) as `containedBy`, json_remove(`docs`.`payload`, ?) as `deleteNote`, json_remove(`docs`.`payload`, ?) as `removeNote`, json_set(`docs`.`payload`, ?, ?) as `setPostcode`, json_insert(`docs`.`payload`, ?, ?) as `insertSuite`, json_merge_preserve(cast(? as json), cast(? as json)) as `concatValue`, json_merge_preserve(cast(? as json), cast(? as json)) as `mergeValue`, json_object(?, ?, ?, ?) as `builtObject`, json_array(?, ?, true) as `builtArray`, cast(? as json) as `toJson`, cast(? as json) as `toJsonb`, json_type(`docs`.`payload`) as `typeName`, json_length(`docs`.`payload`) as `length`, json_keys(`docs`.`payload`) as `keys`, json_contains_path(`docs`.`payload`, ?, ?) as `pathExists` from `docs`"
     )
     expect(rendered.params).toEqual([
       "$.profile",
@@ -586,38 +586,18 @@ describe("json behavior", () => {
       "all",
       "$.profile",
       "$.note",
-      {
-        profile: {
-          address: {
-            city: "Paris"
-          }
-        }
-      },
-      {
-        profile: {
-          address: {
-            city: "Paris"
-          }
-        }
-      },
+      JSON.stringify({ profile: { address: { city: "Paris" } } }),
+      JSON.stringify({ profile: { address: { city: "Paris" } } }),
       "$.note",
       "$.note",
       "$.profile.address.postcode",
       "1000",
       "$.profile.address.suite",
       "12A",
-      {
-        a: 1
-      },
-      {
-        b: 2
-      },
-      {
-        a: 1
-      },
-      {
-        b: 2
-      },
+      JSON.stringify({ a: 1 }),
+      JSON.stringify({ b: 2 }),
+      JSON.stringify({ a: 1 }),
+      JSON.stringify({ b: 2 }),
       "a",
       1,
       "b",
@@ -658,6 +638,34 @@ describe("json behavior", () => {
       "$.profile.address.city",
       "Paris",
       "$.profile.address.city"
+    ])
+  })
+
+  test("mysql renders nested JSON value arguments as JSON instead of raw driver objects", () => {
+    const docs = makeJsonTable(Mysql)
+
+    const rendered = Mysql.Renderer.make().render(Mysql.Query.select({
+      built: Mysql.Json.json.buildObject({
+        nested: { ok: true },
+        tags: ["mysql"]
+      }),
+      patched: Mysql.Json.json.set(
+        docs.payload,
+        Mysql.Json.json.path(Mysql.Json.json.key("nested")),
+        { ok: true }
+      )
+    }).pipe(Mysql.Query.from(docs)))
+
+    expect(rendered.sql).toBe(
+      "select json_object(?, cast(? as json), ?, cast(? as json)) as `built`, json_set(`docs`.`payload`, ?, cast(? as json)) as `patched` from `docs`"
+    )
+    expect(rendered.params).toEqual([
+      "nested",
+      JSON.stringify({ ok: true }),
+      "tags",
+      JSON.stringify(["mysql"]),
+      "$.nested",
+      JSON.stringify({ ok: true })
     ])
   })
 
@@ -966,25 +974,21 @@ describe("json behavior", () => {
 
     const insert = Mysql.Renderer.make().render(insertPlan)
     expect(insert.sql).toBe(
-      "insert into `docs` (`id`, `payload`) values (?, json_object(?, ?))"
+      "insert into `docs` (`id`, `payload`) values (?, json_object(?, cast(? as json)))"
     )
     expect(insert.params).toEqual([
       jsonDocId,
       "profile",
-      {
-        city: "Paris"
-      }
+      JSON.stringify({ city: "Paris" })
     ])
 
     const update = Mysql.Renderer.make().render(updatePlan)
     expect(update.sql).toBe(
-      "update `docs` set `payload` = json_merge_preserve(`docs`.`payload`, json_object(?, ?))"
+      "update `docs` set `payload` = json_merge_preserve(`docs`.`payload`, json_object(?, cast(? as json)))"
     )
     expect(update.params).toEqual([
       "profile",
-      {
-        city: "Paris"
-      }
+      JSON.stringify({ city: "Paris" })
     ])
   })
 })
