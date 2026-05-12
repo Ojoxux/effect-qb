@@ -303,6 +303,84 @@ test("sqlite set operations execute as compound selects", async () => {
   ])
 })
 
+test("sqlite update returning and update-from execute against joined sources", async () => {
+  const users = Table.make("update_users", {
+    id: C.text().pipe(C.primaryKey),
+    email: C.text(),
+    visits: C.int()
+  })
+  const increments = Table.make("visit_increments", {
+    userId: C.text(),
+    amount: C.int()
+  })
+
+  const result = await runSqlite(Effect.gen(function*() {
+    const executor = Executor.make()
+
+    yield* executor.execute(Q.createTable(users))
+    yield* executor.execute(Q.createTable(increments))
+    yield* executor.execute(Q.insert(users, {
+      id: "user-1",
+      email: "alice@example.com",
+      visits: 1
+    }))
+    yield* executor.execute(Q.insert(increments, {
+      userId: "user-1",
+      amount: 4
+    }))
+
+    return yield* executor.execute(Q.update(users, {
+      visits: increments.amount
+    }).pipe(
+      Q.from(increments),
+      Q.where(Q.eq(users.id, increments.userId)),
+      Q.returning({
+        id: users.id,
+        visits: users.visits
+      })
+    ))
+  }))
+
+  expect(result).toEqual([
+    {
+      id: "user-1",
+      visits: 4
+    }
+  ])
+})
+
+test("sqlite delete returning executes against deleted rows", async () => {
+  const users = Table.make("delete_users", {
+    id: C.text().pipe(C.primaryKey),
+    email: C.text()
+  })
+
+  const result = await runSqlite(Effect.gen(function*() {
+    const executor = Executor.make()
+
+    yield* executor.execute(Q.createTable(users))
+    yield* executor.execute(Q.insert(users, {
+      id: "user-1",
+      email: "alice@example.com"
+    }))
+
+    return yield* executor.execute(Q.delete(users).pipe(
+      Q.where(Q.eq(users.id, "user-1")),
+      Q.returning({
+        id: users.id,
+        email: users.email
+      })
+    ))
+  }))
+
+  expect(result).toEqual([
+    {
+      id: "user-1",
+      email: "alice@example.com"
+    }
+  ])
+})
+
 test("sqlite JSON string scalars are stored as valid JSON text scalars", async () => {
   const docs = Table.make("json_string_docs", {
     id: C.text().pipe(C.primaryKey),
