@@ -315,6 +315,9 @@ const renderSqliteJsonPathSegment = (segment: JsonPath.AnySegment | string | num
   if (typeof segment === "object" && segment !== null && segment.kind === "slice") {
     throw new Error("SQLite JSON paths do not support slice segments")
   }
+  if (typeof segment === "object" && segment !== null && segment.kind === "wildcard") {
+    throw new Error("SQLite JSON paths do not support wildcard segments")
+  }
   if (typeof segment === "object" && segment !== null && segment.kind === "descend") {
     throw new Error("SQLite JSON paths do not support recursive descent segments")
   }

@@ -324,6 +324,10 @@ describe("sqlite behavior", () => {
       Sqlite.Json.json.descend(),
       Sqlite.Json.json.key("city")
     )
+    const wildcardPath = Sqlite.Json.json.path(
+      Sqlite.Json.json.key("profile"),
+      Sqlite.Json.json.wildcard()
+    )
 
     const rendered = render(Sqlite.Query.select({
       hasLastTag: Sqlite.Json.json.pathExists(docs.payload, lastTagPath)
@@ -336,6 +340,9 @@ describe("sqlite behavior", () => {
     expect(() => render(Sqlite.Query.select({
       unsupported: Sqlite.Json.json.pathExists(docs.payload, descendPath)
     }).pipe(Sqlite.Query.from(docs)))).toThrow("SQLite JSON paths do not support recursive descent segments")
+    expect(() => render(Sqlite.Query.select({
+      unsupported: Sqlite.Json.json.get(docs.payload, wildcardPath)
+    }).pipe(Sqlite.Query.from(docs)))).toThrow("SQLite JSON paths do not support wildcard segments")
   })
 
   test("encodes sqlite JSON string scalar literals as JSON text", () => {
