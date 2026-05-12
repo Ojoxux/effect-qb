@@ -397,6 +397,14 @@ describe("sqlite behavior", () => {
     expect(dropIndex.sql).toBe('drop index if exists "employees_managerId_idx"')
   })
 
+  test("rejects sqlite truncate statements before emitting invalid SQL", () => {
+    const { users } = makeSqliteSocialGraph()
+
+    expect(() => render(Sqlite.Query.truncate(users))).toThrow(
+      "Unsupported sqlite truncate statement"
+    )
+  })
+
   test("rejects sqlite DDL references to unknown index columns at runtime", () => {
     const employees = makeSqliteEmployees()
 

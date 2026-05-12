@@ -120,6 +120,9 @@ Q.orderBy(users.email)(Q.update(users, { visits: 3 }))
 // @ts-expect-error sqlite does not support mysql-style multi-table updates
 Q.update([users, users] as const, { users: { visits: 3 } })
 
+// @ts-expect-error sqlite does not support truncate statements
+Q.truncate(users)
+
 Q.transaction()
 
 // @ts-expect-error sqlite transactions do not support SQL isolation levels

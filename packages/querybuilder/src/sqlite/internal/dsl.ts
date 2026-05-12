@@ -4685,6 +4685,12 @@ type ReturningUnsupportedError<Dialect extends string> = {
   readonly __effect_qb_hint__: "Use postgres.Query.returning(...), sqlite.Query.returning(...), or run a follow-up select after mutations"
 }
 
+type TruncateUnsupportedError<Dialect extends string> = {
+  readonly __effect_qb_error__: "effect-qb: truncate(...) is not supported by the sqlite dialect"
+  readonly __effect_qb_dialect__: Dialect
+  readonly __effect_qb_hint__: "Use delete(...) for sqlite tables or switch to a dialect with TRUNCATE support"
+}
+
 type SqliteCteStatementError<PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>> =
   PlanValue & {
     readonly __effect_qb_error__: "effect-qb: sqlite cte sources only accept select-like query plans"
@@ -6654,6 +6660,7 @@ export const sqliteDsl = {
 }
 
 const exportedLateral = lateral as unknown as LateralUnsupportedError<Dialect>
+const exportedTruncate = truncate as unknown as TruncateUnsupportedError<Dialect>
 
 export {
   literal,
@@ -6724,7 +6731,7 @@ export {
   update,
   upsert,
   delete_,
-  truncate,
+  exportedTruncate as truncate,
   merge,
   transaction,
   commit,
