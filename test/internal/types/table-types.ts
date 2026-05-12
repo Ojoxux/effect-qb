@@ -24,6 +24,12 @@ const events = analytics.table("events", {
   id: C.uuid().pipe(C.primaryKey),
   userId: C.uuid()
 })
+// @ts-expect-error postgres schema tables require postgres columns
+const badPostgresSchemaMysqlColumn = analytics.table("bad_postgres_schema_mysql_column", {
+  id: Mysql.Column.uuid()
+})
+void badPostgresSchemaMysqlColumn
+
 const schemaTablePrimaryKey = analytics.table("schema_table_primary_key", {
   id: C.uuid(),
   slug: C.text(),
