@@ -416,6 +416,10 @@ const badForeignKeyArity = Table.foreignKey(["orgId", "role"] as const, () => or
 }))
 void badForeignKeyArity
 
+// @ts-expect-error rich indexes require at least one column or key
+const badRichIndex = Table.index({ name: "bad_rich_index" })
+void badRichIndex
+
 // @ts-expect-error unknown columns are rejected for indexes
 const badIndex = Table.index(["missing"])(Table.make("bad_index", {
   id: C.uuid()
