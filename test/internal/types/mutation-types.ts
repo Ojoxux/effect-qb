@@ -52,6 +52,21 @@ const insertSelectPlan = Q.insert(users).pipe(Q.from(Q.select({
 }).pipe(
   Q.from(users)
 )))
+
+const mysqlInsertSelectSource = Mysql.Query.select({
+  id: mysqlUsers.id,
+  email: mysqlUsers.email,
+  bio: mysqlUsers.bio
+}).pipe(
+  Mysql.Query.from(mysqlUsers)
+)
+const badInsertMysqlSelectSource = Q.insert(users).pipe(Q.from(mysqlInsertSelectSource))
+const badInsertMysqlSelectSourceRendered = Renderer.make().render(
+  // @ts-expect-error postgres insert sources cannot use mysql query plans
+  badInsertMysqlSelectSource
+)
+void badInsertMysqlSelectSourceRendered
+
 const defaultInsertPlan = Q.insert(auditLogs)
 const insertConflictPlan = Q.insert(users, {
   id: "user-id",
