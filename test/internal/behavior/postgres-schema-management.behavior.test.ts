@@ -172,6 +172,36 @@ describe("postgres schema management", () => {
     )
   })
 
+  test("renders schema enum column types with quoted qualified identifiers", () => {
+    const status = Pg.schema("audit\"schema").enum("status\"type", ["active"] as const)
+    const users = Table.make("users", {
+      status: status.column()
+    })
+
+    const plan = planPostgresSchemaDiff({
+      dialect: "postgres",
+      enums: [toEnumModel(status as unknown as Parameters<typeof toEnumModel>[0])],
+      tables: [toTableModel(users as unknown as Parameters<typeof toTableModel>[0])]
+    }, {
+      dialect: "postgres",
+      enums: [],
+      tables: []
+    })
+
+    expect(plan.safeChanges).toContainEqual(
+      expect.objectContaining({
+        kind: "createEnum",
+        sql: `create type "audit""schema"."status""type" as enum ('active')`
+      })
+    )
+    expect(plan.safeChanges).toContainEqual(
+      expect.objectContaining({
+        kind: "createTable",
+        sql: `create table "public"."users" ("status" "audit""schema"."status""type" not null)`
+      })
+    )
+  })
+
   test("does not collapse schema and table identities that contain dots", () => {
     const idColumn = {
       name: "id",
