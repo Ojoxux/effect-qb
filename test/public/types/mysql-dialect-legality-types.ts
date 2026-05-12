@@ -71,6 +71,12 @@ Q.select({
   Q.lock("update", { nowait: true, skipLocked: true })
 )
 
+// @ts-expect-error MySQL update statements require at least one assignment.
+Q.update(users, {})
+
+// @ts-expect-error MySQL multi-table update statements require at least one assignment.
+Q.update([users, posts] as const, { users: {} })
+
 const insertCtePlan = Q.insert(users, {
   id: "user-id",
   email: "alice@example.com"

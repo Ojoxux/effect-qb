@@ -187,6 +187,9 @@ Q.exceptAll(selectUsers, selectUsers)
 // @ts-expect-error sqlite does not support mutation order/limit clauses
 Q.orderBy(users.email)(Q.update(users, { visits: 3 }))
 
+// @ts-expect-error sqlite update statements require at least one assignment
+Q.update(users, {})
+
 // @ts-expect-error sqlite does not support mysql-style multi-table updates
 Q.update([users, users] as const, { users: { visits: 3 } })
 

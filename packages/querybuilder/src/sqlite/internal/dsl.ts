@@ -4804,6 +4804,27 @@ type ConflictActionWhereWithoutUpdateError<Values> = Values & {
 type ConflictActionWhereInput<Dialect extends string> =
   Dialect extends "postgres" | "sqlite" ? PredicateInput : SqliteConflictWhereError<PredicateInput>
 
+type UpdateValuesNonEmptyError<Values> = Values & {
+  readonly __effect_qb_error__: "effect-qb: update statements require at least one assignment"
+}
+
+type UpdateValuesNonEmptyConstraint<Values> =
+  [Extract<keyof Values, string>] extends [never]
+    ? UpdateValuesNonEmptyError<Values>
+    : unknown
+
+type NestedUpdateValuesNonEmptyConstraint<Values> =
+  [Extract<keyof Values, string>] extends [never]
+    ? UpdateValuesNonEmptyError<Values>
+    : true extends {
+      [K in Extract<keyof Values, string>]:
+        Values[K] extends Record<string, unknown>
+          ? [Extract<keyof Values[K], string>] extends [never] ? false : true
+          : false
+    }[Extract<keyof Values, string>]
+      ? unknown
+      : UpdateValuesNonEmptyError<Values>
+
 type InsertShapeExtraKeys<TargetShape, SourceShape> = Exclude<Extract<keyof SourceShape, string>, Extract<keyof TargetShape, string>>
 type InsertShapeMissingKeys<TargetShape, SourceShape> = Exclude<RequiredKeys<TargetShape>, Extract<keyof SourceShape, string>>
 type InsertShapeMismatchedKeys<TargetShape, SourceShape> = Extract<{
@@ -6199,7 +6220,7 @@ type AsCurriedResult<
   interface UpdateApi {
     <Targets extends MutationTargetTuple, Values extends UpdateInputOfTarget<Targets>>(
       target: Dialect extends "mysql" ? Targets & MutationTargetTupleDialectConstraint<Targets, Dialect> : never,
-      values: Values & MutationValuesDialectConstraint<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
+      values: Values & NestedUpdateValuesNonEmptyConstraint<Values> & MutationValuesDialectConstraint<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
     ): QueryPlan<
       {},
       Exclude<NestedMutationRequiredFromValues<Values>, MutationTargetNamesOf<Targets>>,
@@ -6217,7 +6238,7 @@ type AsCurriedResult<
     >
     <Target extends MutationTargetLike, Values extends Record<string, unknown>>(
       target: Target,
-      values: MutationValuesInput<"update", Target, Values> & MutationValuesDialectConstraint<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
+      values: MutationValuesInput<"update", Target, Values> & UpdateValuesNonEmptyConstraint<Values> & MutationValuesDialectConstraint<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
     ): QueryPlan<
       {},
       Exclude<MutationRequiredFromValues<Values>, SourceNameOf<Target>>,

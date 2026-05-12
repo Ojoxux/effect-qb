@@ -95,6 +95,9 @@ Q.limit(5)(Q.update(users, {
   email: "updated@example.com"
 }))
 
+// @ts-expect-error update statements require at least one assignment
+Q.update(users, {})
+
 // @ts-expect-error offset is select-only
 Q.offset(10)(Q.insert(users, {
   id: "user-id",
