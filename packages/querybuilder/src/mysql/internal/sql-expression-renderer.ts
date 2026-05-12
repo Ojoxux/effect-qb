@@ -1331,6 +1331,10 @@ const renderSourceReference = (
     }
     if (!state.cteNames.has(cte.name)) {
       state.cteNames.add(cte.name)
+      const statement = Query.getQueryState(cte.plan).statement
+      if (statement !== "select" && statement !== "set") {
+        throw new Error("Unsupported mysql data-modifying cte")
+      }
       const rendered = renderQueryAst(
         Query.getAst(cte.plan) as QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
         state,

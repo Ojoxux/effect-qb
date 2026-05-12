@@ -4585,6 +4585,19 @@ type ReturningUnsupportedError<Dialect extends string> = {
   readonly __effect_qb_hint__: "Use postgres.Query.returning(...) or run a follow-up select after MySQL mutations"
 }
 
+type MysqlCteStatementError<PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>> =
+  PlanValue & {
+    readonly __effect_qb_error__: "effect-qb: mysql cte sources only accept select-like query plans"
+    readonly __effect_qb_statement__: StatementOfPlan<PlanValue>
+    readonly __effect_qb_hint__: "Use select(...) or a set operator before wrapping a MySQL plan in with(...)"
+  }
+
+type MysqlCteCompatiblePlan<
+  PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>
+> = StatementOfPlan<PlanValue> extends "select" | "set"
+  ? DerivedSourceCompatiblePlan<PlanValue>
+  : MysqlCteStatementError<PlanValue>
+
 type DistinctOnApi<Dialect extends string> = Dialect extends "postgres"
   ? <Values extends readonly [ExpressionInput, ...ExpressionInput[]]>(
       ...values: Values
@@ -5328,13 +5341,13 @@ type AsCurriedResult<
   >(
     alias: Alias
   ): <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
-    value: DerivedSourceCompatiblePlan<PlanValue>
+    value: MysqlCteCompatiblePlan<PlanValue>
   ) => import("../../internal/query.js").CteSource<PlanValue, Alias>
   function with_<
     PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
     Alias extends string
   >(
-    value: DerivedSourceCompatiblePlan<PlanValue>,
+    value: MysqlCteCompatiblePlan<PlanValue>,
     alias: Alias
   ): import("../../internal/query.js").CteSource<PlanValue, Alias>
   function with_(valueOrAlias: unknown, alias?: string): unknown {
@@ -5352,13 +5365,13 @@ type AsCurriedResult<
   >(
     alias: Alias
   ): <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
-    value: DerivedSourceCompatiblePlan<PlanValue>
+    value: MysqlCteCompatiblePlan<PlanValue>
   ) => import("../../internal/query.js").CteSource<PlanValue, Alias>
   function withRecursive_<
     PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
     Alias extends string
   >(
-    value: DerivedSourceCompatiblePlan<PlanValue>,
+    value: MysqlCteCompatiblePlan<PlanValue>,
     alias: Alias
   ): import("../../internal/query.js").CteSource<PlanValue, Alias>
   function withRecursive_(valueOrAlias: unknown, alias?: string): unknown {
