@@ -1,5 +1,5 @@
 import * as Mysql from "effect-qb/mysql"
-import { Column as C, Query as Q, Table } from "effect-qb/postgres"
+import { Column as C, Function as F, Query as Q, Table } from "effect-qb/postgres"
 
 const users = Table.make("users", {
   id: C.uuid().pipe(C.primaryKey),
@@ -69,6 +69,10 @@ void insertSelectPlan
 void defaultInsertPlan
 void insertConflictPlan
 
+// @ts-expect-error excluded(...) only accepts bound table columns
+const invalidExcludedExpression = Q.excluded(F.lower(users.bio))
+void invalidExcludedExpression
+
 const invalidDefaultInsertPlan = Q.insert(users)
 
 // @ts-expect-error default-only inserts require every insert column to be optional/generated
@@ -112,3 +116,7 @@ Mysql.Query.insert(mysqlUsers, {
   // @ts-expect-error mysql conflict actions do not support where(...)
   where: Mysql.Query.isNotNull(Mysql.Query.excluded(mysqlUsers.bio))
 }))
+
+// @ts-expect-error mysql excluded(...) only accepts bound table columns
+const invalidMysqlExcludedExpression = Mysql.Query.excluded(Mysql.Function.lower(mysqlUsers.bio))
+void invalidMysqlExcludedExpression
