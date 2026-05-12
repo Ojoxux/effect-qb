@@ -10,6 +10,12 @@ const posts = Table.make("posts", {
   userId: C.uuid()
 })
 
+// @ts-expect-error MySQL select statements require at least one selected expression.
+Q.select({})
+
+// @ts-expect-error MySQL select statements require at least one selected expression.
+Q.select()
+
 const fullJoinPlan = Q.select({
   userId: users.id,
   postId: posts.id
