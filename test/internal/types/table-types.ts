@@ -623,6 +623,22 @@ const postgresUsers = Postgres.Table.make("postgres_users", {
   email: Postgres.Column.text()
 })
 
+// @ts-expect-error postgres queries cannot use mysql sources
+const badPostgresFromMysql = Postgres.Query.select({
+  id: mysqlUsers.id
+}).pipe(
+  Postgres.Query.from(mysqlUsers)
+)
+void badPostgresFromMysql
+
+// @ts-expect-error mysql queries cannot use postgres sources
+const badMysqlFromPostgres = Mysql.Query.select({
+  id: postgresUsers.id
+}).pipe(
+  Mysql.Query.from(postgresUsers)
+)
+void badMysqlFromPostgres
+
 const mysqlDialect: typeof mysqlUsers.id[typeof Expression.TypeId]["dbType"]["dialect"] = "mysql"
 const postgresDialect: typeof postgresUsers.id[typeof Expression.TypeId]["dbType"]["dialect"] = "postgres"
 
