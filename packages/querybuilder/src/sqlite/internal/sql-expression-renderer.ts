@@ -1425,7 +1425,7 @@ const renderSourceReference = (
         `${renderExpression(row[columnName]!, state, dialect)} as ${dialect.quoteIdentifier(columnName)}`
       ).join(", ")}`
     )
-    return `(${renderedRows.join(" union all ")}) as ${dialect.quoteIdentifier(tableName)}(${columnNames.map((columnName) => dialect.quoteIdentifier(columnName)).join(", ")})`
+    return `(${renderedRows.join(" union all ")}) as ${dialect.quoteIdentifier(tableName)}`
   }
 
   const renderUnnestRows = (

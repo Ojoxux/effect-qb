@@ -195,6 +195,43 @@ test("sqlite createTable renders literal defaults executable by SQLite", async (
   ])
 })
 
+test("sqlite values and unnest sources execute as derived rows", async () => {
+  const result = await runSqlite(Effect.gen(function*() {
+    const executor = Executor.make()
+    const valuesSource = Q.values([
+      { id: Q.cast(Q.literal(1), Q.type.int()), label: Q.cast(Q.literal("one"), Q.type.text()) },
+      { id: Q.cast(Q.literal(2), Q.type.int()), label: Q.cast(Q.literal("two"), Q.type.text()) }
+    ] as const).pipe(Q.as("seed"))
+    const unnestSource = Q.unnest({
+      id: [Q.cast(Q.literal(3), Q.type.int()), Q.cast(Q.literal(4), Q.type.int())] as const,
+      label: [Q.cast(Q.literal("three"), Q.type.text()), Q.cast(Q.literal("four"), Q.type.text())] as const
+    }, "seed_rows")
+
+    const valuesRows = yield* executor.execute(Q.select({
+      id: valuesSource.id,
+      label: valuesSource.label
+    }).pipe(Q.from(valuesSource)))
+    const unnestRows = yield* executor.execute(Q.select({
+      id: unnestSource.id,
+      label: unnestSource.label
+    }).pipe(Q.from(unnestSource)))
+
+    return {
+      valuesRows,
+      unnestRows
+    }
+  }))
+
+  expect(result.valuesRows).toEqual([
+    { id: 1, label: "one" },
+    { id: 2, label: "two" }
+  ])
+  expect(result.unnestRows).toEqual([
+    { id: 3, label: "three" },
+    { id: 4, label: "four" }
+  ])
+})
+
 test("sqlite JSON string scalars are stored as valid JSON text scalars", async () => {
   const docs = Table.make("json_string_docs", {
     id: C.text().pipe(C.primaryKey),
