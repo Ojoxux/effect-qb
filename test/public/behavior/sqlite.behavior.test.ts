@@ -74,6 +74,22 @@ describe("sqlite behavior", () => {
     ))).toThrow("Unsupported sqlite lateral source")
   })
 
+  test("rejects sqlite-unsupported set operator all variants before emitting invalid SQL", () => {
+    const left = Sqlite.Query.select({
+      id: Sqlite.Query.cast(Sqlite.Query.literal(1), Sqlite.Query.type.int())
+    })
+    const right = Sqlite.Query.select({
+      id: Sqlite.Query.cast(Sqlite.Query.literal(2), Sqlite.Query.type.int())
+    })
+
+    expect(() => render(Sqlite.Query.intersectAll(left, right))).toThrow(
+      "Unsupported sqlite set operator all variant"
+    )
+    expect(() => render(Sqlite.Query.exceptAll(left, right))).toThrow(
+      "Unsupported sqlite set operator all variant"
+    )
+  })
+
   test("renders sqlite upserts and returning clauses with excluded column references", () => {
     const users = Sqlite.Table.make("users", {
       id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),

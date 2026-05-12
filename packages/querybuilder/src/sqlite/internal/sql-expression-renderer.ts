@@ -1080,6 +1080,9 @@ export const renderQueryAst = (
       sql = [
         base.sql,
         ...(setAst.setOperations ?? []).map((entry) => {
+          if (dialect.name === "sqlite" && entry.all && entry.kind !== "union") {
+            throw new Error("Unsupported sqlite set operator all variant")
+          }
           const rendered = renderQueryAst(
             Query.getAst(entry.query as Query.Plan.Any) as QueryAst.Ast<
               Record<string, unknown>,
