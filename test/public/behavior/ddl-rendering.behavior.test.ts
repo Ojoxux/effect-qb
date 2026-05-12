@@ -236,6 +236,26 @@ describe("ddl rendering behavior", () => {
     )
   })
 
+  test("rejects structurally incomplete DDL targets at runtime", () => {
+    const fakeTarget = {
+      name: "users",
+      baseName: "users"
+    }
+
+    expect(() => Postgres.Query.createTable(fakeTarget)).toThrow(
+      "createTable(...) requires a table target"
+    )
+    expect(() => Postgres.Query.dropTable(fakeTarget)).toThrow(
+      "dropTable(...) requires a table target"
+    )
+    expect(() => Postgres.Query.createIndex(fakeTarget, ["id"])).toThrow(
+      "createIndex(...) requires a table target"
+    )
+    expect(() => Postgres.Query.dropIndex(fakeTarget, ["id"])).toThrow(
+      "dropIndex(...) requires a table target"
+    )
+  })
+
   test("rejects postgres createIndex with unknown columns at runtime", () => {
     const users = Postgres.Table.make("users", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
