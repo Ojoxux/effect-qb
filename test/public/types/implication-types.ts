@@ -1,4 +1,6 @@
-import { Column as C, Query as Q, Function as F, Table } from "effect-qb/postgres"
+import * as Schema from "effect/Schema"
+
+import { Cast, Column as C, Query as Q, Function as F, Table, Type } from "effect-qb/postgres"
 
 const users = Table.make("users", {
   id: C.uuid().pipe(C.primaryKey),
@@ -11,6 +13,14 @@ const posts = Table.make("posts", {
   status: C.text(),
   title: C.text().pipe(C.nullable)
 })
+
+const articles = Table.make("articles", {
+  id: C.uuid().pipe(C.primaryKey),
+  status: C.custom(Schema.Literal("draft", "published", "archived"), Type.text()),
+  previousStatus: C.custom(Schema.Literal("draft", "published", "archived"), Type.text())
+})
+
+const articleStatusText = Cast.to(articles.status, Type.text())
 
 const nullFiltered = Q.select({
   title: posts.title,
@@ -157,3 +167,121 @@ void promotedNotInNullTitle
 void promotedNotInNullUpperTitle
 void promotedNotInShouldBeNonNull
 void promotedNotInUpperShouldBeNonNull
+
+const narrowedByEq = Q.select({
+  title: posts.title
+}).pipe(
+  Q.from(posts),
+  Q.where(Q.eq(posts.title, "draft"))
+)
+
+type NarrowedByEqRow = Q.ResultRow<typeof narrowedByEq>
+declare const narrowedByEqRow: NarrowedByEqRow
+const narrowedEqTitle: "draft" = narrowedByEqRow.title
+// @ts-expect-error equality should narrow selected scalar output to the literal
+const badNarrowedEqTitle: NarrowedByEqRow["title"] = "published"
+void narrowedEqTitle
+void badNarrowedEqTitle
+
+const narrowedByOr = Q.select({
+  title: posts.title
+}).pipe(
+  Q.from(posts),
+  Q.where(Q.or(
+    Q.eq(posts.title, "draft"),
+    Q.eq(posts.title, "published")
+  ))
+)
+
+type NarrowedByOrRow = Q.ResultRow<typeof narrowedByOr>
+declare const narrowedByOrRow: NarrowedByOrRow
+const narrowedOrTitle: "draft" | "published" = narrowedByOrRow.title
+// @ts-expect-error OR equality should narrow selected scalar output like IN
+const badNarrowedOrTitle: NarrowedByOrRow["title"] = "archived"
+void narrowedOrTitle
+void badNarrowedOrTitle
+
+const finiteStatusByIn = Q.select({
+  status: articles.status
+}).pipe(
+  Q.from(articles),
+  Q.where(Q.in(articles.status, "draft", "published"))
+)
+
+type FiniteStatusByInRow = Q.ResultRow<typeof finiteStatusByIn>
+declare const finiteStatusByInRow: FiniteStatusByInRow
+const finiteInStatus: "draft" | "published" = finiteStatusByInRow.status
+// @ts-expect-error IN should remove finite-union members outside the set
+const badFiniteInStatus: FiniteStatusByInRow["status"] = "archived"
+void finiteInStatus
+void badFiniteInStatus
+
+const finiteStatusByNeq = Q.select({
+  status: articles.status
+}).pipe(
+  Q.from(articles),
+  Q.where(Q.neq(articles.status, "draft"))
+)
+
+type FiniteStatusByNeqRow = Q.ResultRow<typeof finiteStatusByNeq>
+declare const finiteStatusByNeqRow: FiniteStatusByNeqRow
+const finiteNeqStatus: "published" | "archived" = finiteStatusByNeqRow.status
+// @ts-expect-error NEQ should remove excluded finite-union members
+const badFiniteNeqStatus: FiniteStatusByNeqRow["status"] = "draft"
+void finiteNeqStatus
+void badFiniteNeqStatus
+
+const finiteStatusByNotIn = Q.select({
+  status: articles.status
+}).pipe(
+  Q.from(articles),
+  Q.where(Q.notIn(articles.status, "archived"))
+)
+
+type FiniteStatusByNotInRow = Q.ResultRow<typeof finiteStatusByNotIn>
+declare const finiteStatusByNotInRow: FiniteStatusByNotInRow
+const finiteNotInStatus: "draft" | "published" = finiteStatusByNotInRow.status
+// @ts-expect-error NOT IN should remove excluded finite-union members
+const badFiniteNotInStatus: FiniteStatusByNotInRow["status"] = "archived"
+void finiteNotInStatus
+void badFiniteNotInStatus
+
+const propagatedLiteral = Q.select({
+  status: articles.status,
+  previousStatus: articles.previousStatus
+}).pipe(
+  Q.from(articles),
+  Q.where(Q.and(
+    Q.eq(articles.status, "draft"),
+    Q.eq(articles.previousStatus, articles.status)
+  ))
+)
+
+type PropagatedLiteralRow = Q.ResultRow<typeof propagatedLiteral>
+declare const propagatedLiteralRow: PropagatedLiteralRow
+const propagatedPreviousStatus: "draft" = propagatedLiteralRow.previousStatus
+// @ts-expect-error column equality should propagate selected literal output
+const badPropagatedPreviousStatus: PropagatedLiteralRow["previousStatus"] = "published"
+void propagatedPreviousStatus
+void badPropagatedPreviousStatus
+
+const narrowedBySameTypeCast = Q.select({
+  status: articles.status,
+  statusText: articleStatusText
+}).pipe(
+  Q.from(articles),
+  Q.where(Q.eq(articleStatusText, "draft"))
+)
+
+type NarrowedBySameTypeCastRow = Q.ResultRow<typeof narrowedBySameTypeCast>
+declare const narrowedBySameTypeCastRow: NarrowedBySameTypeCastRow
+const castNarrowedStatus: "draft" = narrowedBySameTypeCastRow.status
+const castNarrowedStatusText: "draft" = narrowedBySameTypeCastRow.statusText
+// @ts-expect-error same-type cast predicates should narrow through the underlying column key
+const badCastNarrowedStatus: NarrowedBySameTypeCastRow["status"] = "published"
+// @ts-expect-error selected same-type cast expression should narrow to the literal
+const badCastNarrowedStatusText: NarrowedBySameTypeCastRow["statusText"] = "published"
+void castNarrowedStatus
+void castNarrowedStatusText
+void badCastNarrowedStatus
+void badCastNarrowedStatusText

@@ -56,6 +56,7 @@ import {
   type PlanDialectOf,
   type PresenceWitnessKeysOfSource,
   type PredicateInput,
+  type PredicateStateOfPlan,
   type KindOf,
   type QueryPlan,
   type OutputOfSelection,
@@ -118,8 +119,7 @@ import type {
   JsonValueAtPath,
   NormalizeJsonLiteral
 } from "../../internal/json/types.js"
-import type { AssumeTrue, EmptyFacts } from "../../internal/predicate/analysis.js"
-import type { AssumeFactsTrue } from "../../internal/predicate/context.js"
+import type { AssumePredicateStateTrue, EmptyFacts, PredicateStateFacts, PredicateStateFormula } from "../../internal/predicate/analysis.js"
 import type { FormulaOfPredicate } from "../../internal/predicate/normalize.js"
 import type { TrueFormula } from "../../internal/predicate/formula.js"
 import { assumeFormulaTrue, formulaOfExpression as formulaOfExpressionRuntime, trueFormula } from "../../internal/predicate/runtime.js"
@@ -792,6 +792,20 @@ type DialectStringExpressionTuple<
 /** Names of sources already available to a plan. */
 type AvailableNames<Available extends Record<string, Plan.AnySource>> = Extract<keyof Available, string>
 
+type PlanPredicateStateAfterWhere<
+  PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
+  Predicate extends PredicateInput,
+  Dialect extends string,
+  TextDb extends Expression.DbType.Any,
+  NumericDb extends Expression.DbType.Any,
+  BoolDb extends Expression.DbType.Any,
+  TimestampDb extends Expression.DbType.Any,
+  NullDb extends Expression.DbType.Any
+> = AssumePredicateStateTrue<
+  PredicateStateOfPlan<PlanValue>,
+  DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
+>
+
 type PlanAssumptionsAfterWhere<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
   Predicate extends PredicateInput,
@@ -801,10 +815,7 @@ type PlanAssumptionsAfterWhere<
   BoolDb extends Expression.DbType.Any,
   TimestampDb extends Expression.DbType.Any,
   NullDb extends Expression.DbType.Any
-> = AssumeTrue<
-  AssumptionsOfPlan<PlanValue>,
-  DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
->
+> = PredicateStateFormula<PlanPredicateStateAfterWhere<PlanValue, Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>
 
 type PlanFactsAfterWhere<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
@@ -815,9 +826,20 @@ type PlanFactsAfterWhere<
   BoolDb extends Expression.DbType.Any,
   TimestampDb extends Expression.DbType.Any,
   NullDb extends Expression.DbType.Any
-> = AssumeFactsTrue<
-  FactsOfPlan<PlanValue>,
-  FormulaOfPredicate<DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>
+> = PredicateStateFacts<PlanPredicateStateAfterWhere<PlanValue, Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>
+
+type PlanPredicateStateAfterHaving<
+  PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
+  Predicate extends HavingPredicateInput,
+  Dialect extends string,
+  TextDb extends Expression.DbType.Any,
+  NumericDb extends Expression.DbType.Any,
+  BoolDb extends Expression.DbType.Any,
+  TimestampDb extends Expression.DbType.Any,
+  NullDb extends Expression.DbType.Any
+> = AssumePredicateStateTrue<
+  PredicateStateOfPlan<PlanValue>,
+  DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
 >
 
 type PlanAssumptionsAfterHaving<
@@ -829,10 +851,7 @@ type PlanAssumptionsAfterHaving<
   BoolDb extends Expression.DbType.Any,
   TimestampDb extends Expression.DbType.Any,
   NullDb extends Expression.DbType.Any
-> = AssumeTrue<
-  AssumptionsOfPlan<PlanValue>,
-  DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
->
+> = PredicateStateFormula<PlanPredicateStateAfterHaving<PlanValue, Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>
 
 type PlanFactsAfterHaving<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
@@ -843,10 +862,24 @@ type PlanFactsAfterHaving<
   BoolDb extends Expression.DbType.Any,
   TimestampDb extends Expression.DbType.Any,
   NullDb extends Expression.DbType.Any
-> = AssumeFactsTrue<
-  FactsOfPlan<PlanValue>,
-  FormulaOfPredicate<DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>
->
+> = PredicateStateFacts<PlanPredicateStateAfterHaving<PlanValue, Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>
+
+type PlanPredicateStateAfterJoin<
+  PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
+  Predicate extends PredicateInput,
+  Kind extends QueryAst.JoinKind,
+  Dialect extends string,
+  TextDb extends Expression.DbType.Any,
+  NumericDb extends Expression.DbType.Any,
+  BoolDb extends Expression.DbType.Any,
+  TimestampDb extends Expression.DbType.Any,
+  NullDb extends Expression.DbType.Any
+> = Kind extends "inner"
+  ? AssumePredicateStateTrue<
+      PredicateStateOfPlan<PlanValue>,
+      DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
+    >
+  : PredicateStateOfPlan<PlanValue>
 
 type PlanAssumptionsAfterJoin<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
@@ -858,12 +891,7 @@ type PlanAssumptionsAfterJoin<
   BoolDb extends Expression.DbType.Any,
   TimestampDb extends Expression.DbType.Any,
   NullDb extends Expression.DbType.Any
-> = Kind extends "inner"
-  ? AssumeTrue<
-      AssumptionsOfPlan<PlanValue>,
-      DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
-    >
-  : AssumptionsOfPlan<PlanValue>
+> = PredicateStateFormula<PlanPredicateStateAfterJoin<PlanValue, Predicate, Kind, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>
 
 type PlanFactsAfterJoin<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
@@ -875,12 +903,7 @@ type PlanFactsAfterJoin<
   BoolDb extends Expression.DbType.Any,
   TimestampDb extends Expression.DbType.Any,
   NullDb extends Expression.DbType.Any
-> = Kind extends "inner"
-  ? AssumeFactsTrue<
-      FactsOfPlan<PlanValue>,
-      FormulaOfPredicate<DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>
-    >
-  : FactsOfPlan<PlanValue>
+> = PredicateStateFacts<PlanPredicateStateAfterJoin<PlanValue, Predicate, Kind, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>
 
 type ScalarSubqueryInput<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
@@ -3052,7 +3075,7 @@ type BinaryPredicateExpression<
   }
 
   const and = <
-    Values extends readonly [ExpressionInput, ...ExpressionInput[]]
+    const Values extends readonly [ExpressionInput, ...ExpressionInput[]]
   >(
     ...values: Values
   ): VariadicBooleanExpression<
@@ -3071,7 +3094,7 @@ type BinaryPredicateExpression<
     )
 
   const or = <
-    Values extends readonly [ExpressionInput, ...ExpressionInput[]]
+    const Values extends readonly [ExpressionInput, ...ExpressionInput[]]
   >(
     ...values: Values
   ): VariadicBooleanExpression<

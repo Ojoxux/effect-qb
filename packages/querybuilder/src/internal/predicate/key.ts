@@ -8,28 +8,48 @@ export type ColumnKey<
 > = `${TableName}.${ColumnName}`
 
 export type ColumnKeyOfAst<Ast extends ExpressionAst.Any> =
-  Ast extends ExpressionAst.ColumnNode<infer TableName extends string, infer ColumnName extends string>
+  [Ast] extends [ExpressionAst.ColumnNode<infer TableName extends string, infer ColumnName extends string>]
     ? ColumnKey<TableName, ColumnName>
     : never
 
-type JsonTopLevelKey<Segments extends ExpressionAst.JsonSegmentTuple> =
-  Segments extends readonly [infer Segment extends JsonPath.KeySegment<infer Key extends string>]
-    ? Key
-    : never
+type JsonPathKey<
+  Segments extends ExpressionAst.JsonSegmentTuple,
+  Current extends string = never,
+  Seen extends readonly unknown[] = []
+> = Seen["length"] extends 8
+  ? never
+  : Segments extends readonly [
+    infer Segment,
+    ...infer Tail extends ExpressionAst.JsonSegmentTuple
+  ]
+    ? Segment extends JsonPath.KeySegment<infer Key extends string>
+      ? JsonPathKey<
+          Tail,
+          [Current] extends [never] ? Key : `${Current}.${Key}`,
+          readonly [...Seen, unknown]
+        >
+      : never
+    : Current
 
 export type JsonPathPredicateKey<
   Base extends Expression.Any,
   Segments extends ExpressionAst.JsonSegmentTuple
 > = [ColumnKeyOfExpression<Base>] extends [never]
   ? never
-  : [JsonTopLevelKey<Segments>] extends [never]
+  : [JsonPathKey<Segments>] extends [never]
     ? never
-    : `${ColumnKeyOfExpression<Base>}#json:${JsonTopLevelKey<Segments>}`
+    : `${ColumnKeyOfExpression<Base>}#json:${JsonPathKey<Segments>}`
 
 export type PredicateKeyOfAst<Ast extends ExpressionAst.Any> =
-  Ast extends ExpressionAst.ColumnNode<infer TableName extends string, infer ColumnName extends string>
+  [Ast] extends [ExpressionAst.ColumnNode<infer TableName extends string, infer ColumnName extends string>]
     ? ColumnKey<TableName, ColumnName>
-    : Ast extends ExpressionAst.JsonAccessNode<infer Kind, infer Base extends Expression.Any, infer Segments extends ExpressionAst.JsonSegmentTuple>
+    : [Ast] extends [ExpressionAst.CastNode<infer Value extends Expression.Any, infer Target extends Expression.DbType.Any>]
+      ? [Target] extends [Expression.DbTypeOf<Value>]
+        ? [Expression.DbTypeOf<Value>] extends [Target]
+          ? PredicateKeyOfExpression<Value>
+          : never
+        : never
+    : [Ast] extends [ExpressionAst.JsonAccessNode<infer Kind, infer Base extends Expression.Any, infer Segments extends ExpressionAst.JsonSegmentTuple>]
       ? Kind extends "jsonGetText" | "jsonPathText" | "jsonAccessText" | "jsonTraverseText"
         ? JsonPathPredicateKey<Base, Segments>
         : never

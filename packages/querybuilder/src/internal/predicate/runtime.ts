@@ -389,6 +389,9 @@ const columnKeyOfExpression = (value: Expression.Any): string | undefined => {
   return ast.kind === "column" ? `${ast.tableName}.${ast.columnName}` : undefined
 }
 
+const sameDbType = (left: Expression.DbType.Any, right: Expression.DbType.Any): boolean =>
+  left.dialect === right.dialect && left.kind === right.kind
+
 const jsonPathPredicateKeyOfExpression = (value: Expression.Any): string | undefined => {
   const ast = astOf(value)
   switch (ast.kind) {
@@ -398,12 +401,21 @@ const jsonPathPredicateKeyOfExpression = (value: Expression.Any): string | undef
     case "jsonTraverseText": {
       const jsonAst = ast as ExpressionAst.JsonAccessNode
       const segments = jsonAst.segments
-      const [segment] = segments
-      if (segments.length !== 1 || typeof segment !== "object" || segment === null || segment.kind !== "key") {
+      if (segments.length === 0 || segments.length > 8) {
+        return undefined
+      }
+      const path: Array<string> = []
+      for (const segment of segments) {
+        if (typeof segment !== "object" || segment === null || segment.kind !== "key") {
+          return undefined
+        }
+        path.push(segment.key)
+      }
+      if (path.length === 0) {
         return undefined
       }
       const baseKey = columnKeyOfExpression(jsonAst.base)
-      return baseKey === undefined ? undefined : `${baseKey}#json:${segment.key}`
+      return baseKey === undefined ? undefined : `${baseKey}#json:${path.join(".")}`
     }
     default:
       return undefined
@@ -411,7 +423,18 @@ const jsonPathPredicateKeyOfExpression = (value: Expression.Any): string | undef
 }
 
 const predicateKeyOfExpression = (value: Expression.Any): string | undefined =>
-  columnKeyOfExpression(value) ?? jsonPathPredicateKeyOfExpression(value)
+  columnKeyOfExpression(value) ?? castPredicateKeyOfExpression(value) ?? jsonPathPredicateKeyOfExpression(value)
+
+const castPredicateKeyOfExpression = (value: Expression.Any): string | undefined => {
+  const ast = astOf(value)
+  if (ast.kind !== "cast") {
+    return undefined
+  }
+  const source = ast.value as Expression.Any
+  return sameDbType(source[Expression.TypeId].dbType, ast.target)
+    ? predicateKeyOfExpression(source)
+    : undefined
+}
 
 const valueKeyOfLiteral = (value: unknown): string => {
   if (typeof value === "string") {

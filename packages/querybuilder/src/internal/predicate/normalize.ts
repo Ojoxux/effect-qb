@@ -157,9 +157,12 @@ type AndFormulas<
 
 type FormulaTupleOf<
   Values extends readonly Expression.Any[]
-> = {
-  readonly [K in keyof Values]: Values[K] extends Expression.Any ? FormulaOfExpression<Values[K]> : never
-} extends infer Tuple extends readonly PredicateFormula[] ? Tuple : never
+> = Values extends readonly [
+  infer Head extends Expression.Any,
+  ...infer Tail extends readonly Expression.Any[]
+]
+  ? readonly [FormulaOfExpression<Head>, ...FormulaTupleOf<Tail>]
+  : readonly []
 
 type AllFormulaOfValues<
   Values extends readonly Expression.Any[]
@@ -168,7 +171,7 @@ type AllFormulaOfValues<
 type AnyFormulaOfValues<
   Values extends readonly Expression.Any[]
 > = FormulaTupleOf<Values> extends infer Formulas extends readonly PredicateFormula[]
-  ? CompactOrLiteralSet<Formulas> extends infer Compact extends PredicateFormula
+  ? [CompactOrLiteralSet<Formulas>] extends [infer Compact extends PredicateFormula]
     ? [Compact] extends [never]
       ? import("./formula.js").NormalizeBooleanConstants<AnyFormula<Formulas>>
       : Compact
@@ -182,6 +185,13 @@ type LiteralSetDetails<Formula extends PredicateFormula> =
       ? readonly [Key, Values]
       : never
 
+type IsUnion<Value, Candidate = Value> =
+  [Value] extends [never]
+    ? false
+    : Value extends unknown
+      ? [Candidate] extends [Value] ? false : true
+      : false
+
 type CompactOrLiteralSet<
   Items extends readonly PredicateFormula[],
   Key extends string = never,
@@ -194,11 +204,15 @@ type CompactOrLiteralSet<
     ...infer Tail extends readonly PredicateFormula[]
   ]
     ? LiteralSetDetails<Head> extends readonly [infer HeadKey extends string, infer HeadValues extends string]
-      ? [Key] extends [never]
-        ? CompactOrLiteralSet<Tail, HeadKey, HeadValues, readonly [...Seen, unknown]>
-        : [HeadKey] extends [Key]
-          ? CompactOrLiteralSet<Tail, Key, Values | HeadValues, readonly [...Seen, unknown]>
-          : never
+      ? IsUnion<HeadKey> extends true
+        ? never
+        : [Key] extends [never]
+          ? CompactOrLiteralSet<Tail, HeadKey, HeadValues, readonly [...Seen, unknown]>
+          : [HeadKey] extends [Key]
+            ? [Key] extends [HeadKey]
+              ? CompactOrLiteralSet<Tail, Key, Values | HeadValues, readonly [...Seen, unknown]>
+              : never
+            : never
       : never
     : [Key] extends [never]
       ? never

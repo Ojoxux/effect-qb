@@ -1,4 +1,4 @@
-import type { AnalyzeFormula, PredicateContext } from "./context.js"
+import type { AnalyzeFormula, AssumeFactsFalse, AssumeFactsTrue, PredicateContext } from "./context.js"
 import type { FormulaOfPredicate } from "./normalize.js"
 import type { And, Not, PredicateFormula, TrueFormula } from "./formula.js"
 
@@ -9,6 +9,24 @@ export type EmptyFacts = AnalyzeFormula<TrueFormula>
 export type FactsOfFormula<
   Formula extends PredicateFormula
 > = AnalyzeFormula<Formula>
+
+export interface PredicateState<
+  Formula extends PredicateFormula = PredicateFormula,
+  Facts extends PredicateContext = PredicateContext
+> {
+  readonly formula: Formula
+  readonly facts: Facts
+}
+
+export type EmptyPredicateState = PredicateState<TrueFormula, EmptyFacts>
+
+export type PredicateStateFormula<
+  State extends PredicateState
+> = State["formula"]
+
+export type PredicateStateFacts<
+  State extends PredicateState
+> = State["facts"]
 
 export type GuaranteedNonNullKeysInFacts<
   Facts extends PredicateContext
@@ -25,18 +43,30 @@ export type GuaranteedSourceNamesInFacts<
 export type GuaranteedLiteralSetInFacts<
   Facts extends PredicateContext,
   Key extends string
-> = Key extends keyof Facts["literalSets"]
-  ? Facts["literalSets"][Key]
+> = [Facts["literalSets"]] extends [{ readonly [K in Key]: infer Values }]
+  ? Values
+  : never
+
+export type GuaranteedEqLiteralInFacts<
+  Facts extends PredicateContext,
+  Key extends string
+> = [Facts["eqLiterals"]] extends [{ readonly [K in Key]: infer Values }]
+  ? Values
+  : never
+
+export type GuaranteedNeqLiteralInFacts<
+  Facts extends PredicateContext,
+  Key extends string
+> = [Facts["neqLiterals"]] extends [{ readonly [K in Key]: infer Values }]
+  ? Values
   : never
 
 export type GuaranteedJsonLiteralSetInFacts<
   Facts extends PredicateContext,
   ColumnKey extends string,
   Path extends string
-> = ColumnKey extends keyof Facts["jsonLiteralSets"]
-  ? Path extends keyof Facts["jsonLiteralSets"][ColumnKey]
-    ? Facts["jsonLiteralSets"][ColumnKey][Path]
-    : never
+> = [Facts["jsonLiteralSets"]] extends [{ readonly [C in ColumnKey]: { readonly [P in Path]: infer Values } }]
+  ? Values
   : never
 
 export type GuaranteedNonNullKeys<
@@ -115,6 +145,32 @@ export type AssumeFalse<
   Assumptions extends PredicateFormula,
   Predicate
 > = AssumeFormulaFalse<Assumptions, FormulaOfPredicate<Predicate>>
+
+export type AssumePredicateStateFormulaTrue<
+  State extends PredicateState,
+  Formula extends PredicateFormula
+> = PredicateState<
+  AssumeFormulaTrue<PredicateStateFormula<State>, Formula>,
+  AssumeFactsTrue<PredicateStateFacts<State>, Formula>
+>
+
+export type AssumePredicateStateFormulaFalse<
+  State extends PredicateState,
+  Formula extends PredicateFormula
+> = PredicateState<
+  AssumeFormulaFalse<PredicateStateFormula<State>, Formula>,
+  AssumeFactsFalse<PredicateStateFacts<State>, Formula>
+>
+
+export type AssumePredicateStateTrue<
+  State extends PredicateState,
+  Predicate
+> = AssumePredicateStateFormulaTrue<State, FormulaOfPredicate<Predicate>>
+
+export type AssumePredicateStateFalse<
+  State extends PredicateState,
+  Predicate
+> = AssumePredicateStateFormulaFalse<State, FormulaOfPredicate<Predicate>>
 
 export type Contradicts<
   Assumptions extends PredicateFormula,

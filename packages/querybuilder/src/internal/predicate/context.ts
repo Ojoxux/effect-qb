@@ -127,9 +127,11 @@ type FilterNeverValues<Map> = {
   readonly [K in keyof Map as Map[K] extends never ? never : K]: Map[K]
 }
 
-type JsonKeyParts<Key extends string> = Key extends `${infer ColumnKey}#json:${infer Path}`
-  ? readonly [ColumnKey, Path]
-  : never
+type JsonKeyParts<Key extends string> = string extends Key
+  ? never
+  : Key extends `${infer ColumnKey}#json:${infer Path}`
+    ? readonly [ColumnKey, Path]
+    : never
 
 type LiteralSetMapAfterAdd<
   LiteralSets,

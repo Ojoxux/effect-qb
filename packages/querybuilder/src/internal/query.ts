@@ -14,14 +14,17 @@ import type {
   ContradictsFormula,
   EmptyFacts,
   FactsOfFormula,
+  GuaranteedLiteralSetInFacts,
+  GuaranteedNeqLiteralInFacts,
   GuaranteedJsonLiteralSetInFacts,
   GuaranteedNonNullKeysInFacts,
   GuaranteedNullKeysInFacts,
-  GuaranteedSourceNamesInFacts
+  GuaranteedSourceNamesInFacts,
+  PredicateState
 } from "./predicate/analysis.js"
 import type { AssumeFactsFalse, AssumeFactsTrue, PredicateContext } from "./predicate/context.js"
 import type { FormulaOfPredicate } from "./predicate/normalize.js"
-import type { ColumnKeyOfExpression } from "./predicate/key.js"
+import type { ColumnKeyOfAst, ColumnKeyOfExpression, PredicateKeyOfAst } from "./predicate/key.js"
 import type { PredicateFormula, TrueFormula } from "./predicate/formula.js"
 import { trueFormula } from "./predicate/runtime.js"
 
@@ -1082,6 +1085,9 @@ export type AssumptionsOfPlan<
 export type FactsOfPlan<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any, any, any>
 > = QueryPlanState<PlanValue>["facts"]
+export type PredicateStateOfPlan<
+  PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any, any, any>
+> = PredicateState<AssumptionsOfPlan<PlanValue>, FactsOfPlan<PlanValue>>
 export type CapabilitiesOfPlan<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any, any, any>
 > = QueryPlanState<PlanValue>["capabilities"]
@@ -1531,6 +1537,33 @@ type OptionalSourceNamesInScope<
   [K in keyof Available & string]: SourceModeOf<Available, K> extends "optional" ? K : never
 }[keyof Available & string], string>
 
+type EffectiveNullabilityFromBase<
+  Value extends Expression.Any,
+  Available extends Record<string, RowSet.AnySource>,
+  Assumptions extends PredicateFormula,
+  Facts extends PredicateContext
+> = Expression.NullabilityOf<Value> extends "always" ? "always"
+  : PredicateKeyOfAst<AstOf<Value>> extends infer Key extends string
+    ? IsUnion<Key> extends true
+      ? EffectiveNullabilityFromSources<Value, Available, Assumptions, Facts>
+      : string extends Key
+        ? EffectiveNullabilityFromSources<Value, Available, Assumptions, Facts>
+        : Key extends KnownGuaranteedNullKeys<Facts>
+          ? "always"
+          : Key extends KnownGuaranteedNonNullKeys<Facts>
+            ? "never"
+            : EffectiveNullabilityFromSources<Value, Available, Assumptions, Facts>
+    : EffectiveNullabilityFromSources<Value, Available, Assumptions, Facts>
+
+type EffectiveNullabilityFromSources<
+  Value extends Expression.Any,
+  Available extends Record<string, RowSet.AnySource>,
+  Assumptions extends PredicateFormula,
+  Facts extends PredicateContext
+> = HasAbsentSource<DependenciesOf<Value>, Available, Assumptions, Facts> extends true ? "always"
+  : HasOptionalSource<DependenciesOf<Value>, Available> extends true ? "maybe"
+    : Expression.NullabilityOf<Value>
+
 type BaseEffectiveNullability<
   Value extends Expression.Any,
   Available extends Record<string, RowSet.AnySource>,
@@ -1543,14 +1576,8 @@ type BaseEffectiveNullability<
     ? "always"
     : `${TableName}.${ColumnName}` extends KnownGuaranteedNonNullKeys<Facts>
       ? "never"
-      : Expression.NullabilityOf<Value> extends "always" ? "always"
-        : HasAbsentSource<DependenciesOf<Value>, Available, Assumptions, Facts> extends true ? "always"
-          : HasOptionalSource<DependenciesOf<Value>, Available> extends true ? "maybe"
-            : Expression.NullabilityOf<Value>
-  : Expression.NullabilityOf<Value> extends "always" ? "always"
-    : HasAbsentSource<DependenciesOf<Value>, Available, Assumptions, Facts> extends true ? "always"
-      : HasOptionalSource<DependenciesOf<Value>, Available> extends true ? "maybe"
-        : Expression.NullabilityOf<Value>
+      : EffectiveNullabilityFromBase<Value, Available, Assumptions, Facts>
+  : EffectiveNullabilityFromBase<Value, Available, Assumptions, Facts>
 
 type CaseOutputOf<
   Branches extends readonly ExpressionAst.CaseBranchNode[],
@@ -1653,22 +1680,109 @@ type LiteralSetRuntime<Values> =
     Values extends string ? LiteralKeyValue<Values> :
       never
 
-type JsonConstraintFailures<
-  Member,
-  ColumnKey extends string,
-  Facts extends PredicateContext
-> = {
-  readonly [Key in keyof Member & string]:
-    GuaranteedJsonLiteralSetInFacts<Facts, ColumnKey, Key> extends infer Values
-      ? [Values] extends [never]
-        ? never
-        : string extends Member[Key]
-          ? never
-        : string extends Values
-          ? never
-          : Extract<Member[Key], LiteralSetRuntime<Values>> extends never ? Key : never
+type NarrowRuntimeToAllowed<
+  Runtime,
+  Allowed
+> = Runtime extends unknown
+  ? Extract<Runtime, Allowed> extends infer Extracted
+    ? [Extracted] extends [never]
+      ? Allowed extends Runtime ? Allowed : never
+      : Extracted
+    : never
+  : never
+
+type RefineRuntimeByAllowedLiterals<
+  Runtime,
+  Values
+> = [Values] extends [never]
+  ? Runtime
+  : string extends Values
+    ? Runtime
+    : NarrowRuntimeToAllowed<Runtime, LiteralSetRuntime<Values>>
+
+type RefineRuntimeByExcludedLiterals<
+  Runtime,
+  Values
+> = [Values] extends [never]
+  ? Runtime
+  : string extends Values
+    ? Runtime
+    : Exclude<Runtime, LiteralSetRuntime<Values>>
+
+type JsonKeyParts<Key extends string> = string extends Key
+  ? never
+  : Key extends `${infer ColumnKey}#json:${infer Path}`
+    ? readonly [ColumnKey, Path]
+    : never
+
+type LiteralSetForPredicateKey<
+  Facts extends PredicateContext,
+  Key extends string
+> = [JsonKeyParts<Key>] extends [never]
+  ? GuaranteedLiteralSetInFacts<Facts, Key>
+  : JsonKeyParts<Key> extends readonly [infer ColumnKey extends string, infer Path extends string]
+    ? GuaranteedJsonLiteralSetInFacts<Facts, ColumnKey, Path>
+    : never
+
+type RefineRuntimeForPredicateKey<
+  Runtime,
+  Facts extends PredicateContext,
+  Key extends string
+> = IsUnion<Key> extends true
+  ? Runtime
+  : string extends Key
+    ? Runtime
+    : RefineRuntimeByExcludedLiterals<
+        RefineRuntimeByAllowedLiterals<Runtime, LiteralSetForPredicateKey<Facts, Key>>,
+        GuaranteedNeqLiteralInFacts<Facts, Key>
+      >
+
+type JsonLiteralSetsForColumn<
+  Facts extends PredicateContext,
+  ColumnKey extends string
+> = [Facts["jsonLiteralSets"]] extends [{ readonly [C in ColumnKey]: infer Paths }]
+  ? Paths
+  : {}
+
+type RefineJsonRuntimeAtPath<
+  Runtime,
+  Path extends string,
+  Values
+> = Runtime extends unknown
+  ? Path extends `${infer Head}.${infer Tail}`
+    ? Runtime extends object
+      ? Head extends keyof Runtime
+        ? RefineJsonRuntimeAtPath<NonNullable<Runtime[Head]>, Tail, Values> extends infer Refined
+          ? [Refined] extends [never]
+            ? never
+            : Omit<Runtime, Head> & { readonly [K in Head]: Refined }
+          : never
+        : never
       : never
-}[keyof Member & string]
+    : Runtime extends object
+      ? Path extends keyof Runtime
+        ? RefineRuntimeByAllowedLiterals<NonNullable<Runtime[Path]>, Values> extends infer Refined
+          ? [Refined] extends [never]
+            ? never
+            : Omit<Runtime, Path> & { readonly [K in Path]: Refined }
+          : never
+        : never
+      : RefineRuntimeByAllowedLiterals<NonNullable<Runtime>, Values>
+  : never
+
+type RefineJsonRuntimeWithConstraints<
+  Runtime,
+  Constraints
+> = [keyof Constraints & string] extends [never]
+  ? Runtime
+  : {
+      readonly [Path in keyof Constraints & string]:
+        [RefineJsonRuntimeAtPath<Runtime, Path, Constraints[Path]>] extends [never] ? Path : never
+    }[keyof Constraints & string] extends never
+    ? UnionToIntersection<{
+        readonly [Path in keyof Constraints & string]: RefineJsonRuntimeAtPath<Runtime, Path, Constraints[Path]>
+      }[keyof Constraints & string]>
+    : never
 
 type RefineJsonRuntimeForColumn<
   Runtime,
@@ -1676,17 +1790,23 @@ type RefineJsonRuntimeForColumn<
   Facts extends PredicateContext
 > = Runtime extends object
   ? Runtime extends unknown
-    ? [JsonConstraintFailures<Runtime, ColumnKey, Facts>] extends [never] ? Runtime : never
+    ? RefineJsonRuntimeWithConstraints<Runtime, JsonLiteralSetsForColumn<Facts, ColumnKey>>
     : never
   : Runtime
 
 type AssumptionRefinedRuntime<
-  Value extends Expression.Any,
+  Ast extends ExpressionAst.Any,
   Runtime,
   Facts extends PredicateContext
-> = [ColumnKeyOfExpression<Value>] extends [infer ColumnKey extends string]
-  ? RefineJsonRuntimeForColumn<Runtime, ColumnKey, Facts>
-  : Runtime
+> = [PredicateKeyOfAst<Ast>] extends [never]
+  ? Runtime
+  : PredicateKeyOfAst<Ast> extends infer PredicateKey extends string
+    ? [ColumnKeyOfAst<Ast>] extends [never]
+      ? RefineRuntimeForPredicateKey<Runtime, Facts, PredicateKey>
+      : ColumnKeyOfAst<Ast> extends infer ColumnKey extends string
+        ? RefineRuntimeForPredicateKey<RefineJsonRuntimeForColumn<Runtime, ColumnKey, Facts>, Facts, PredicateKey>
+        : Runtime
+    : Runtime
 
 /** Result runtime type of an expression after effective nullability is resolved. */
 export type ExpressionOutput<
@@ -1700,7 +1820,7 @@ export type ExpressionOutput<
     : EffectiveNullabilityOfAst<Value, Ast, Available, Assumptions, Facts> extends infer Nullability
       ? Expression.NullabilityOf<Value> extends infer BaseNullability
         ? Expression.RuntimeOf<Value> extends infer Runtime
-          ? AssumptionRefinedRuntime<Value, Runtime, Facts> extends infer RefinedRuntime
+          ? AssumptionRefinedRuntime<Ast, Runtime, Facts> extends infer RefinedRuntime
             ? Nullability extends "never"
               ? BaseNullability extends "never"
                 ? RefinedRuntime

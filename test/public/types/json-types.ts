@@ -39,6 +39,24 @@ const variantDocs = Table.make("variant_docs", {
   payload: C.jsonb(variantPayloadSchema)
 })
 
+const nestedVariantPayloadSchema = Schema.Struct({
+  details: Schema.Union(
+    Schema.Struct({
+      kind: Schema.Literal("child1"),
+      child1Value: Schema.String
+    }),
+    Schema.Struct({
+      kind: Schema.Literal("child2"),
+      child2Value: Schema.String
+    })
+  )
+})
+
+const nestedVariantDocs = Table.make("nested_variant_docs", {
+  id: C.uuid().pipe(C.primaryKey),
+  payload: C.jsonb(nestedVariantPayloadSchema)
+})
+
 const cityPath = J.json.path(
   J.json.key("profile"),
   J.json.key("address"),
@@ -96,6 +114,10 @@ const jsonbPathMatchExpr = J.jsonb.pathMatch(docs.payloadJsonb, '$.profile.tags[
 const jsonbStrippedExpr = J.jsonb.stripNulls(docs.payloadJsonb)
 const jsonbStrippedSetExpr = J.jsonb.set(sharedJsonbStrippedExpr, postcodePath, "1000")
 const variantKindExpr = J.jsonb.text(variantDocs.payload, J.jsonb.key("kind"))
+const nestedVariantKindExpr = J.jsonb.text(
+  nestedVariantDocs.payload,
+  J.jsonb.path(J.jsonb.key("details"), J.jsonb.key("kind"))
+)
 
 const option3Payload = Q.select({
   payload: variantDocs.payload
@@ -119,6 +141,31 @@ const option2Or3PayloadViaOr = Q.select({
     Q.eq(variantKindExpr, "option2"),
     Q.eq(variantKindExpr, "option3")
   ))
+)
+
+const option3KindSelected = Q.select({
+  kind: variantKindExpr
+}).pipe(
+  Q.from(variantDocs),
+  Q.where(Q.eq(variantKindExpr, "option3"))
+)
+
+const option2Or3KindSelectedViaOr = Q.select({
+  kind: variantKindExpr
+}).pipe(
+  Q.from(variantDocs),
+  Q.where(Q.or(
+    Q.eq(variantKindExpr, "option2"),
+    Q.eq(variantKindExpr, "option3")
+  ))
+)
+
+const nestedChild2Payload = Q.select({
+  payload: nestedVariantDocs.payload,
+  kind: nestedVariantKindExpr
+}).pipe(
+  Q.from(nestedVariantDocs),
+  Q.where(Q.eq(nestedVariantKindExpr, "child2"))
 )
 
 
@@ -152,6 +199,9 @@ type Option3PayloadRow = Q.ResultRow<typeof option3Payload>
 type Option3PayloadRuntimeRow = Q.RuntimeResultRow<typeof option3Payload>
 type Option2Or3PayloadRow = Q.ResultRow<typeof option2Or3Payload>
 type Option2Or3PayloadViaOrRow = Q.ResultRow<typeof option2Or3PayloadViaOr>
+type Option3KindSelectedRow = Q.ResultRow<typeof option3KindSelected>
+type Option2Or3KindSelectedViaOrRow = Q.ResultRow<typeof option2Or3KindSelectedViaOr>
+type NestedChild2PayloadRow = Q.ResultRow<typeof nestedChild2Payload>
 
 const city: City = "Paris"
 const cityText: CityText = "Paris"
@@ -193,17 +243,32 @@ declare const option3PayloadRow: Option3PayloadRow
 declare const option3PayloadRuntimeRow: Option3PayloadRuntimeRow
 declare const option2Or3PayloadRow: Option2Or3PayloadRow
 declare const option2Or3PayloadViaOrRow: Option2Or3PayloadViaOrRow
+declare const option3KindSelectedRow: Option3KindSelectedRow
+declare const option2Or3KindSelectedViaOrRow: Option2Or3KindSelectedViaOrRow
+declare const nestedChild2PayloadRow: NestedChild2PayloadRow
 const option3PayloadKind: "option3" = option3PayloadRow.payload.kind
 const option3PayloadValue: string = option3PayloadRow.payload.option3Value
 const conservativeOption3RuntimeKind: "option1" | "option2" | "option3" = option3PayloadRuntimeRow.payload.kind
 const option2Or3PayloadKind: "option2" | "option3" = option2Or3PayloadRow.payload.kind
 const option2Or3PayloadViaOrKind: "option2" | "option3" = option2Or3PayloadViaOrRow.payload.kind
+const option3SelectedKind: "option3" = option3KindSelectedRow.kind
+const option2Or3SelectedViaOrKind: "option2" | "option3" = option2Or3KindSelectedViaOrRow.kind
+const nestedChild2PayloadKind: "child2" = nestedChild2PayloadRow.payload.details.kind
+const nestedChild2SelectedKind: "child2" = nestedChild2PayloadRow.kind
 // @ts-expect-error discriminator equality should remove unrelated jsonb union members
 option3PayloadRow.payload.option1Value
 // @ts-expect-error discriminator IN should remove excluded jsonb union members
 option2Or3PayloadRow.payload.option1Value
 // @ts-expect-error discriminator OR should remove excluded jsonb union members
 option2Or3PayloadViaOrRow.payload.option1Value
+// @ts-expect-error selected json path equality should narrow the selected expression
+const badOption3SelectedKind: Option3KindSelectedRow["kind"] = "option2"
+// @ts-expect-error selected json path OR should narrow the selected expression
+const badOption2Or3SelectedViaOrKind: Option2Or3KindSelectedViaOrRow["kind"] = "option1"
+// @ts-expect-error nested json path equality should remove unrelated nested union members
+nestedChild2PayloadRow.payload.details.child1Value
+// @ts-expect-error nested selected json path should narrow the selected expression
+const badNestedChild2SelectedKind: NestedChild2PayloadRow["kind"] = "child1"
 void city
 void cityText
 void jsonTypeName
@@ -245,6 +310,13 @@ void option3PayloadValue
 void conservativeOption3RuntimeKind
 void option2Or3PayloadKind
 void option2Or3PayloadViaOrKind
+void option3SelectedKind
+void option2Or3SelectedViaOrKind
+void nestedChild2PayloadKind
+void nestedChild2SelectedKind
+void badOption3SelectedKind
+void badOption2Or3SelectedViaOrKind
+void badNestedChild2SelectedKind
 void jsonbSetExpr
 void jsonbInsertExpr
 void jsonbDeleteExpr
