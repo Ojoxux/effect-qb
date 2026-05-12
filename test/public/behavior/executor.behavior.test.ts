@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 
-import { Column as C, Executor, Query as Q, Function as F, Renderer, Table } from "#postgres"
+import { Cast, Column as C, Executor, Query as Q, Function as F, Renderer, Table, Type } from "#postgres"
 
 const userId = "11111111-1111-1111-1111-111111111111"
 
@@ -591,6 +591,40 @@ describe("executor behavior", () => {
         kind: "json"
       },
       raw: {}
+    })
+  })
+
+  test("fromDriver enforces structured record cast fields", () => {
+    const plan = Q.select({
+      profile: Cast.to("{}", Type.record("user_profile", {
+        displayName: Type.text(),
+        age: Type.int4()
+      }))
+    })
+
+    const executor = Executor.make({
+      driver: Executor.driver("postgres", () => Effect.succeed([
+        {
+          profile: {
+            displayName: "Alice"
+          }
+        }
+      ]))
+    })
+
+    expect(Effect.runSync(Effect.flip(executor.execute(plan)))).toMatchObject({
+      _tag: "RowDecodeError",
+      stage: "schema",
+      projection: {
+        alias: "profile"
+      },
+      dbType: {
+        dialect: "postgres",
+        kind: "user_profile"
+      },
+      raw: {
+        displayName: "Alice"
+      }
     })
   })
 
