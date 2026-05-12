@@ -127,6 +127,32 @@ describe("mysql insert behavior", () => {
     ])
   })
 
+  test("canonicalizes and validates mysql unnest insert arrays using target column contracts", () => {
+    const metrics = Mysql.Table.make("unnest_metrics", {
+      total: Mysql.Column.number(),
+      happenedOn: Mysql.Column.date()
+    })
+
+    const rendered = render(Mysql.Query.insert(metrics).pipe(
+      Mysql.Query.from(Mysql.Query.unnest({
+        total: ["-0.00"],
+        happenedOn: ["2026-05-12"]
+      }, "seed"))
+    ))
+
+    expect(rendered.params).toEqual([
+      "0",
+      "2026-05-12"
+    ])
+
+    expect(() => render(Mysql.Query.insert(metrics).pipe(
+      Mysql.Query.from(Mysql.Query.unnest({
+        total: ["1.00"],
+        happenedOn: ["2026-02-31"]
+      }, "seed"))
+    ))).toThrow("Expected a local-date value")
+  })
+
   test("renders mysql default-only inserts and duplicate-key conflict clauses", () => {
     const auditLogs = Mysql.Table.make("audit_logs", {
       id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey, Mysql.Column.default(Mysql.Query.literal("audit-log-id"))),

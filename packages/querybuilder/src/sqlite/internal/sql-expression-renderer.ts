@@ -1070,15 +1070,15 @@ export const renderQueryAst = (
           ).join(", ")
           sql += ` (${columns}) select * from unnest(${rendered})`
         } else {
-          const rowCount = unnestSource.values[0]?.values.length ?? 0
+          const table = targetSource.source as Table.AnyTable
+          const fields = table[Table.TypeId].fields
+          const encodedValues = unnestSource.values.map((entry) => ({
+            columnName: entry.columnName,
+            values: encodeArrayValues(entry.values, fields[entry.columnName]!, state, dialect)
+          }))
+          const rowCount = encodedValues[0]?.values.length ?? 0
           const rows = Array.from({ length: rowCount }, (_, index) =>
-            `(${unnestSource.values.map((entry) =>
-              dialect.renderLiteral(
-                entry.values[index],
-                state,
-                (targetSource.source as Table.AnyTable)[Table.TypeId].fields[entry.columnName]![Expression.TypeId]
-              )
-            ).join(", ")})`
+            `(${encodedValues.map((entry) => dialect.renderLiteral(entry.values[index], state)).join(", ")})`
           ).join(", ")
           sql += ` (${columns}) values ${rows}`
         }

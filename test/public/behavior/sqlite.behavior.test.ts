@@ -72,6 +72,32 @@ describe("sqlite behavior", () => {
     expect(rendered.params).toEqual(["user-1", "alice@example.com", 1, 2])
   })
 
+  test("canonicalizes and validates sqlite unnest insert arrays using target column contracts", () => {
+    const metrics = Sqlite.Table.make("unnest_metrics", {
+      total: Sqlite.Column.number(),
+      happenedOn: Sqlite.Column.date()
+    })
+
+    const rendered = render(Sqlite.Query.insert(metrics).pipe(
+      Sqlite.Query.from(Sqlite.Query.unnest({
+        total: ["-0.00"],
+        happenedOn: ["2026-05-12"]
+      }, "seed"))
+    ))
+
+    expect(rendered.params).toEqual([
+      "0",
+      "2026-05-12"
+    ])
+
+    expect(() => render(Sqlite.Query.insert(metrics).pipe(
+      Sqlite.Query.from(Sqlite.Query.unnest({
+        total: ["1.00"],
+        happenedOn: ["2026-02-31"]
+      }, "seed"))
+    ))).toThrow("Expected a local-date value")
+  })
+
   test("renders sqlite JSON helpers through JSON1 functions", () => {
     const docs = Sqlite.Table.make("docs", {
       id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),
