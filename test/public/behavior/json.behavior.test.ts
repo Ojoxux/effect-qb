@@ -472,6 +472,32 @@ describe("json behavior", () => {
     ])
   })
 
+  test("mysql binds json_contains_path mode before path arguments", () => {
+    const docs = makeJsonTable(Mysql)
+
+    const plan = Mysql.Query.select({
+      hasProfile: Mysql.Json.json.hasKey(docs.payload, "profile"),
+      hasAny: Mysql.Json.json.hasAnyKeys(docs.payload, "profile", "note"),
+      hasAll: Mysql.Json.json.hasAllKeys(docs.payload, "profile", "note")
+    }).pipe(Mysql.Query.from(docs))
+
+    const rendered = Mysql.Renderer.make().render(plan)
+
+    expect(rendered.sql).toBe(
+      "select json_contains_path(`docs`.`payload`, ?, ?) as `hasProfile`, json_contains_path(`docs`.`payload`, ?, ?, ?) as `hasAny`, json_contains_path(`docs`.`payload`, ?, ?, ?) as `hasAll` from `docs`"
+    )
+    expect(rendered.params).toEqual([
+      "one",
+      "$.profile",
+      "one",
+      "$.profile",
+      "$.note",
+      "all",
+      "$.profile",
+      "$.note"
+    ])
+  })
+
   test("postgres renders json and jsonb mutations with separate helper surfaces", () => {
     const docsJson = Postgres.Table.make("docs_json", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
