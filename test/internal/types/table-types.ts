@@ -827,6 +827,24 @@ const badMysqlFromPostgresCte = Mysql.Query.select({
 )
 void badMysqlFromPostgresCte
 
+const mysqlLateralSource = Mysql.Query.lateral(mysqlPlan, "mysql_lateral")
+const badPostgresFromMysqlLateral = Postgres.Query.select({
+  id: mysqlLateralSource.id
+}).pipe(
+  // @ts-expect-error postgres queries cannot use mysql lateral sources
+  Postgres.Query.from(mysqlLateralSource)
+)
+void badPostgresFromMysqlLateral
+
+const postgresLateralSource = Postgres.Query.lateral(postgresPlan, "postgres_lateral")
+const badMysqlFromPostgresLateral = Mysql.Query.select({
+  id: postgresLateralSource.id
+}).pipe(
+  // @ts-expect-error mysql queries cannot use postgres lateral sources
+  Mysql.Query.from(postgresLateralSource)
+)
+void badMysqlFromPostgresLateral
+
 const mysqlRendered = Mysql.Renderer.make().render(mysqlPlan)
 const postgresRendered = Postgres.Renderer.make().render(postgresPlan)
 const mysqlLiteralDialect: typeof mysqlLiteral[typeof Expression.TypeId]["dbType"]["dialect"] = "mysql"
