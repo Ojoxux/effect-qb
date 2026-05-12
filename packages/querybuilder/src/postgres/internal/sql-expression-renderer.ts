@@ -598,7 +598,7 @@ const renderJsonExpression = (
         const baseSql = renderExpression(base, state, dialect)
         const typeOf = `${postgresBaseKind === "jsonb" ? "jsonb" : "json"}_typeof`
         const objectKeys = `${postgresBaseKind === "jsonb" ? "jsonb" : "json"}_object_keys`
-        return `(case when ${typeOf}(${baseSql}) = 'object' then array(select ${objectKeys}(${baseSql})) else null end)`
+        return `(case when ${typeOf}(${baseSql}) = 'object' then to_json(array(select ${objectKeys}(${baseSql}))) else null end)`
       }
       if (dialect.name === "mysql") {
         return `json_keys(${renderExpression(base, state, dialect)})`
