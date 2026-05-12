@@ -4691,6 +4691,12 @@ type TruncateUnsupportedError<Dialect extends string> = {
   readonly __effect_qb_hint__: "Use delete(...) for sqlite tables or switch to a dialect with TRUNCATE support"
 }
 
+type LockUnsupportedError<Dialect extends string> = {
+  readonly __effect_qb_error__: "effect-qb: lock(...) is not supported by the sqlite dialect"
+  readonly __effect_qb_dialect__: Dialect
+  readonly __effect_qb_hint__: "Use postgres.Query.lock(...), mysql.Query.lock(...), or sqlite transaction control without row locks"
+}
+
 type SqliteCteStatementError<PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>> =
   PlanValue & {
     readonly __effect_qb_error__: "effect-qb: sqlite cte sources only accept select-like query plans"
@@ -6661,6 +6667,7 @@ export const sqliteDsl = {
 
 const exportedLateral = lateral as unknown as LateralUnsupportedError<Dialect>
 const exportedTruncate = truncate as unknown as TruncateUnsupportedError<Dialect>
+const exportedLock = lock as unknown as LockUnsupportedError<Dialect>
 
 export {
   literal,
@@ -6762,7 +6769,7 @@ export {
   distinctOn,
   limit,
   offset,
-  lock,
+  exportedLock as lock,
   orderBy,
   groupBy
 }

@@ -66,6 +66,13 @@ describe("sqlite behavior", () => {
     }).pipe(Sqlite.Query.from(users)))).toThrow("Unsupported sqlite regex operator")
 
     expect(() => render(Sqlite.Query.select({
+      id: users.id
+    }).pipe(
+      Sqlite.Query.from(users),
+      Sqlite.Query.lock("update")
+    ))).toThrow("Unsupported sqlite row locking")
+
+    expect(() => render(Sqlite.Query.select({
       email: users.email,
       postId: lateralPosts.postId
     }).pipe(

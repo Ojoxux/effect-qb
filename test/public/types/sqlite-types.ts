@@ -114,6 +114,9 @@ Q.insert(users, userInsert).pipe(
 // @ts-expect-error sqlite does not support mysql mutation lock modifiers
 Q.lock("ignore")(Q.update(users, { visits: 3 }))
 
+// @ts-expect-error sqlite does not support row locking
+Q.lock("update")(selectUsers)
+
 // @ts-expect-error sqlite does not support mutation order/limit clauses
 Q.orderBy(users.email)(Q.update(users, { visits: 3 }))
 
