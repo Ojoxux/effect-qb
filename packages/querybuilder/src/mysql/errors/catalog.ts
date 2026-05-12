@@ -51636,17 +51636,17 @@ export const mysqlErrorCatalogByNumber = {
   "MY-015153": [mysqlErrorCatalogBySymbol["ER_WARN_AUDIT_LOG_FILTER_RECOVERY_LOGGING_DISABLED_LOG"]!],
 } as const
 
-const mysqlSymbolPattern = /^(?:[A-Z][A-Z0-9_]*|MY-\d+)$/
-const mysqlNumberPattern = /^(?:\d+|MY-\d+)$/
-
 export type MysqlErrorSymbol = keyof typeof mysqlErrorCatalogBySymbol
 export type MysqlErrorDescriptor<Symbol extends MysqlErrorSymbol = MysqlErrorSymbol> = (typeof mysqlErrorCatalogBySymbol)[Symbol]
 export type MysqlErrorNumber = keyof typeof mysqlErrorCatalogByNumber
 export type MysqlErrorTag<Symbol extends MysqlErrorSymbol = MysqlErrorSymbol> = MysqlErrorDescriptor<Symbol>["tag"]
 export type MysqlErrorDescriptorsByNumber<Number extends MysqlErrorNumber = MysqlErrorNumber> = (typeof mysqlErrorCatalogByNumber)[Number]
 
-export const isMysqlErrorSymbol = (value: string): value is MysqlErrorSymbol => mysqlSymbolPattern.test(value)
-export const isMysqlErrorNumber = (value: string): value is MysqlErrorNumber => mysqlNumberPattern.test(value)
+export const isMysqlErrorSymbol = (value: string): value is MysqlErrorSymbol =>
+  value in mysqlErrorCatalogBySymbol
+
+export const isMysqlErrorNumber = (value: string): value is MysqlErrorNumber =>
+  value in mysqlErrorCatalogByNumber
 
 export const getMysqlErrorDescriptor = <Symbol extends MysqlErrorSymbol>(symbol: Symbol): MysqlErrorDescriptor<Symbol> =>
   mysqlErrorCatalogBySymbol[symbol]
