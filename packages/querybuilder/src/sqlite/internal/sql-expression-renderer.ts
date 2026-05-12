@@ -1078,7 +1078,7 @@ export const renderQueryAst = (
       projections = selectionProjections(setAst.select as Record<string, unknown>)
       assertMatchingSetProjections(projections, base.projections)
       sql = [
-        `(${base.sql})`,
+        base.sql,
         ...(setAst.setOperations ?? []).map((entry) => {
           const rendered = renderQueryAst(
             Query.getAst(entry.query as Query.Plan.Any) as QueryAst.Ast<
@@ -1090,7 +1090,7 @@ export const renderQueryAst = (
             dialect
           )
           assertMatchingSetProjections(projections, rendered.projections)
-          return `${entry.kind}${entry.all ? " all" : ""} (${rendered.sql})`
+          return `${entry.kind}${entry.all ? " all" : ""} ${rendered.sql}`
         })
       ].join(" ")
       break

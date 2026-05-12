@@ -284,6 +284,25 @@ test("sqlite values and unnest sources execute as derived rows", async () => {
   ])
 })
 
+test("sqlite set operations execute as compound selects", async () => {
+  const result = await runSqlite(Effect.gen(function*() {
+    const executor = Executor.make()
+    const left = Q.select({
+      id: Q.cast(Q.literal(1), Q.type.int())
+    })
+    const right = Q.select({
+      id: Q.cast(Q.literal(2), Q.type.int())
+    })
+
+    return yield* executor.execute(Q.unionAll(left, right))
+  }))
+
+  expect(result).toEqual([
+    { id: 1 },
+    { id: 2 }
+  ])
+})
+
 test("sqlite JSON string scalars are stored as valid JSON text scalars", async () => {
   const docs = Table.make("json_string_docs", {
     id: C.text().pipe(C.primaryKey),
