@@ -215,9 +215,10 @@ const isJsonValue = (value: unknown): boolean => {
   }
   switch (typeof value) {
     case "string":
-    case "number":
     case "boolean":
       return true
+    case "number":
+      return Number.isFinite(value)
     case "object":
       if (Array.isArray(value)) {
         return value.every(isJsonValue)
