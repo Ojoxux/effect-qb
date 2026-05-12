@@ -218,6 +218,21 @@ describe("select sources behavior", () => {
     )
   })
 
+  test("rejects derived source projection alias collisions", () => {
+    const subquery = Postgres.Query.select({
+      "user__id": pgUsers.id,
+      user: {
+        id: pgUsers.email
+      }
+    }).pipe(
+      Postgres.Query.from(pgUsers)
+    )
+
+    expect(() => Postgres.Query.as(subquery, "u")).toThrow(
+      "Duplicate projection alias: user__id"
+    )
+  })
+
   test("renders scalar and quantified subqueries in mysql", () => {
     const postIds = Mysql.Query.select({
       value: mysqlPosts.id
