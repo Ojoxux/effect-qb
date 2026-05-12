@@ -1219,6 +1219,9 @@ export const renderQueryAst = (
       if (deleteAst.offset) {
         throw new Error("offset(...) is not supported for delete statements")
       }
+      if (deleteAst.lock) {
+        throw new Error("lock(...) is not supported for delete statements")
+      }
       const targetSource = deleteAst.target!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targets = deleteAst.targets ?? [targetSource]

@@ -316,6 +316,14 @@ describe("cross-cutting statement behavior", () => {
     expect(() => Postgres.Renderer.make().render(lockedUpdate)).toThrow(
       "lock(...) is not supported for update statements"
     )
+
+    const lockedDelete = Postgres.Query.delete(users).pipe(
+      Postgres.Query.lock("update")
+    )
+
+    expect(() => Postgres.Renderer.make().render(lockedDelete)).toThrow(
+      "lock(...) is not supported for delete statements"
+    )
   })
 
   test("rejects runtime returning projections on ddl statements", () => {
