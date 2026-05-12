@@ -791,6 +791,42 @@ const postgresPlan = Postgres.Query.select({
   Postgres.Query.from(postgresUsers)
 )
 
+const mysqlDerivedSource = Mysql.Query.as(mysqlPlan, "mysql_derived")
+const badPostgresFromMysqlDerived = Postgres.Query.select({
+  id: mysqlDerivedSource.id
+}).pipe(
+  // @ts-expect-error postgres queries cannot use mysql derived sources
+  Postgres.Query.from(mysqlDerivedSource)
+)
+void badPostgresFromMysqlDerived
+
+const postgresDerivedSource = Postgres.Query.as(postgresPlan, "postgres_derived")
+const badMysqlFromPostgresDerived = Mysql.Query.select({
+  id: postgresDerivedSource.id
+}).pipe(
+  // @ts-expect-error mysql queries cannot use postgres derived sources
+  Mysql.Query.from(postgresDerivedSource)
+)
+void badMysqlFromPostgresDerived
+
+const mysqlCteSource = mysqlPlan.pipe(Mysql.Query.with("mysql_cte"))
+const badPostgresFromMysqlCte = Postgres.Query.select({
+  id: mysqlCteSource.id
+}).pipe(
+  // @ts-expect-error postgres queries cannot use mysql cte sources
+  Postgres.Query.from(mysqlCteSource)
+)
+void badPostgresFromMysqlCte
+
+const postgresCteSource = postgresPlan.pipe(Postgres.Query.with("postgres_cte"))
+const badMysqlFromPostgresCte = Mysql.Query.select({
+  id: postgresCteSource.id
+}).pipe(
+  // @ts-expect-error mysql queries cannot use postgres cte sources
+  Mysql.Query.from(postgresCteSource)
+)
+void badMysqlFromPostgresCte
+
 const mysqlRendered = Mysql.Renderer.make().render(mysqlPlan)
 const postgresRendered = Postgres.Renderer.make().render(postgresPlan)
 const mysqlLiteralDialect: typeof mysqlLiteral[typeof Expression.TypeId]["dbType"]["dialect"] = "mysql"
