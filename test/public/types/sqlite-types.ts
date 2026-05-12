@@ -58,6 +58,18 @@ const userInsert = {
 } satisfies Q.MutationInputOf<Table.InsertOf<typeof users>>
 userInsert
 
+C.text().pipe(C.unique.options({ name: "users_email_key" }))
+
+C.text().pipe(C.unique.options({
+  // @ts-expect-error sqlite unique constraints do not support PostgreSQL NULLS NOT DISTINCT.
+  nullsNotDistinct: true
+}))
+
+C.text().pipe(C.unique.options({
+  // @ts-expect-error sqlite unique constraints do not support deferrable mode.
+  deferrable: true
+}))
+
 Q.insert(users, userInsert).pipe(
   Q.onConflict(["id"] as const, {
     update: {

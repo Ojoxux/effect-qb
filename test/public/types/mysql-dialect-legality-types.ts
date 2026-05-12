@@ -24,6 +24,18 @@ const restartIdentityTruncate = Q.truncate(users, {
   restartIdentity: true
 })
 
+C.text().pipe(C.unique.options({ name: "users_email_key" }))
+
+C.text().pipe(C.unique.options({
+  // @ts-expect-error MySQL unique constraints do not support PostgreSQL NULLS NOT DISTINCT.
+  nullsNotDistinct: true
+}))
+
+C.text().pipe(C.unique.options({
+  // @ts-expect-error MySQL unique constraints do not support deferrable mode.
+  deferrable: true
+}))
+
 const unsupportedCreateIndexOption = Q.createIndex(users, ["id", "email"] as const, {
   // @ts-expect-error MySQL CREATE INDEX does not support IF NOT EXISTS.
   ifNotExists: true

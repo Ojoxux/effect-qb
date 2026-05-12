@@ -1,7 +1,7 @@
 import * as Schema from "effect/Schema"
 
 import * as BaseColumn from "../internal/column.js"
-import { makeColumnDefinition, type ColumnDefinition } from "../internal/column-state.js"
+import { makeColumnDefinition, type AnyColumnDefinition, type ColumnDefinition } from "../internal/column-state.js"
 import type * as Expression from "../internal/scalar.js"
 import {
   DecimalStringSchema,
@@ -97,7 +97,23 @@ export const json = <SchemaType extends Schema.Schema.Any>(schema: SchemaType) =
 export const nullable = BaseColumn.nullable
 export const brand = BaseColumn.brand
 export const primaryKey = BaseColumn.primaryKey
-export const unique = BaseColumn.unique
+type UniqueColumn<Column extends AnyColumnDefinition> = ReturnType<typeof BaseColumn.unique<Column>>
+
+type MysqlUniqueOptions = {
+  readonly name?: string
+  readonly nullsNotDistinct?: never
+  readonly deferrable?: never
+  readonly initiallyDeferred?: never
+}
+
+type UniqueModifier = {
+  <Column extends AnyColumnDefinition>(column: Column): UniqueColumn<Column>
+  readonly options: <const Options extends MysqlUniqueOptions>(
+    options: Options
+  ) => <Column extends AnyColumnDefinition>(column: Column) => UniqueColumn<Column>
+}
+
+export const unique = BaseColumn.unique as UniqueModifier
 const default_ = BaseColumn.default_
 export const generated = BaseColumn.generated
 export const driverValueMapping = BaseColumn.driverValueMapping
