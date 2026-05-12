@@ -371,6 +371,34 @@ describe("select sources behavior", () => {
     )
   })
 
+  test("renders nested common table expressions once at the outer query", () => {
+    const postTitles = Postgres.Query.select({
+      userId: pgPosts.userId,
+      title: pgPosts.title
+    }).pipe(
+      Postgres.Query.from(pgPosts),
+      Postgres.Query.with("post_titles")
+    )
+    const activeTitles = Postgres.Query.select({
+      userId: postTitles.userId,
+      title: postTitles.title
+    }).pipe(
+      Postgres.Query.from(postTitles),
+      Postgres.Query.where(Postgres.Query.isNotNull(postTitles.title)),
+      Postgres.Query.with("active_titles")
+    )
+
+    const plan = Postgres.Query.select({
+      title: activeTitles.title
+    }).pipe(
+      Postgres.Query.from(activeTitles)
+    )
+
+    expect(renderPostgres(plan).sql).toBe(
+      'with "post_titles" as (select "posts"."userId" as "userId", "posts"."title" as "title" from "public"."posts"), "active_titles" as (select "post_titles"."userId" as "userId", "post_titles"."title" as "title" from "post_titles" where ("post_titles"."title" is not null)) select "active_titles"."title" as "title" from "active_titles"'
+    )
+  })
+
   test("rejects lateral joins before their required outer sources", () => {
     const lateralPosts = Postgres.Query.select({
       postId: pgPosts.id,
