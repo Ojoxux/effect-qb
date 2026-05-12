@@ -1143,6 +1143,23 @@ type SqliteUnsupportedJsonFeature<Feature extends string> = (
   feature: SqliteUnsupportedJsonFeatureUsageError<Feature>
 ) => never
 
+type JsonPathInputEndsWithIndex<Target extends JsonPathInput> =
+  Target extends JsonPath.IndexSegment<any> ? true :
+    Target extends JsonPath.Path<infer Segments extends readonly JsonPath.CanonicalSegment[]>
+      ? Segments extends readonly [...readonly JsonPath.CanonicalSegment[], JsonPath.IndexSegment<any>]
+        ? true
+        : false
+      : false
+
+type SqliteJsonInsertArrayIndexUsageError<Target> = Target & {
+  readonly __effect_qb_error__: "effect-qb: sqlite json.insert(...) does not support array index paths"
+}
+
+type SqliteJsonInsertTargetGuard<Target extends JsonPathInput> =
+  JsonPathInputEndsWithIndex<Target> extends true
+    ? SqliteJsonInsertArrayIndexUsageError<Target>
+    : unknown
+
 type JsonPathGuard<
   Root,
   Target extends JsonPathInput,
@@ -2765,7 +2782,7 @@ type BinaryPredicateExpression<
     InsertAfter extends boolean = false
   >(
     base: Base,
-    target: Target & JsonInsertGuard<Expression.RuntimeOf<Base>, Target, NoInfer<Next>, NoInfer<InsertAfter>, "json.insert">,
+    target: Target & SqliteJsonInsertTargetGuard<Target> & JsonInsertGuard<Expression.RuntimeOf<Base>, Target, NoInfer<Next>, NoInfer<InsertAfter>, "json.insert">,
     next: Next,
     options: {
       readonly insertAfter?: InsertAfter

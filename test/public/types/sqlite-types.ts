@@ -128,6 +128,12 @@ Q.ilike(users.email, "%@example.com")
 Q.inSubquery(users.id, ids)
 Json.json.get(users.payload, Json.json.key("tags"))
 Json.json.path(Json.json.key("tags"), Json.json.index(-1))
+Json.json.insert(users.payload, Json.json.key("source"), "imported")
+
+const tagsIndexPath = Json.json.path(Json.json.key("tags"), Json.json.index(0))
+
+// @ts-expect-error sqlite json.insert does not support array index paths
+Json.json.insert(users.payload, tagsIndexPath, "city")
 
 // @ts-expect-error sqlite JSON paths do not support wildcard segments
 Json.json.wildcard()
