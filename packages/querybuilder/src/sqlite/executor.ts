@@ -55,12 +55,55 @@ export interface QueryExecutor<Context = never> {
   ): Stream.Stream<CoreQuery.ResultRow<PlanValue>, SqliteQueryError<PlanValue>, Context>
 }
 
+type DriverExecute<Error, Context> = <Row>(
+  query: CoreRenderer.RenderedQuery<Row, "sqlite">
+) => Effect.Effect<ReadonlyArray<FlatRow>, Error, Context>
+
+type DriverHandlers<Error, Context> = {
+  readonly execute: DriverExecute<Error, Context>
+  readonly stream: <Row>(
+    query: CoreRenderer.RenderedQuery<Row, "sqlite">
+  ) => Stream.Stream<FlatRow, Error, Context>
+}
+
 /** Constructs a SQLite-specialized SQL driver. */
-export function driver(execute: any): Driver<any, any>
-export function driver(dialect: "sqlite", execute: any): Driver<any, any>
-export function driver(dialectOrExecute: "sqlite" | any, maybeExecute?: any): Driver<any, any> {
-  const execute = typeof dialectOrExecute === "string" ? maybeExecute : dialectOrExecute
-  return CoreExecutor.driver("sqlite", execute as any)
+export function driver<
+  Error = never,
+  Context = never
+>(
+  execute: DriverExecute<Error, Context>
+): Driver<Error, Context>
+export function driver<
+  Error = never,
+  Context = never
+>(
+  handlers: DriverHandlers<Error, Context>
+): Driver<Error, Context>
+export function driver<
+  Error = never,
+  Context = never
+>(
+  dialect: "sqlite",
+  execute: DriverExecute<Error, Context>
+): Driver<Error, Context>
+export function driver<
+  Error = never,
+  Context = never
+>(
+  dialect: "sqlite",
+  handlers: DriverHandlers<Error, Context>
+): Driver<Error, Context>
+export function driver<
+  Error = never,
+  Context = never
+>(
+  dialectOrExecute: "sqlite" | DriverExecute<Error, Context> | DriverHandlers<Error, Context>,
+  maybeExecute?: DriverExecute<Error, Context> | DriverHandlers<Error, Context>
+): Driver<Error, Context> {
+  const executeOrHandlers = typeof dialectOrExecute === "string" ? maybeExecute : dialectOrExecute
+  return typeof executeOrHandlers === "function"
+    ? CoreExecutor.driver("sqlite", executeOrHandlers)
+    : CoreExecutor.driver("sqlite", executeOrHandlers as DriverHandlers<Error, Context>)
 }
 
 const fromDriver = <

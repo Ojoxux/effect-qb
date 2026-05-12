@@ -1,8 +1,10 @@
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
+import * as Stream from "effect/Stream"
 
 import * as Mysql from "effect-qb/mysql"
 import * as Pg from "effect-qb/postgres"
+import * as Sqlite from "effect-qb/sqlite"
 
 type Assert<T extends true> = T
 type IsEqual<Left, Right> =
@@ -89,6 +91,44 @@ Pg.Executor.make({
     text: pgMapping
   },
   driver: Pg.Executor.driver(() => Effect.succeed([]))
+})
+
+Pg.Executor.driver({
+  execute: () => Effect.succeed([]),
+  stream: () => Stream.empty
+})
+
+Pg.Executor.driver("postgres", {
+  execute: () => Effect.succeed([]),
+  stream: () => Stream.empty
+})
+
+// @ts-expect-error postgres drivers must return an Effect from execute
+Pg.Executor.driver(() => [])
+
+Pg.Executor.driver({
+  execute: () => Effect.succeed([]),
+  // @ts-expect-error postgres driver stream handlers must return a Stream
+  stream: () => Effect.succeed([])
+})
+
+Sqlite.Executor.driver({
+  execute: () => Effect.succeed([]),
+  stream: () => Stream.empty
+})
+
+Sqlite.Executor.driver("sqlite", {
+  execute: () => Effect.succeed([]),
+  stream: () => Stream.empty
+})
+
+// @ts-expect-error sqlite drivers must return an Effect from execute
+Sqlite.Executor.driver(() => [])
+
+Sqlite.Executor.driver({
+  execute: () => Effect.succeed([]),
+  // @ts-expect-error sqlite driver stream handlers must return a Stream
+  stream: () => Effect.succeed([])
 })
 
 void pgId

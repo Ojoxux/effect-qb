@@ -55,12 +55,55 @@ export interface QueryExecutor<Context = never> {
   ): Stream.Stream<CoreQuery.ResultRow<PlanValue>, PostgresQueryError<PlanValue>, Context>
 }
 
+type DriverExecute<Error, Context> = <Row>(
+  query: CoreRenderer.RenderedQuery<Row, "postgres">
+) => Effect.Effect<ReadonlyArray<FlatRow>, Error, Context>
+
+type DriverHandlers<Error, Context> = {
+  readonly execute: DriverExecute<Error, Context>
+  readonly stream: <Row>(
+    query: CoreRenderer.RenderedQuery<Row, "postgres">
+  ) => Stream.Stream<FlatRow, Error, Context>
+}
+
 /** Constructs a Postgres-specialized SQL driver. */
-export function driver(execute: any): Driver<any, any>
-export function driver(dialect: "postgres", execute: any): Driver<any, any>
-export function driver(dialectOrExecute: "postgres" | any, maybeExecute?: any): Driver<any, any> {
-  const execute = typeof dialectOrExecute === "string" ? maybeExecute : dialectOrExecute
-  return CoreExecutor.driver("postgres", execute as any)
+export function driver<
+  Error = never,
+  Context = never
+>(
+  execute: DriverExecute<Error, Context>
+): Driver<Error, Context>
+export function driver<
+  Error = never,
+  Context = never
+>(
+  handlers: DriverHandlers<Error, Context>
+): Driver<Error, Context>
+export function driver<
+  Error = never,
+  Context = never
+>(
+  dialect: "postgres",
+  execute: DriverExecute<Error, Context>
+): Driver<Error, Context>
+export function driver<
+  Error = never,
+  Context = never
+>(
+  dialect: "postgres",
+  handlers: DriverHandlers<Error, Context>
+): Driver<Error, Context>
+export function driver<
+  Error = never,
+  Context = never
+>(
+  dialectOrExecute: "postgres" | DriverExecute<Error, Context> | DriverHandlers<Error, Context>,
+  maybeExecute?: DriverExecute<Error, Context> | DriverHandlers<Error, Context>
+): Driver<Error, Context> {
+  const executeOrHandlers = typeof dialectOrExecute === "string" ? maybeExecute : dialectOrExecute
+  return typeof executeOrHandlers === "function"
+    ? CoreExecutor.driver("postgres", executeOrHandlers)
+    : CoreExecutor.driver("postgres", executeOrHandlers as DriverHandlers<Error, Context>)
 }
 
 const fromDriver = <
