@@ -52,9 +52,6 @@ type ClassOptionSpec = Exclude<TableOptionSpec, { readonly kind: "primaryKey" }>
 interface TableOptionBuilderLike<
   Spec extends TableOptionSpec = TableOptionSpec
 > {
-  (
-    table: TableDefinition<any, any, any, "schema", any>
-  ): TableDefinition<any, any, any, "schema", any>
   readonly option: Spec
 }
 
@@ -98,6 +95,26 @@ type ApplyOption<
     "schema"
   >
 
+export type ValidateDeclaredOptions<
+  Table extends TableDefinition<any, any, any, "schema", any>,
+  Options extends DeclaredTableOptions
+> = {
+  readonly [K in keyof Options]: Options[K] extends TableOptionBuilderLike<infer Spec>
+    ? OptionInputTable<Table, Spec> extends never ? never : Options[K]
+    : never
+}
+
+export type ApplyDeclaredOptions<
+  Table extends TableDefinition<any, any, any, "schema", any>,
+  Options extends DeclaredTableOptions
+> = Options extends readonly [infer Head, ...infer Tail]
+  ? Head extends TableOptionBuilderLike<infer Spec>
+    ? Tail extends DeclaredTableOptions
+      ? ApplyDeclaredOptions<ApplyOption<Table, Spec>, Tail>
+      : ApplyOption<Table, Spec>
+    : Table
+  : Table
+
 export type MissingSelfGeneric = "Missing `Self` generic - use `class Self extends Table.Class<Self>(...) {}`"
 
 /** Bound columns keyed by field name for a particular table. */
@@ -140,12 +157,13 @@ export interface TableSchemaNamespace<SchemaName extends string> {
   readonly table: <
     Name extends string,
     Fields extends TableFieldMap,
+    const Options extends DeclaredTableOptions,
     PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>
   >(
     name: Name,
     fields: Fields,
-    ...options: DeclaredTableOptions
-  ) => TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>
+    ...options: Options & ValidateDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
+  ) => ApplyDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
 }
 
 export type DeclaredTableOptions = readonly TableOptionBuilderLike[]
@@ -357,7 +375,10 @@ const applyDeclaredOptions = <
     return table
   }
   return declaredOptions.reduce<TableDefinition<any, any, any, "schema", any>>(
-    (current, option) => option(current),
+    (current, option) =>
+      (option as unknown as (
+        table: TableDefinition<any, any, any, "schema", any>
+      ) => TableDefinition<any, any, any, "schema", any>)(current),
     table
   ) as unknown as Table
 }
@@ -507,17 +528,17 @@ export function make<
  */
 export const schema = <SchemaName extends string>(
   schemaName: SchemaName
-): TableSchemaNamespace<SchemaName> => ({
-  schemaName,
-  table: <
+): TableSchemaNamespace<SchemaName> => {
+  const table = <
     Name extends string,
     Fields extends TableFieldMap,
+    const Options extends DeclaredTableOptions,
     PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>
   >(
     name: Name,
     fields: Fields,
-    ...options: DeclaredTableOptions
-  ): TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName> =>
+    ...options: Options & ValidateDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
+  ): ApplyDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options> =>
     applyDeclaredOptions(
       makeTable(
         name,
@@ -528,9 +549,13 @@ export const schema = <SchemaName extends string>(
         schemaName,
         "explicit"
       ) as TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>,
-      options
-    )
-})
+      options as unknown as Options
+    ) as ApplyDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
+  return {
+    schemaName,
+    table
+  } as unknown as TableSchemaNamespace<SchemaName>
+}
 
 /**
  * Creates an aliased source from an existing table definition.

@@ -26,14 +26,20 @@ const events = analytics.table("events", {
 })
 const schemaTablePrimaryKey = analytics.table("schema_table_primary_key", {
   id: C.uuid(),
-  slug: C.text()
+  slug: C.text(),
+  name: C.text()
 }, Table.primaryKey(["id", "slug"] as const))
+type SchemaTablePrimaryKeyUpdate = Schema.Schema.Type<typeof schemaTablePrimaryKey.schemas.update>
+const schemaTablePrimaryKeyUpdate: SchemaTablePrimaryKeyUpdate = { name: "updated" }
+// @ts-expect-error schema table primary key options should update the derived update schema
+const badSchemaTablePrimaryKeyUpdate: SchemaTablePrimaryKeyUpdate = { id: "not-allowed" }
 void schemaTablePrimaryKey
+void schemaTablePrimaryKeyUpdate
+void badSchemaTablePrimaryKeyUpdate
 
+const badSchemaTableIndexOption = Table.index("missing")
 // @ts-expect-error schema-scoped table option columns must exist on the declared table
-const badSchemaTableOptionColumn = analytics.table("bad_schema_table_option_column", {
-  id: C.uuid()
-}, Table.index("missing"))
+const badSchemaTableOptionColumn = analytics.table("bad_schema_table_option_column", { id: C.uuid() }, badSchemaTableIndexOption)
 void badSchemaTableOptionColumn
 
 const schemaTableNullablePrimaryKeyOption = Table.primaryKey("slug")
@@ -569,6 +575,24 @@ const mysqlOrgs = Mysql.Table.make("mysql_orgs", {
   id: Mysql.Column.uuid(),
   name: Mysql.Column.text()
 })
+const mysqlSchema = Mysql.Table.schema("tenant")
+const mysqlSchemaTablePrimaryKey = mysqlSchema.table("mysql_schema_table_primary_key", {
+  id: Mysql.Column.uuid(),
+  slug: Mysql.Column.text(),
+  name: Mysql.Column.text()
+}, Mysql.Table.primaryKey(["id", "slug"] as const))
+type MysqlSchemaTablePrimaryKeyUpdate = Schema.Schema.Type<typeof mysqlSchemaTablePrimaryKey.schemas.update>
+const mysqlSchemaTablePrimaryKeyUpdate: MysqlSchemaTablePrimaryKeyUpdate = { name: "updated" }
+// @ts-expect-error mysql schema table primary key options should update the derived update schema
+const badMysqlSchemaTablePrimaryKeyUpdate: MysqlSchemaTablePrimaryKeyUpdate = { id: "not-allowed" }
+void mysqlSchemaTablePrimaryKey
+void mysqlSchemaTablePrimaryKeyUpdate
+void badMysqlSchemaTablePrimaryKeyUpdate
+
+const badMysqlSchemaTableIndexOption = Mysql.Table.index("missing")
+// @ts-expect-error mysql schema-scoped table option columns must exist on the declared table
+const badMysqlSchemaTableOptionColumn = mysqlSchema.table("bad_mysql_schema_table_option_column", { id: Mysql.Column.uuid() }, badMysqlSchemaTableIndexOption)
+void badMysqlSchemaTableOptionColumn
 
 // @ts-expect-error mysql foreign key local columns must exist on the source table
 const badMysqlForeignKeyLocalColumn = Mysql.Table.foreignKey("missing", () => mysqlOrgs, "id")(Mysql.Table.make("bad_mysql_fk_local_column", {
