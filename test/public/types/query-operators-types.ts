@@ -44,6 +44,9 @@ Postgres.Query.distinctOn()
 // @ts-expect-error groupBy(...) requires at least one expression
 Q.groupBy()
 
+// @ts-expect-error orderBy(...) direction must be asc or desc
+Q.orderBy(users.email, "sideways")
+
 const predicateHelpersPlan = Q.select({
   distinctEmail: Q.isDistinctFrom(users.email, "alice@example.com"),
   sameEmail: Q.isNotDistinctFrom(users.email, "alice@example.com"),

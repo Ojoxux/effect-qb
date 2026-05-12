@@ -296,6 +296,9 @@ export const makeDslPlanRuntime = (ctx: DslPlanRuntimeContext) => {
 
   const orderBy = (value: any, direction: "asc" | "desc" = "asc") =>
     (plan: any) => {
+      if (direction !== "asc" && direction !== "desc") {
+        throw new Error("orderBy(...) direction must be asc or desc")
+      }
       const current = plan[Plan.TypeId]
       const currentAst = ctx.getAst(plan)
       const currentQuery = ctx.getQueryState(plan)

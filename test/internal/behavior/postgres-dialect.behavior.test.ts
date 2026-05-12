@@ -424,6 +424,17 @@ describe("postgres dialect behavior", () => {
     expect(rendered.params).toEqual(["%@example.com", 5, 10])
   })
 
+  test("rejects invalid postgres order directions before rendering SQL", () => {
+    const { users } = makePostgresSocialGraph()
+
+    expect(() => Postgres.Query.select({
+      id: users.id
+    }).pipe(
+      Postgres.Query.from(users),
+      Postgres.Query.orderBy(users.email, unsafeAny("sideways"))
+    )).toThrow("orderBy(...) direction must be asc or desc")
+  })
+
   test("rejects NaN postgres limit values", () => {
     const { users } = makePostgresSocialGraph()
 
