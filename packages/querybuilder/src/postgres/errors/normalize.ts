@@ -44,8 +44,8 @@ const asNumber = (value: unknown): number | undefined => {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value
   }
-  if (typeof value === "string" && value.trim() !== "") {
-    const parsed = Number(value)
+  if (typeof value === "string" && /^[+-]?\d+$/.test(value.trim())) {
+    const parsed = Number(value.trim())
     return Number.isFinite(parsed) ? parsed : undefined
   }
   return undefined
