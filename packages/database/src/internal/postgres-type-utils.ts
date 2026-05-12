@@ -68,6 +68,19 @@ const parseQualifiedTypeName = (
     : undefined
 }
 
+const parseTypeKindName = (value: string): string | undefined => {
+  const first = parseIdentifierPart(value, 0)
+  if (first !== undefined && value[first.next] === ".") {
+    const second = parseIdentifierPart(value, first.next + 1)
+    return second !== undefined && second.next === value.length
+      ? canonicalBaseType(second.quoted ? second.value : second.value.toLowerCase())
+      : undefined
+  }
+  return first !== undefined && first.next === value.length
+    ? canonicalBaseType(first.quoted ? first.value : first.value.toLowerCase())
+    : undefined
+}
+
 const canonicalBaseType = (value: string): string => {
   switch (value) {
     case "boolean":
@@ -135,15 +148,21 @@ export const canonicalizePostgresTypeName = (value: string): string => {
 }
 
 export const inferPostgresTypeKind = (ddlType: string): string => {
-  const normalized = normalize(ddlType)
-  if (normalized.endsWith("[]")) {
-    return `${inferPostgresTypeKind(normalized.slice(0, -2))}[]`
+  const trimmed = ddlType.trim()
+  if (trimmed.endsWith("[]")) {
+    return `${inferPostgresTypeKind(trimmed.slice(0, -2))}[]`
   }
+  const normalized = normalize(trimmed)
   const arrayPrefix = /^_+/.exec(normalized)
   if (arrayPrefix !== null) {
     const depth = arrayPrefix[0].length
     const base = stripOuterQuotes(normalized.slice(depth))
     return `${canonicalBaseType(base)}${"[]".repeat(depth)}`
+  }
+  const rawBase = trimmed.replace(/\(.+\)$/, "")
+  const parsedKind = parseTypeKindName(rawBase)
+  if (parsedKind !== undefined) {
+    return parsedKind
   }
   const base = stripOuterQuotes(normalized.replace(/\(.+\)$/, ""))
   return canonicalBaseType(base)
