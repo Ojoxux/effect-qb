@@ -34,6 +34,14 @@ const returningMutation = Q.insert(users, {
   })
 )
 
+// @ts-expect-error MySQL does not support MERGE syntax.
+const mergePlan = Q.merge(users, posts, Q.eq(users.id, posts.userId), {
+  whenMatched: {
+    delete: true
+  }
+})
+
 void fullJoinPlan
 void restartIdentityTruncate
 void returningMutation
+void mergePlan
