@@ -392,6 +392,23 @@ const badReferenceType = Table.make("bad_reference", {
   userId: C.int().pipe(C.references(() => orgs.id))
 })
 
+// @ts-expect-error table indexes require at least one column
+const emptyIndex = Table.index([] as const)
+
+// @ts-expect-error table unique constraints require at least one column
+const emptyUnique = Table.unique([] as const)
+
+// @ts-expect-error table primary keys require at least one column
+const emptyTablePrimaryKey = Table.primaryKey([] as const)
+
+// @ts-expect-error table foreign keys require at least one local column
+const emptyForeignKey = Table.foreignKey([] as const, () => orgs, ["id"] as const)
+
+void emptyIndex
+void emptyUnique
+void emptyTablePrimaryKey
+void emptyForeignKey
+
 // @ts-expect-error unknown columns are rejected for indexes
 const badIndex = Table.index(["missing"])(Table.make("bad_index", {
   id: C.uuid()
