@@ -304,6 +304,19 @@ const collatedGroupedPlan = Q.select({
 const completeCollatedGroupedPlan: Q.CompletePlan<typeof collatedGroupedPlan> = collatedGroupedPlan
 void completeCollatedGroupedPlan
 
+const invalidCollatedGroupedPlan = Q.select({
+  collatedEmail: Q.collate(users.email, "C"),
+  userCount: F.count(users.id)
+}).pipe(
+  Q.from(users),
+  Q.groupBy(users.email)
+)
+
+type InvalidCollatedGroupedPlan = Q.CompletePlan<typeof invalidCollatedGroupedPlan>
+const invalidCollatedGroupedError: BrandedErrorOf<InvalidCollatedGroupedPlan> =
+  "effect-qb: invalid grouped selection"
+void invalidCollatedGroupedError
+
 const invalidDottedGroupedPlan = Q.select({
   splitStatus: splitGroupingTable["b.status"],
   statusCount: F.count(dottedGroupingTable.status)
