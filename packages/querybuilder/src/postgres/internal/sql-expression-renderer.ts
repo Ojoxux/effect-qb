@@ -7,6 +7,7 @@ import * as QueryAst from "../../internal/query-ast.js"
 import type { RenderState, RenderValueContext, SqlDialect } from "../../internal/dialect.js"
 import * as ExpressionAst from "../../internal/expression-ast.js"
 import * as JsonPath from "../../internal/json/path.js"
+import { renderTransactionIsolationLevel } from "../../internal/dsl-transaction-ddl-runtime.js"
 import {
   renderJsonSelectSql,
   renderSelectSql,
@@ -879,8 +880,9 @@ const renderTransactionClause = (
   switch (clause.kind) {
     case "transaction": {
       const modes: string[] = []
-      if (clause.isolationLevel) {
-        modes.push(`isolation level ${clause.isolationLevel}`)
+      const isolationLevel = renderTransactionIsolationLevel(clause.isolationLevel)
+      if (isolationLevel) {
+        modes.push(isolationLevel)
       }
       if (clause.readOnly === true) {
         modes.push("read only")

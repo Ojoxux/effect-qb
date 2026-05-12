@@ -11,15 +11,23 @@ type DslTransactionDdlRuntimeContext = {
   readonly defaultIndexName: (tableName: string, columns: readonly string[], unique: boolean) => string
 }
 
-export const makeDslTransactionDdlRuntime = (ctx: DslTransactionDdlRuntimeContext) => {
-  const allowedIsolationLevels = new Set(["read committed", "repeatable read", "serializable"])
+const allowedIsolationLevels = new Set(["read committed", "repeatable read", "serializable"])
 
-  const validateIsolationLevel = (isolationLevel: unknown): void => {
-    if (isolationLevel !== undefined && !allowedIsolationLevels.has(String(isolationLevel))) {
-      throw new Error("Unsupported transaction isolation level")
-    }
+export const renderTransactionIsolationLevel = (isolationLevel: unknown): string => {
+  if (isolationLevel === undefined) {
+    return ""
   }
+  if (typeof isolationLevel !== "string" || !allowedIsolationLevels.has(isolationLevel)) {
+    throw new Error("Unsupported transaction isolation level")
+  }
+  return `isolation level ${isolationLevel}`
+}
 
+const validateIsolationLevel = (isolationLevel: unknown): void => {
+  renderTransactionIsolationLevel(isolationLevel)
+}
+
+export const makeDslTransactionDdlRuntime = (ctx: DslTransactionDdlRuntimeContext) => {
   const validateIndexColumns = (target: any, columns: readonly string[]): void => {
     const fields = target[Table.TypeId]?.fields as Record<string, unknown> | undefined
     if (fields === undefined) {

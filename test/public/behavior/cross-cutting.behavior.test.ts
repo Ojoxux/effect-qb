@@ -114,6 +114,26 @@ describe("cross-cutting statement behavior", () => {
     ).toThrow()
   })
 
+  test("rejects invalid rendered transaction isolation levels", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+
+    const postgresPlan = Postgres.Query.transaction({
+      isolationLevel: "serializable"
+    })
+    ;(postgresPlan as any)[queryAst].transaction.isolationLevel = "serializable; drop table users"
+    expect(() =>
+      Postgres.Renderer.make().render(postgresPlan)
+    ).toThrow("Unsupported transaction isolation level")
+
+    const mysqlPlan = Mysql.Query.transaction({
+      isolationLevel: "serializable"
+    })
+    ;(mysqlPlan as any)[queryAst].transaction.isolationLevel = "serializable; drop table users"
+    expect(() =>
+      Mysql.Renderer.make().render(mysqlPlan)
+    ).toThrow("Unsupported transaction isolation level")
+  })
+
   test("rejects postgres merge statements without actions", () => {
     const users = Postgres.Table.make("users", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
