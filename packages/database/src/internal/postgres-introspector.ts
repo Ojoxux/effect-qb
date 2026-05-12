@@ -178,6 +178,12 @@ const qualifiedName = (
     ? objectName
     : `${schemaName}.${objectName}`
 
+const schemaObjectKey = (
+  schemaName: string | undefined,
+  name: string
+): string =>
+  JSON.stringify([schemaName ?? "public", name])
+
 const makeColumnModel = (row: ColumnRow): ColumnModel => ({
   name: row.column_name,
   ddlType: canonicalizePostgresTypeName(row.ddl_type),
@@ -389,7 +395,7 @@ export const introspectPostgresSchema = (
       const attnumByTable = new Map<string, Map<number, string>>()
       const attcollationByTable = new Map<string, Map<number, number>>()
       for (const column of columns) {
-        const key = `${column.schema_name}.${column.table_name}`
+        const key = schemaObjectKey(column.schema_name, column.table_name)
         const list = columnsByTable.get(key) ?? []
         list.push(makeColumnModel(column))
         columnsByTable.set(key, list)
@@ -403,7 +409,7 @@ export const introspectPostgresSchema = (
 
       const optionsByTable = new Map<string, TableOptionSpec[]>()
       for (const constraint of constraints) {
-        const key = `${constraint.schema_name}.${constraint.table_name}`
+        const key = schemaObjectKey(constraint.schema_name, constraint.table_name)
         const list = optionsByTable.get(key) ?? []
         const attnums = attnumByTable.get(key) ?? new Map<number, string>()
         const localColumns = (constraint.local_attnums ?? []).map((attnum) => attnums.get(attnum)).filter((value): value is string => value !== undefined)
@@ -428,7 +434,10 @@ export const introspectPostgresSchema = (
             })
             break
           case "f": {
-            const referencedKey = `${constraint.referenced_schema_name ?? "public"}.${constraint.referenced_table_name ?? ""}`
+            const referencedKey = schemaObjectKey(
+              constraint.referenced_schema_name ?? undefined,
+              constraint.referenced_table_name ?? ""
+            )
             const referencedAttnums = attnumByTable.get(referencedKey) ?? new Map<number, string>()
             const referencedColumns = (constraint.referenced_attnums ?? [])
               .map((attnum) => referencedAttnums.get(attnum))
@@ -472,7 +481,7 @@ export const introspectPostgresSchema = (
       }
 
       for (const index of indexes) {
-        const key = `${index.schema_name}.${index.table_name}`
+        const key = schemaObjectKey(index.schema_name, index.table_name)
         const list = optionsByTable.get(key) ?? []
         const attnums = attnumByTable.get(key) ?? new Map<number, string>()
         const attcollations = attcollationByTable.get(key) ?? new Map<number, number>()
@@ -503,7 +512,7 @@ export const introspectPostgresSchema = (
           if (attnum > 0) {
             const columnName = attnums.get(attnum)
             if (columnName === undefined) {
-              throw new Error(`Unknown index column attnum '${attnum}' on ${key}`)
+              throw new Error(`Unknown index column attnum '${attnum}' on ${index.schema_name}.${index.table_name}`)
             }
             const columnCollation = attcollations.get(attnum) ?? defaultCollationOid
             if (!isSimpleIndexColumnReference(parsed.expressionSql, columnName)) {
@@ -547,7 +556,7 @@ export const introspectPostgresSchema = (
 
       const enumMap = new Map<string, EnumModel>()
       for (const enumRow of enums) {
-        const key = `${enumRow.schema_name}.${enumRow.type_name}`
+        const key = schemaObjectKey(enumRow.schema_name, enumRow.type_name)
         const existing = enumMap.get(key)
         if (existing) {
           enumMap.set(key, {
@@ -565,7 +574,7 @@ export const introspectPostgresSchema = (
       }
 
       const tableModels: TableModel[] = tables.map((table) => {
-        const key = `${table.schema_name}.${table.table_name}`
+        const key = schemaObjectKey(table.schema_name, table.table_name)
         return {
           kind: "table",
           schemaName: table.schema_name,
