@@ -314,6 +314,41 @@ describe("executor behavior", () => {
     })
   })
 
+  test("fromDriver rejects impossible local-date values", () => {
+    const events = Table.make("events", {
+      happenedOn: C.date()
+    })
+
+    const plan = Q.select({
+      happenedOn: events.happenedOn
+    }).pipe(
+      Q.from(events)
+    )
+
+    const result = Effect.runSync(Effect.either(Executor.make({
+      driver: Executor.driver("postgres", () => Effect.succeed([
+        {
+          happenedOn: "2026-02-31"
+        }
+      ]))
+    }).execute(plan)))
+
+    expect(result).toMatchObject({
+      _tag: "Left",
+      left: {
+        _tag: "RowDecodeError",
+        stage: "normalize",
+        projection: {
+          alias: "happenedOn"
+        },
+        dbType: {
+          dialect: "postgres",
+          kind: "date"
+        }
+      }
+    })
+  })
+
   test("fromDriver normalizes canonical scalar outputs across raw driver variants", () => {
     const metrics = Table.make("metrics", {
       id: C.uuid().pipe(C.primaryKey),
