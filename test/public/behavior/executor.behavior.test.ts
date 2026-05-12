@@ -129,6 +129,42 @@ describe("executor behavior", () => {
     })
   })
 
+  test("fromDriver rejects nested rows missing required projected aliases", () => {
+    const users = Table.make("users", {
+      id: C.uuid().pipe(C.primaryKey),
+      email: C.text()
+    })
+    const plan = Q.select({
+      profile: {
+        id: users.id,
+        email: users.email
+      }
+    }).pipe(
+      Q.from(users)
+    )
+
+    const executor = Executor.make({
+      driver: Executor.driver("postgres", () => Effect.succeed([
+        {
+          profile__id: userId
+        }
+      ]))
+    })
+
+    const result = Effect.runSync(Effect.either(executor.execute(plan)))
+
+    expect(result).toMatchObject({
+      _tag: "Left",
+      left: {
+        _tag: "RowDecodeError",
+        stage: "schema",
+        projection: {
+          alias: "profile__email"
+        }
+      }
+    })
+  })
+
   test("explicit projection aliases still decode into the original result paths", () => {
     const users = Table.make("users", {
       id: C.uuid().pipe(C.primaryKey),
