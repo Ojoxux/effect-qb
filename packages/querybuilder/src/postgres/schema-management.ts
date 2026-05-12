@@ -33,6 +33,24 @@ type EnumColumn<
   undefined
 >
 
+const safeUnquotedIdentifier = /^[a-z_][a-z0-9_$]*$/
+
+const quoteIdentifier = (value: string): string =>
+  `"${value.replaceAll("\"", "\"\"")}"`
+
+const renderIdentifier = (value: string): string =>
+  safeUnquotedIdentifier.test(value)
+    ? value
+    : quoteIdentifier(value)
+
+const renderQualifiedTypeName = (
+  name: string,
+  schemaName: string | undefined
+): string =>
+  schemaName === undefined || schemaName === "public"
+    ? renderIdentifier(name)
+    : `${renderIdentifier(schemaName)}.${renderIdentifier(name)}`
+
 const EnumProto = {
   pipe(this: unknown) {
     return pipeArguments(this, arguments)
@@ -45,7 +63,7 @@ const EnumProto = {
   type(this: EnumDefinition) {
     return {
       dialect: "postgres",
-      kind: this.qualifiedName(),
+      kind: renderQualifiedTypeName(this.name, this.schemaName),
       variant: "enum"
     }
   },
@@ -61,7 +79,7 @@ const EnumProto = {
         primaryKey: false,
         unique: false,
         references: undefined,
-        ddlType: this.qualifiedName(),
+        ddlType: renderQualifiedTypeName(this.name, this.schemaName),
         identity: undefined,
         enum: {
           name: this.name,
