@@ -1121,6 +1121,9 @@ type JsonInsertOutputOf<
     ? JsonInsertAtPath<Root, JsonPath.Path<[Target]>, Next, InsertAfter, Operation>
     : never
 
+type MySqlJsonLengthResult<Value> =
+  JsonLengthResult<Value> extends null ? number : JsonLengthResult<Value>
+
 type JsonPathGuard<
   Root,
   Target extends JsonPathInput,
@@ -2980,9 +2983,9 @@ type BinaryPredicateExpression<
   ) => buildJsonNodeExpression(
     [base],
     {
-      runtime: undefined as unknown as JsonLengthResult<Expression.RuntimeOf<Base>>,
+      runtime: undefined as unknown as MySqlJsonLengthResult<Expression.RuntimeOf<Base>>,
       dbType: profile.numericDb as NumericDb,
-      nullability: undefined as unknown as JsonNullabilityOf<JsonLengthResult<Expression.RuntimeOf<Base>>>
+      nullability: undefined as unknown as JsonNullabilityOf<MySqlJsonLengthResult<Expression.RuntimeOf<Base>>>
     },
     {
       kind: "jsonLength",
