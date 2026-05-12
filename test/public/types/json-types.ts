@@ -3,6 +3,15 @@ import * as Schema from "effect/Schema"
 import { Column as C, Scalar as E, Function as F, Json as J, Query as Q, Table } from "effect-qb/postgres"
 import type { BrandedErrorOf } from "../../helpers/branded-error.ts"
 
+type IsAny<Value> = 0 extends (1 & Value) ? true : false
+type IsEqual<Left, Right> = (
+  <Value>() => Value extends Left ? 1 : 2
+) extends (
+  <Value>() => Value extends Right ? 1 : 2
+) ? true : false
+type Expect<T extends true> = T
+type IsExact<Actual, Expected> = IsAny<Actual> extends true ? false : IsEqual<Actual, Expected>
+
 const payloadSchema = Schema.Struct({
   profile: Schema.Struct({
     address: Schema.Struct({
@@ -121,6 +130,8 @@ const cityExpr = J.json.get(docs.payload, cityPath)
 const cityTextExpr = J.json.text(docs.payload, cityPath)
 const metricCountTextExpr = J.json.text(metricDocs.payload, J.json.key("count"))
 const metricActiveTextExpr = J.json.text(metricDocs.payload, J.json.key("active"))
+const curriedCityExpr = docs.payload.pipe(J.json.get(cityPath))
+const curriedMetricCountTextExpr = metricDocs.payload.pipe(J.json.text(J.json.key("count")))
 const typeNameExpr = J.json.typeOf(docs.payload)
 const lengthExpr = J.json.length(docs.payload)
 const keysExpr = J.json.keys(docs.payload)
@@ -264,6 +275,8 @@ type City = E.RuntimeOf<typeof cityExpr>
 type CityText = E.RuntimeOf<typeof cityTextExpr>
 type MetricCountText = E.RuntimeOf<typeof metricCountTextExpr>
 type MetricActiveText = E.RuntimeOf<typeof metricActiveTextExpr>
+type CurriedCity = E.RuntimeOf<typeof curriedCityExpr>
+type CurriedMetricCountText = E.RuntimeOf<typeof curriedMetricCountTextExpr>
 type JsonTypeName = E.RuntimeOf<typeof typeNameExpr>
 type JsonLength = E.RuntimeOf<typeof lengthExpr>
 type JsonKeys = E.RuntimeOf<typeof keysExpr>
@@ -299,6 +312,8 @@ type Option2Or3KindSelectedViaOrRow = Q.ResultRow<typeof option2Or3KindSelectedV
 type NestedChild2PayloadRow = Q.ResultRow<typeof nestedChild2Payload>
 type DottedFlatPayloadRow = Q.ResultRow<typeof dottedFlatPayload>
 type GroupedCityTextRow = Q.ResultRow<typeof groupedCityText>
+type CurriedCityIsExact = Expect<IsExact<CurriedCity, string>>
+type CurriedMetricCountTextIsExact = Expect<IsExact<CurriedMetricCountText, `${number}`>>
 
 const city: City = "Paris"
 const cityText: CityText = "Paris"
@@ -447,6 +462,8 @@ void jsonbInsertExpr
 void jsonbDeleteExpr
 void jsonbFirstTagExpr
 void jsonbStrippedSetExpr
+void (undefined as unknown as CurriedCityIsExact)
+void (undefined as unknown as CurriedMetricCountTextIsExact)
 
 // @ts-expect-error wildcard paths require the jsonb helper surface
 J.json.path(J.json.key("profile"), J.jsonb.wildcard())
