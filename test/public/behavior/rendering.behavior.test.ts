@@ -72,6 +72,12 @@ describe("rendering behavior", () => {
     ])
   })
 
+  test("rejects invalid Date literals before rendering params", () => {
+    expect(() => Renderer.make().render(Q.select({
+      value: Q.literal(new Date("not a date"))
+    }))).toThrow()
+  })
+
   test("rejects incomplete plans that still require sources", () => {
     const users = Table.make("users", {
       id: C.uuid().pipe(C.primaryKey),
