@@ -157,11 +157,55 @@ const renderDropIndexSql = (
 const isExpression = (value: unknown): value is Expression.Any =>
   value !== null && typeof value === "object" && Expression.TypeId in value
 
-const isJsonDbType = (dbType: Expression.DbType.Any): boolean =>
-  dbType.kind === "jsonb" || dbType.kind === "json" || ("variant" in dbType && dbType.variant === "json")
+const isJsonDbType = (dbType: Expression.DbType.Any): boolean => {
+  if (dbType.kind === "jsonb" || dbType.kind === "json") {
+    return true
+  }
+  if (!("variant" in dbType)) {
+    return false
+  }
+  const variant = dbType.variant as string
+  return variant === "json" || variant === "jsonb"
+}
 
 const isJsonExpression = (value: unknown): value is Expression.Any =>
   isExpression(value) && isJsonDbType(value[Expression.TypeId].dbType)
+
+const postgresRangeSubtypeByKind: Readonly<Record<string, string>> = {
+  int4range: "int4",
+  int8range: "int8",
+  numrange: "numeric",
+  tsrange: "timestamp",
+  tstzrange: "timestamptz",
+  daterange: "date",
+  int4multirange: "int4",
+  int8multirange: "int8",
+  nummultirange: "numeric",
+  tsmultirange: "timestamp",
+  tstzmultirange: "timestamptz",
+  datemultirange: "date"
+}
+
+const postgresRangeSubtypeKey = (dbType: Expression.DbType.Any): string | undefined => {
+  if ("base" in dbType) {
+    return postgresRangeSubtypeKey(dbType.base)
+  }
+  if ("subtype" in dbType) {
+    return postgresRangeSubtypeKey(dbType.subtype) ?? dbType.subtype.kind
+  }
+  return postgresRangeSubtypeByKind[dbType.kind]
+}
+
+const assertCompatiblePostgresRangeOperands = (
+  left: Expression.Any,
+  right: Expression.Any
+): void => {
+  const leftKey = postgresRangeSubtypeKey(left[Expression.TypeId].dbType)
+  const rightKey = postgresRangeSubtypeKey(right[Expression.TypeId].dbType)
+  if (leftKey !== undefined && rightKey !== undefined && leftKey !== rightKey) {
+    throw new Error("Incompatible postgres range operands")
+  }
+}
 
 const unsupportedJsonFeature = (
   dialect: SqlDialect,
@@ -824,6 +868,9 @@ const renderSelectionList = (
     validateAggregationSelection(selection as SelectionValue, [])
   }
   const flattened = flattenSelection(selection)
+  if (dialect.name === "mysql" && flattened.length === 0) {
+    throw new Error("mysql select statements require at least one selected expression")
+  }
   const projections = selectionProjections(selection)
   const sql = flattened.map(({ expression, alias }) =>
     `${renderSelectSql(renderExpression(expression, state, dialect), expressionDriverContext(expression, state, dialect))} as ${dialect.quoteIdentifier(alias)}`).join(", ")
@@ -916,10 +963,11 @@ export const renderQueryAst = (
       validateAggregationSelection(ast.select as SelectionValue, ast.groupBy)
       const rendered = renderSelectionList(ast.select as Record<string, unknown>, state, dialect, false)
       projections = rendered.projections
+      const selectList = rendered.sql.length > 0 ? ` ${rendered.sql}` : ""
       const clauses = [
         ast.distinctOn && ast.distinctOn.length > 0
-          ? `select distinct on (${ast.distinctOn.map((value) => renderExpression(value, state, dialect)).join(", ")}) ${rendered.sql}`
-          : `select${ast.distinct ? " distinct" : ""} ${rendered.sql}`
+          ? `select distinct on (${ast.distinctOn.map((value) => renderExpression(value, state, dialect)).join(", ")})${selectList}`
+          : `select${ast.distinct ? " distinct" : ""}${selectList}`
       ]
       if (ast.from) {
         clauses.push(`from ${renderSourceReference(ast.from.source, ast.from.tableName, ast.from.baseTableName, state, dialect)}`)
@@ -951,6 +999,9 @@ export const renderQueryAst = (
         clauses.push(`offset ${renderExpression(ast.offset, state, dialect)}`)
       }
       if (ast.lock) {
+        if (ast.lock.nowait && ast.lock.skipLocked) {
+          throw new Error("lock(...) cannot specify both nowait and skipLocked")
+        }
         clauses.push(
           `${ast.lock.mode === "update" ? "for update" : "for share"}${ast.lock.nowait ? " nowait" : ""}${ast.lock.skipLocked ? " skip locked" : ""}`
         )
@@ -1052,6 +1103,9 @@ export const renderQueryAst = (
         }
       }
       if (insertAst.conflict) {
+        if (insertAst.conflict.action === "doNothing" && insertAst.conflict.where) {
+          throw new Error("conflict action predicates require update assignments")
+        }
         const updateValues = (insertAst.conflict.values ?? []).map((entry) =>
           `${dialect.quoteIdentifier(entry.columnName)} = ${renderExpression(entry.value, state, dialect)}`
         ).join(", ")
@@ -1100,6 +1154,9 @@ export const renderQueryAst = (
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targets = updateAst.targets ?? [targetSource]
       const fromSources = updateAst.fromSources ?? []
+      if ((updateAst.set ?? []).length === 0) {
+        throw new Error("update statements require at least one assignment")
+      }
       const assignments = updateAst.set!.map((entry) =>
         renderMutationAssignment(entry, state, dialect)).join(", ")
       if (dialect.name === "mysql") {
@@ -1230,6 +1287,9 @@ export const renderQueryAst = (
       if (Object.keys(mergeAst.select as Record<string, unknown>).length > 0) {
         throw new Error("returning(...) is not supported for merge statements")
       }
+      if (!merge.whenMatched && !merge.whenNotMatched) {
+        throw new Error("merge statements require at least one action")
+      }
       sql = `merge into ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} using ${renderSourceReference(usingSource.source, usingSource.tableName, usingSource.baseTableName, state, dialect)} on ${renderExpression(merge.on, state, dialect)}`
       if (merge.whenMatched) {
         sql += " when matched"
@@ -1239,6 +1299,9 @@ export const renderQueryAst = (
         if (merge.whenMatched.kind === "delete") {
           sql += " then delete"
         } else {
+          if (merge.whenMatched.values.length === 0) {
+            throw new Error("merge update actions require at least one assignment")
+          }
           sql += ` then update set ${merge.whenMatched.values.map((entry) =>
             `${dialect.quoteIdentifier(entry.columnName)} = ${renderExpression(entry.value, state, dialect)}`
           ).join(", ")}`
@@ -1248,6 +1311,9 @@ export const renderQueryAst = (
         sql += " when not matched"
         if (merge.whenNotMatched.predicate) {
           sql += ` and ${renderExpression(merge.whenNotMatched.predicate, state, dialect)}`
+        }
+        if (merge.whenNotMatched.values.length === 0) {
+          throw new Error("merge insert actions require at least one value")
         }
         sql += ` then insert (${merge.whenNotMatched.values.map((entry) => dialect.quoteIdentifier(entry.columnName)).join(", ")}) values (${merge.whenNotMatched.values.map((entry) => renderExpression(entry.value, state, dialect)).join(", ")})`
       }
@@ -1523,6 +1589,7 @@ export const renderExpression = (
         : `(${renderExpression(ast.left, state, dialect)} is not distinct from ${renderExpression(ast.right, state, dialect)})`
     case "contains":
       if (dialect.name === "postgres") {
+        assertCompatiblePostgresRangeOperands(ast.left, ast.right)
         const left = isJsonExpression(ast.left)
           ? renderPostgresJsonValue(ast.left, state, dialect)
           : renderExpression(ast.left, state, dialect)
@@ -1537,6 +1604,7 @@ export const renderExpression = (
       throw new Error("Unsupported container operator for SQL rendering")
     case "containedBy":
       if (dialect.name === "postgres") {
+        assertCompatiblePostgresRangeOperands(ast.left, ast.right)
         const left = isJsonExpression(ast.left)
           ? renderPostgresJsonValue(ast.left, state, dialect)
           : renderExpression(ast.left, state, dialect)
@@ -1551,6 +1619,7 @@ export const renderExpression = (
       throw new Error("Unsupported container operator for SQL rendering")
     case "overlaps":
       if (dialect.name === "postgres") {
+        assertCompatiblePostgresRangeOperands(ast.left, ast.right)
         const left = isJsonExpression(ast.left)
           ? renderPostgresJsonValue(ast.left, state, dialect)
           : renderExpression(ast.left, state, dialect)

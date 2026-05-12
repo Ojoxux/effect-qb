@@ -53,6 +53,28 @@ describe("postgres dialect behavior", () => {
     expect(rendered.params).toEqual([timestamp, 7, "user"])
   })
 
+  test("renders empty postgres selections as zero-column selects", () => {
+    const { users } = makePostgresSocialGraph()
+
+    const rendered = Postgres.Renderer.make().render(
+      Postgres.Query.select({}).pipe(Postgres.Query.from(users))
+    )
+
+    expect(rendered.sql).toBe('select from "public"."users"')
+    expect(rendered.projections).toEqual([])
+  })
+
+  test("renders omitted postgres selections as zero-column selects", () => {
+    const { users } = makePostgresSocialGraph()
+
+    const rendered = Postgres.Renderer.make().render(
+      Postgres.Query.select().pipe(Postgres.Query.from(users))
+    )
+
+    expect(rendered.sql).toBe('select from "public"."users"')
+    expect(rendered.projections).toEqual([])
+  })
+
   test("renders postgres concat syntax across grouped queries", () => {
     const { users, posts } = makePostgresSocialGraph()
     const plan = buildGroupedConcatPlan(Postgres, users, posts)
@@ -285,6 +307,21 @@ describe("postgres dialect behavior", () => {
     expect(rendered.params).toEqual(["{}", "{}", "{}", "{}", "int4range(1,10)", "int4range(5,15)"])
   })
 
+  test("rejects incompatible built-in postgres range and multirange operands", () => {
+    const plan = Postgres.Query.select({
+      badOverlap: Postgres.Query.overlaps(
+        Postgres.Cast.to(Postgres.Query.literal("int4range(1,10)"), Postgres.Type.int4range()),
+        Postgres.Cast.to(Postgres.Query.literal("[2026-01-01,2026-01-02)"), Postgres.Type.tstzrange())
+      ),
+      badMultiOverlap: Postgres.Query.overlaps(
+        Postgres.Cast.to(Postgres.Query.literal("{[1,10)}"), Postgres.Type.int4multirange()),
+        Postgres.Cast.to(Postgres.Query.literal("{[2026-01-01,2026-01-02)}"), Postgres.Type.tstzmultirange())
+      )
+    })
+
+    expect(() => Postgres.Renderer.make().render(plan)).toThrow()
+  })
+
   test("renders boolean combinators and clause-level parameter ordering across postgres queries", () => {
     const { users, posts } = makePostgresSocialGraph()
 
@@ -358,6 +395,32 @@ describe("postgres dialect behavior", () => {
       'select distinct "users"."email" as "email" from "public"."users" where ("users"."email" like $1) order by "users"."email" asc limit $2 offset $3'
     )
     expect(rendered.params).toEqual(["%@example.com", 5, 10])
+  })
+
+  test.failing("rejects NaN postgres limit values", () => {
+    const { users } = makePostgresSocialGraph()
+
+    const plan = Postgres.Query.select({
+      email: users.email
+    }).pipe(
+      Postgres.Query.from(users),
+      Postgres.Query.limit(Number.NaN)
+    )
+
+    expect(() => render(plan)).toThrow("Expected a finite numeric value")
+  })
+
+  test.failing("rejects NaN postgres offset values", () => {
+    const { users } = makePostgresSocialGraph()
+
+    const plan = Postgres.Query.select({
+      email: users.email
+    }).pipe(
+      Postgres.Query.from(users),
+      Postgres.Query.offset(Number.NaN)
+    )
+
+    expect(() => render(plan)).toThrow("Expected a finite numeric value")
   })
 
   test("renders distinct on with postgres parameter ordering", () => {
@@ -448,6 +511,33 @@ describe("postgres dialect behavior", () => {
       "Bob",
       "Other"
     ])
+  })
+
+  test.failing("rejects empty postgres membership predicates", () => {
+    const { users } = makePostgresSocialGraph()
+
+    expect(() => render(Postgres.Query.select({
+      ok: Postgres.Query.in(users.email)
+    }).pipe(Postgres.Query.from(users)))).toThrow()
+
+    expect(() => render(Postgres.Query.select({
+      ok: Postgres.Query.notIn(users.email)
+    }).pipe(Postgres.Query.from(users)))).toThrow()
+  })
+
+  test.failing("rejects empty postgres boolean combinators", () => {
+    const { users } = makePostgresSocialGraph()
+
+    for (const expression of [
+      Postgres.Query.and(),
+      Postgres.Query.or(),
+      Postgres.Query.all(),
+      Postgres.Query.any()
+    ]) {
+      expect(() => render(Postgres.Query.select({
+        ok: expression
+      }).pipe(Postgres.Query.from(users)))).toThrow()
+    }
   })
 
   test("renders searched case expressions with postgres placeholders", () => {
@@ -907,15 +997,28 @@ describe("postgres dialect behavior", () => {
       id: users.id
     }).pipe(
       Postgres.Query.from(users),
-      Postgres.Query.lock("update", { nowait: true, skipLocked: true })
+      Postgres.Query.lock("update", { nowait: true })
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
 
     expect(rendered.sql).toBe(
-      'select "users"."id" as "id" from "public"."users" for update nowait skip locked'
+      'select "users"."id" as "id" from "public"."users" for update nowait'
     )
     expect(rendered.params).toEqual([])
+  })
+
+  test("rejects mutually exclusive postgres nowait and skip locked options", () => {
+    const { users } = makePostgresSocialGraph()
+
+    const plan = Postgres.Query.select({
+      id: users.id
+    }).pipe(
+      Postgres.Query.from(users),
+      Postgres.Query.lock("update", { nowait: true, skipLocked: true })
+    )
+
+    expect(() => Postgres.Renderer.make().render(plan)).toThrow()
   })
 
   test("renders postgres set operators with stable operand ordering", () => {
@@ -1029,6 +1132,34 @@ describe("postgres dialect behavior", () => {
       'delete from "public"."users" where ("users"."id" = $1) returning "users"."id" as "id"'
     )
     expect(Postgres.Renderer.make().render(deletePlan).params).toEqual([userId])
+  })
+
+  test("rejects postgres updates without assignments", () => {
+    const { users } = makePostgresSocialGraph()
+
+    expect(() =>
+      Postgres.Renderer.make().render(Postgres.Query.update(users, {}))
+    ).toThrow()
+  })
+
+  test("rejects postgres inserts with unknown mutation columns", () => {
+    const { users } = makePostgresSocialGraph()
+
+    expect(() =>
+      Postgres.Renderer.make().render(Postgres.Query.insert(users, unsafeAny({
+        nope: "missing"
+      })))
+    ).toThrow("effect-qb: unknown mutation column")
+  })
+
+  test("rejects postgres updates with unknown mutation columns", () => {
+    const { users } = makePostgresSocialGraph()
+
+    expect(() =>
+      Postgres.Renderer.make().render(Postgres.Query.update(users, unsafeAny({
+        nope: "missing"
+      })))
+    ).toThrow("effect-qb: unknown mutation column")
   })
 
   test("renders postgres update from joined sources", () => {
@@ -1196,6 +1327,20 @@ describe("postgres dialect behavior", () => {
       userId,
       "alice@example.com"
     ])
+  })
+
+  test.failing("rejects postgres conflict action predicates without update assignments", () => {
+    const { users } = makePostgresSocialGraph()
+
+    const plan = Postgres.Query.onConflict(["email"] as const, {
+      where: Postgres.Query.isNotNull(Postgres.Query.excluded(users.bio))
+    })(Postgres.Query.insert(users, {
+      id: userId,
+      email: "alice@example.com",
+      bio: "writer"
+    }))
+
+    expect(() => Postgres.Renderer.make().render(plan)).toThrow()
   })
 
   test("renders postgres ddl statements from schema tables", () => {

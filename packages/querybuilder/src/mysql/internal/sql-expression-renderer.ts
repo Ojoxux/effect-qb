@@ -161,8 +161,16 @@ const renderDropIndexSql = (
 const isExpression = (value: unknown): value is Expression.Any =>
   value !== null && typeof value === "object" && Expression.TypeId in value
 
-const isJsonDbType = (dbType: Expression.DbType.Any): boolean =>
-  dbType.kind === "jsonb" || dbType.kind === "json" || ("variant" in dbType && dbType.variant === "json")
+const isJsonDbType = (dbType: Expression.DbType.Any): boolean => {
+  if (dbType.kind === "jsonb" || dbType.kind === "json") {
+    return true
+  }
+  if (!("variant" in dbType)) {
+    return false
+  }
+  const variant = dbType.variant as string
+  return variant === "json" || variant === "jsonb"
+}
 
 const isJsonExpression = (value: unknown): value is Expression.Any =>
   isExpression(value) && isJsonDbType(value[Expression.TypeId].dbType)
@@ -869,6 +877,9 @@ const renderSelectionList = (
     validateAggregationSelection(selection as SelectionValue, [])
   }
   const flattened = flattenSelection(selection)
+  if (dialect.name === "mysql" && flattened.length === 0) {
+    throw new Error("mysql select statements require at least one selected expression")
+  }
   const projections = selectionProjections(selection)
   const sql = flattened.map(({ expression, alias }) =>
     `${renderSelectSql(renderExpression(expression, state, dialect), expressionDriverContext(expression, state, dialect))} as ${dialect.quoteIdentifier(alias)}`).join(", ")
@@ -961,10 +972,11 @@ export const renderQueryAst = (
       validateAggregationSelection(ast.select as SelectionValue, ast.groupBy)
       const rendered = renderSelectionList(ast.select as Record<string, unknown>, state, dialect, false)
       projections = rendered.projections
+      const selectList = rendered.sql.length > 0 ? ` ${rendered.sql}` : ""
       const clauses = [
         ast.distinctOn && ast.distinctOn.length > 0
-          ? `select distinct on (${ast.distinctOn.map((value) => renderExpression(value, state, dialect)).join(", ")}) ${rendered.sql}`
-          : `select${ast.distinct ? " distinct" : ""} ${rendered.sql}`
+          ? `select distinct on (${ast.distinctOn.map((value) => renderExpression(value, state, dialect)).join(", ")})${selectList}`
+          : `select${ast.distinct ? " distinct" : ""}${selectList}`
       ]
       if (ast.from) {
         clauses.push(`from ${renderSourceReference(ast.from.source, ast.from.tableName, ast.from.baseTableName, state, dialect)}`)
@@ -999,6 +1011,9 @@ export const renderQueryAst = (
         clauses.push(`offset ${renderExpression(ast.offset, state, dialect)}`)
       }
       if (ast.lock) {
+        if (ast.lock.nowait && ast.lock.skipLocked) {
+          throw new Error("lock(...) cannot specify both nowait and skipLocked")
+        }
         clauses.push(
           `${ast.lock.mode === "update" ? "for update" : "for share"}${ast.lock.nowait ? " nowait" : ""}${ast.lock.skipLocked ? " skip locked" : ""}`
         )
@@ -1097,6 +1112,9 @@ export const renderQueryAst = (
         }
       }
       if (insertAst.conflict) {
+        if (insertAst.conflict.where) {
+          throw new Error("Unsupported mysql conflict action predicates")
+        }
         const updateValues = (insertAst.conflict.values ?? []).map((entry) =>
           `${dialect.quoteIdentifier(entry.columnName)} = ${renderExpression(entry.value, state, dialect)}`
         ).join(", ")
@@ -1116,7 +1134,10 @@ export const renderQueryAst = (
           sql += ` on duplicate key update ${updateValues}`
         }
       }
-      const returning = renderSelectionList(insertAst.select as Record<string, unknown>, state, dialect, false)
+      const hasReturning = Object.keys(insertAst.select as Record<string, unknown>).length > 0
+      const returning = hasReturning
+        ? renderSelectionList(insertAst.select as Record<string, unknown>, state, dialect, false)
+        : { sql: "", projections: [] }
       if (dialect.name === "mysql" && returning.sql.length > 0) {
         throw new Error("Unsupported mysql returning")
       }
@@ -1136,6 +1157,9 @@ export const renderQueryAst = (
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targets = updateAst.targets ?? [targetSource]
       const fromSources = updateAst.fromSources ?? []
+      if ((updateAst.set ?? []).length === 0) {
+        throw new Error("update statements require at least one assignment")
+      }
       const assignments = updateAst.set!.map((entry) =>
         renderMutationAssignment(entry, state, dialect)).join(", ")
       if (dialect.name === "mysql") {
@@ -1180,7 +1204,10 @@ export const renderQueryAst = (
       if (dialect.name === "mysql" && updateAst.limit) {
         sql += ` limit ${renderMysqlMutationLimit(updateAst.limit, state, dialect)}`
       }
-      const returning = renderSelectionList(updateAst.select as Record<string, unknown>, state, dialect, false)
+      const hasReturning = Object.keys(updateAst.select as Record<string, unknown>).length > 0
+      const returning = hasReturning
+        ? renderSelectionList(updateAst.select as Record<string, unknown>, state, dialect, false)
+        : { sql: "", projections: [] }
       if (dialect.name === "mysql" && returning.sql.length > 0) {
         throw new Error("Unsupported mysql returning")
       }
@@ -1237,7 +1264,10 @@ export const renderQueryAst = (
       if (dialect.name === "mysql" && deleteAst.limit) {
         sql += ` limit ${renderMysqlMutationLimit(deleteAst.limit, state, dialect)}`
       }
-      const returning = renderSelectionList(deleteAst.select as Record<string, unknown>, state, dialect, false)
+      const hasReturning = Object.keys(deleteAst.select as Record<string, unknown>).length > 0
+      const returning = hasReturning
+        ? renderSelectionList(deleteAst.select as Record<string, unknown>, state, dialect, false)
+        : { sql: "", projections: [] }
       if (dialect.name === "mysql" && returning.sql.length > 0) {
         throw new Error("Unsupported mysql returning")
       }

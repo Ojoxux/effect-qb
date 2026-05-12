@@ -101,7 +101,7 @@ export const makeDslQueryRuntime = (ctx: DslQueryRuntimeContext) => {
     return Object.assign(source, columns)
   }
 
-  const select = (selection: any) =>
+  const select = (selection: any = {}) =>
     ctx.makePlan({
       selection,
       required: ctx.extractRequiredRuntime(selection),

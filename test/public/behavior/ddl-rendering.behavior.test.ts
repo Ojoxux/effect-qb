@@ -54,4 +54,48 @@ describe("ddl rendering behavior", () => {
       'drop index if exists "analytics"."events_userId_idx"'
     )
   })
+
+  test.failing("rejects postgres createIndex with unknown columns at runtime", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    expect(() =>
+      Postgres.Renderer.make().render(Postgres.Query.createIndex(users, ["missing"]))
+    ).toThrow()
+  })
+
+  test.failing("rejects postgres dropIndex with unknown columns at runtime", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    expect(() =>
+      Postgres.Renderer.make().render(Postgres.Query.dropIndex(users, ["missing"]))
+    ).toThrow()
+  })
+
+  test.failing("rejects mysql createIndex with unknown columns at runtime", () => {
+    const users = Mysql.Table.make("users", {
+      id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey),
+      email: Mysql.Column.text()
+    })
+
+    expect(() =>
+      Mysql.Renderer.make().render(Mysql.Query.createIndex(users, ["missing"]))
+    ).toThrow()
+  })
+
+  test.failing("rejects mysql dropIndex with unknown columns at runtime", () => {
+    const users = Mysql.Table.make("users", {
+      id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey),
+      email: Mysql.Column.text()
+    })
+
+    expect(() =>
+      Mysql.Renderer.make().render(Mysql.Query.dropIndex(users, ["missing"]))
+    ).toThrow()
+  })
 })

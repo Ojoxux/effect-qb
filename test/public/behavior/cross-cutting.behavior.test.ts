@@ -97,6 +97,89 @@ describe("cross-cutting statement behavior", () => {
     expect(() => Mysql.Renderer.make().render(mergePlan)).toThrow("Unsupported merge statement for mysql")
   })
 
+  test.failing("rejects invalid postgres transaction isolation levels at runtime", () => {
+    expect(() =>
+      Postgres.Renderer.make().render(Postgres.Query.transaction({
+        isolationLevel: "chaos"
+      }))
+    ).toThrow()
+  })
+
+  test.failing("rejects invalid mysql transaction isolation levels at runtime", () => {
+    expect(() =>
+      Mysql.Renderer.make().render(Mysql.Query.transaction({
+        isolationLevel: "chaos"
+      }))
+    ).toThrow()
+  })
+
+  test("rejects postgres merge statements without actions", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+    const incomingUsers = Postgres.Table.make("incoming_users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const plan = Postgres.Query.merge(
+      users,
+      incomingUsers,
+      Postgres.Query.eq(users.id, incomingUsers.id)
+    )
+
+    expect(() => Postgres.Renderer.make().render(plan)).toThrow()
+  })
+
+  test("rejects postgres merge updates without assignments", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+    const incomingUsers = Postgres.Table.make("incoming_users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const plan = Postgres.Query.merge(
+      users,
+      incomingUsers,
+      Postgres.Query.eq(users.id, incomingUsers.id),
+      {
+        whenMatched: {
+          update: {}
+        }
+      }
+    )
+
+    expect(() => Postgres.Renderer.make().render(plan)).toThrow()
+  })
+
+  test("rejects postgres merge inserts without values", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+    const incomingUsers = Postgres.Table.make("incoming_users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const plan = Postgres.Query.merge(
+      users,
+      incomingUsers,
+      Postgres.Query.eq(users.id, incomingUsers.id),
+      {
+        whenNotMatched: {
+          values: {}
+        }
+      }
+    )
+
+    expect(() => Postgres.Renderer.make().render(plan)).toThrow()
+  })
+
   test("rejects runtime filters on statements that cannot be filtered", () => {
     const users = Postgres.Table.make("users", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),

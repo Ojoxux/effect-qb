@@ -53,6 +53,22 @@ describe("mysql dialect behavior", () => {
     expect(rendered.params).toEqual([timestamp, 7, "user"])
   })
 
+  test("rejects empty mysql selections", () => {
+    const { users } = makeMysqlSocialGraph()
+
+    expect(() => Mysql.Renderer.make().render(
+      Mysql.Query.select({}).pipe(Mysql.Query.from(users))
+    )).toThrow()
+  })
+
+  test("rejects omitted mysql selections", () => {
+    const { users } = makeMysqlSocialGraph()
+
+    expect(() => Mysql.Renderer.make().render(
+      Mysql.Query.select().pipe(Mysql.Query.from(users))
+    )).toThrow()
+  })
+
   test("renders mysql concat syntax across grouped queries", () => {
     const { users, posts } = makeMysqlSocialGraph()
     const plan = buildGroupedConcatPlan(Mysql, users, posts)
@@ -239,6 +255,32 @@ describe("mysql dialect behavior", () => {
     expect(rendered.params).toEqual(["%@example.com", 5, 10])
   })
 
+  test.failing("rejects NaN mysql limit values", () => {
+    const { users } = makeMysqlSocialGraph()
+
+    const plan = Mysql.Query.select({
+      email: users.email
+    }).pipe(
+      Mysql.Query.from(users),
+      Mysql.Query.limit(Number.NaN)
+    )
+
+    expect(() => render(plan)).toThrow("Expected a finite numeric value")
+  })
+
+  test.failing("rejects NaN mysql offset values", () => {
+    const { users } = makeMysqlSocialGraph()
+
+    const plan = Mysql.Query.select({
+      email: users.email
+    }).pipe(
+      Mysql.Query.from(users),
+      Mysql.Query.offset(Number.NaN)
+    )
+
+    expect(() => render(plan)).toThrow("Expected a finite numeric value")
+  })
+
   test("renders the extended read predicate surface with mysql-specific operators", () => {
     const { users } = makeMysqlSocialGraph()
 
@@ -306,6 +348,33 @@ describe("mysql dialect behavior", () => {
       "Bob",
       "Other"
     ])
+  })
+
+  test.failing("rejects empty mysql membership predicates", () => {
+    const { users } = makeMysqlSocialGraph()
+
+    expect(() => render(Mysql.Query.select({
+      ok: Mysql.Query.in(users.email)
+    }).pipe(Mysql.Query.from(users)))).toThrow()
+
+    expect(() => render(Mysql.Query.select({
+      ok: Mysql.Query.notIn(users.email)
+    }).pipe(Mysql.Query.from(users)))).toThrow()
+  })
+
+  test.failing("rejects empty mysql boolean combinators", () => {
+    const { users } = makeMysqlSocialGraph()
+
+    for (const expression of [
+      Mysql.Query.and(),
+      Mysql.Query.or(),
+      Mysql.Query.all(),
+      Mysql.Query.any()
+    ]) {
+      expect(() => render(Mysql.Query.select({
+        ok: expression
+      }).pipe(Mysql.Query.from(users)))).toThrow()
+    }
   })
 
   test("renders searched case expressions with mysql placeholders", () => {
@@ -644,15 +713,28 @@ describe("mysql dialect behavior", () => {
       id: users.id
     }).pipe(
       Mysql.Query.from(users),
-      Mysql.Query.lock("update", { nowait: true, skipLocked: true })
+      Mysql.Query.lock("update", { nowait: true })
     )
 
     const rendered = Mysql.Renderer.make().render(plan)
 
     expect(rendered.sql).toBe(
-      "select `users`.`id` as `id` from `users` for update nowait skip locked"
+      "select `users`.`id` as `id` from `users` for update nowait"
     )
     expect(rendered.params).toEqual([])
+  })
+
+  test("rejects mutually exclusive mysql nowait and skip locked options", () => {
+    const { users } = makeMysqlSocialGraph()
+
+    const plan = Mysql.Query.select({
+      id: users.id
+    }).pipe(
+      Mysql.Query.from(users),
+      Mysql.Query.lock("update", { nowait: true, skipLocked: true })
+    )
+
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow()
   })
 
   test("renders mysql set operators with stable operand ordering", () => {
@@ -755,6 +837,34 @@ describe("mysql dialect behavior", () => {
     expect(() => Mysql.Renderer.make().render(deletePlan)).toThrow(
       "Unsupported mysql returning"
     )
+  })
+
+  test("rejects mysql updates without assignments", () => {
+    const { users } = makeMysqlSocialGraph()
+
+    expect(() =>
+      Mysql.Renderer.make().render(Mysql.Query.update(users, {}))
+    ).toThrow()
+  })
+
+  test("rejects mysql inserts with unknown mutation columns", () => {
+    const { users } = makeMysqlSocialGraph()
+
+    expect(() =>
+      Mysql.Renderer.make().render(Mysql.Query.insert(users, unsafeAny({
+        nope: "missing"
+      })))
+    ).toThrow("effect-qb: unknown mutation column")
+  })
+
+  test("rejects mysql updates with unknown mutation columns", () => {
+    const { users } = makeMysqlSocialGraph()
+
+    expect(() =>
+      Mysql.Renderer.make().render(Mysql.Query.update(users, unsafeAny({
+        nope: "missing"
+      })))
+    ).toThrow("effect-qb: unknown mutation column")
   })
 
   test("renders mysql joined update modifiers order and limit", () => {
@@ -950,6 +1060,20 @@ describe("mysql dialect behavior", () => {
       "alice@example.com",
       "writer"
     ])
+  })
+
+  test.failing("rejects mysql conflict action predicates instead of ignoring them", () => {
+    const { users } = makeMysqlSocialGraph()
+
+    const plan = Mysql.Query.onConflict(["email"] as const, {
+      where: Mysql.Query.isNotNull(Mysql.Query.excluded(users.bio))
+    })(Mysql.Query.insert(users, {
+      id: userId,
+      email: "alice@example.com",
+      bio: "writer"
+    }))
+
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow()
   })
 
   test("renders mysql ddl statements from schema tables", () => {

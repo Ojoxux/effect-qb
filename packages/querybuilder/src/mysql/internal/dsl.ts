@@ -4250,6 +4250,17 @@ type BinaryPredicateExpression<
     })
   ) as unknown as AddAvailableMany<{}, MutationTargetNamesOf<Target>, Mode>
 
+  const getMutationColumn = (
+    columns: Record<string, unknown>,
+    columnName: string
+  ): Expression.Any => {
+    const column = columns[columnName]
+    if (column === undefined || column === null || typeof column !== "object" || !(Expression.TypeId in column)) {
+      throw new Error("effect-qb: unknown mutation column")
+    }
+    return column as Expression.Any
+  }
+
   const buildMutationAssignments = <Target extends MutationTargetInput, Values>(
     target: Target,
     values: Values
@@ -4259,7 +4270,7 @@ type BinaryPredicateExpression<
       const columns = target as unknown as Record<string, Expression.Any>
       return Object.entries(values as Record<string, unknown>).map(([columnName, value]) => ({
         columnName,
-        value: toMutationValueExpression(value, columns[columnName]!)
+        value: toMutationValueExpression(value, getMutationColumn(columns, columnName))
       }))
     }
     const valueMap = values as Record<string, Record<string, unknown> | undefined>
@@ -4270,7 +4281,7 @@ type BinaryPredicateExpression<
       return Object.entries(scopedValues).map(([columnName, value]) => ({
         tableName: targetName,
         columnName,
-        value: toMutationValueExpression(value, columns[columnName]!)
+        value: toMutationValueExpression(value, getMutationColumn(columns, columnName))
       }))
     })
   }
@@ -5530,8 +5541,8 @@ type AsCurriedResult<
       >
     : GenerateSeriesUnsupportedError<Dialect>
 
-  export type SelectApi = <Selection extends SelectionShape>(
-    selection: Selection
+  export type SelectApi = <Selection extends SelectionShape = {}>(
+    selection?: Selection
   ) => QueryPlan<
     Selection,
     ExtractRequired<Selection>,

@@ -36,6 +36,36 @@ describe("postgres driver value mappings", () => {
     expect(rendered.params).toEqual(["42"])
   })
 
+  test("preserves JSONB string scalars that look like JSON while encoding mutations", () => {
+    const docs = Table.make("driver_value_jsonb_string_docs", {
+      payload: C.jsonb(Schema.String)
+    })
+
+    const rendered = Renderer.make().render(Q.insert(docs, {
+      payload: "42"
+    }))
+
+    expect(rendered.params).toEqual(["42"])
+  })
+
+  test("preserves JSONB string scalars that look like JSON while decoding rows", async () => {
+    const docs = Table.make("driver_value_jsonb_string_docs", {
+      payload: C.jsonb(Schema.String)
+    })
+
+    const executor = Executor.make({
+      driver: Executor.driver(() => Effect.succeed([{ payload: "42" }]))
+    })
+
+    const rows = await Effect.runPromise(executor.execute(Q.select({
+      payload: docs.payload
+    }).pipe(
+      Q.from(docs)
+    )))
+
+    expect(rows).toEqual([{ payload: "42" }])
+  })
+
   test("encodes comparison literals through the compared column schema and db type", () => {
     const happenedOn = new Date("2026-03-18T12:34:56.000Z")
     const rendered = Renderer.make().render(Q.select({

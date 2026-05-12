@@ -91,7 +91,11 @@ const isJsonDbType = (dbType: Expression.DbType.Any | undefined): boolean => {
   if ("base" in dbType) {
     return isJsonDbType(dbType.base)
   }
-  return "variant" in dbType && dbType.variant === "json"
+  if (!("variant" in dbType)) {
+    return false
+  }
+  const variant = dbType.variant as string
+  return variant === "json" || variant === "jsonb"
 }
 
 const schemaAccepts = (

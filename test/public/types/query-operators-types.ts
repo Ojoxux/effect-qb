@@ -26,6 +26,14 @@ const predicateSurfaceApplied = Q.where(Q.and(
 ))(predicateSurfacePlan)
 void predicateSurfaceApplied
 
+// @ts-expect-error BUG: empty selections should compile as zero-column selects
+const zeroColumnSelectPlan = Q.select({}).pipe(Q.from(users))
+void zeroColumnSelectPlan
+
+// @ts-expect-error BUG: omitted selections should compile as zero-column selects
+const omittedSelectionPlan = Q.select().pipe(Q.from(users))
+void omittedSelectionPlan
+
 const predicateHelpersPlan = Q.select({
   distinctEmail: Q.isDistinctFrom(users.email, "alice@example.com"),
   sameEmail: Q.isNotDistinctFrom(users.email, "alice@example.com"),

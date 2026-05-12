@@ -162,6 +162,23 @@ describe("select sources behavior", () => {
     )
   })
 
+  test.failing("rejects NaN postgres generateSeries arguments", () => {
+    const renderSeries = (series: ReturnType<typeof Postgres.Query.generateSeries>) =>
+      renderPostgres(Postgres.Query.select({
+        value: series.value
+      }).pipe(Postgres.Query.from(series)))
+
+    expect(() =>
+      renderSeries(Postgres.Query.generateSeries(Number.NaN, 3, 1, "bad_start"))
+    ).toThrow("Expected a finite numeric value")
+    expect(() =>
+      renderSeries(Postgres.Query.generateSeries(1, Number.NaN, 1, "bad_stop"))
+    ).toThrow("Expected a finite numeric value")
+    expect(() =>
+      renderSeries(Postgres.Query.generateSeries(1, 3, Number.NaN, "bad_step"))
+    ).toThrow("Expected a finite numeric value")
+  })
+
   test("renders postgres values rows by column name when row property order differs", () => {
     const valuesSource = Postgres.Query.values([
       { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") },
