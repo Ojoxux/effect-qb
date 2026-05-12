@@ -41,6 +41,9 @@ Q.select({ nested: {} })
 // @ts-expect-error distinctOn(...) requires at least one expression
 Postgres.Query.distinctOn()
 
+// @ts-expect-error groupBy(...) requires at least one expression
+Q.groupBy()
+
 const predicateHelpersPlan = Q.select({
   distinctEmail: Q.isDistinctFrom(users.email, "alice@example.com"),
   sameEmail: Q.isNotDistinctFrom(users.email, "alice@example.com"),

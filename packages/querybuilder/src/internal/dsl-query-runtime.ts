@@ -153,6 +153,9 @@ export const makeDslQueryRuntime = (ctx: DslQueryRuntimeContext) => {
 
   const groupBy = (...values: readonly Expression.Any[]) =>
     (plan: any) => {
+      if (values.length === 0) {
+        throw new Error("groupBy(...) requires at least one expression")
+      }
       const current = plan[Plan.TypeId]
       const currentAst = ctx.getAst(plan)
       const currentQuery = ctx.getQueryState(plan)

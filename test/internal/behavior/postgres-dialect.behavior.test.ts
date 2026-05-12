@@ -139,6 +139,17 @@ describe("postgres dialect behavior", () => {
     )
   })
 
+  test("rejects empty postgres group-by expressions before becoming a no-op", () => {
+    const { users } = makePostgresSocialGraph()
+
+    expect(() => Postgres.Query.select({
+      id: users.id
+    }).pipe(
+      Postgres.Query.from(users),
+      Postgres.Query.groupBy()
+    )).toThrow("groupBy(...) requires at least one expression")
+  })
+
   test("groups by regex predicate expressions", () => {
     const { users } = makePostgresSocialGraph()
     const matchesExample = Postgres.Query.regexMatch(users.email, "@example\\.com$")
