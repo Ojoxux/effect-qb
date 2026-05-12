@@ -123,4 +123,27 @@ describe("postgres driver value mappings", () => {
 
     expect(rows).toEqual([{ value: "mapped:one" }])
   })
+
+  test("applies executor-level driver value mappings before driver execution", async () => {
+    const executor = Executor.make({
+      valueMappings: {
+        text: {
+          toDriver: (value) => `driver:${String(value)}`
+        }
+      },
+      driver: Executor.driver((query) => {
+        expect(query.params).toEqual(["driver:one"])
+        return Effect.succeed([{ id: "one" }])
+      })
+    })
+
+    const rows = await Effect.runPromise(executor.execute(Q.select({
+      id: events.id
+    }).pipe(
+      Q.from(events),
+      Q.where(Q.eq(events.id, "one"))
+    )))
+
+    expect(rows).toEqual([{ id: "one" }])
+  })
 })
