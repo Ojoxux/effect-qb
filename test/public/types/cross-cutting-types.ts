@@ -68,6 +68,74 @@ const badMergeMysqlPredicateRendered = Postgres.Renderer.make().render(
 );
 void badMergeMysqlPredicateRendered;
 
+const badMergeMatchedPredicate = Q.merge(
+  users,
+  incomingUsers,
+  Q.eq(users.id, incomingUsers.id),
+  {
+    whenMatched: {
+      delete: true,
+      predicate: Mysql.Query.literal(true),
+    },
+  },
+);
+
+const badMergeMatchedPredicateRendered = Postgres.Renderer.make().render(
+  // @ts-expect-error postgres merge matched predicates cannot use mysql expressions
+  badMergeMatchedPredicate,
+);
+void badMergeMatchedPredicateRendered;
+
+const badMergeMatchedUpdate = Q.merge(users, incomingUsers, Q.eq(users.id, incomingUsers.id), {
+  whenMatched: {
+    update: {
+      email: Mysql.Query.literal("alice@example.com"),
+    },
+  },
+});
+
+const badMergeMatchedUpdateRendered = Postgres.Renderer.make().render(
+  // @ts-expect-error postgres merge updates cannot use mysql expressions
+  badMergeMatchedUpdate,
+);
+void badMergeMatchedUpdateRendered;
+
+const badMergeNotMatchedPredicate = Q.merge(
+  users,
+  incomingUsers,
+  Q.eq(users.id, incomingUsers.id),
+  {
+    whenNotMatched: {
+      predicate: Mysql.Query.literal(true),
+      values: {
+        id: incomingUsers.id,
+        email: incomingUsers.email,
+      },
+    },
+  },
+);
+
+const badMergeNotMatchedPredicateRendered = Postgres.Renderer.make().render(
+  // @ts-expect-error postgres merge not-matched predicates cannot use mysql expressions
+  badMergeNotMatchedPredicate,
+);
+void badMergeNotMatchedPredicateRendered;
+
+const badMergeNotMatchedValues = Q.merge(users, incomingUsers, Q.eq(users.id, incomingUsers.id), {
+  whenNotMatched: {
+    values: {
+      id: incomingUsers.id,
+      email: Mysql.Query.literal("alice@example.com"),
+    },
+  },
+});
+
+const badMergeNotMatchedValuesRendered = Postgres.Renderer.make().render(
+  // @ts-expect-error postgres merge insert values cannot use mysql expressions
+  badMergeNotMatchedValues,
+);
+void badMergeNotMatchedValuesRendered;
+
 const transactionPlan = Q.transaction({
   isolationLevel: "serializable",
   readOnly: true,
