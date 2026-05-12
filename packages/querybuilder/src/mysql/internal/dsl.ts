@@ -3929,7 +3929,9 @@ type BinaryPredicateExpression<
       string,
       "scalar",
       Expression.BindingId
-    >
+    > & {
+      readonly [ExpressionAst.TypeId]: ExpressionAst.ColumnNode<any, string>
+    }
   >(
     value: Value
   ): AstBackedExpression<
