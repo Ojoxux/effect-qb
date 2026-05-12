@@ -50,12 +50,33 @@ type MysqlUuidWitness = Expression.DbType.Base<"mysql", "uuid"> & {
   }
 }
 
+type MysqlJsonWitness = Expression.DbType.Base<"mysql", "json"> & {
+  readonly family: "json"
+  readonly runtime: "json"
+  readonly compareGroup: "json"
+  readonly castTargets: readonly ["json", "text"]
+  readonly driverValueMapping: {
+    readonly toDriver: (value: unknown) => unknown
+  }
+}
+
+mysqlDatatypeModule.json = () => ({
+  ...withMetadata("json"),
+  driverValueMapping: {
+    toDriver: (value: unknown) =>
+      value !== null && typeof value === "object"
+        ? JSON.stringify(value)
+        : value
+  }
+}) as MysqlJsonWitness
+
 export const mysqlDatatypes = mysqlDatatypeModule as DatatypeModule<
   "mysql",
   typeof mysqlDatatypeKinds,
   typeof mysqlDatatypeFamilies
 > & {
   readonly uuid: () => MysqlUuidWitness
+  readonly json: () => MysqlJsonWitness
 }
 
 export type MysqlDatatypeModule = typeof mysqlDatatypes

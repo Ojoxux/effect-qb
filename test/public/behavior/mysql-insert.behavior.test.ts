@@ -106,6 +106,27 @@ describe("mysql insert behavior", () => {
     expect(rendered.params).toEqual(["42"])
   })
 
+  test("encodes structured JSON inserts as JSON text for mysql", () => {
+    const docs = Mysql.Table.make("json_docs", {
+      payload: Mysql.Column.json(Schema.Unknown)
+    })
+
+    const rendered = render(Mysql.Query.insert(docs, {
+      payload: {
+        profile: {
+          city: "Paris"
+        }
+      }
+    }))
+
+    expect(rendered.sql).toBe(
+      "insert into `json_docs` (`payload`) values (?)"
+    )
+    expect(rendered.params).toEqual([
+      JSON.stringify({ profile: { city: "Paris" } })
+    ])
+  })
+
   test("renders mysql default-only inserts and duplicate-key conflict clauses", () => {
     const auditLogs = Mysql.Table.make("audit_logs", {
       id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey, Mysql.Column.default(Mysql.Query.literal("audit-log-id"))),
