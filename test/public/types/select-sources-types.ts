@@ -78,6 +78,12 @@ const invalidValuesRows = Postgres.Query.values([
 ] as const)
 void invalidValuesRows
 
+// @ts-expect-error values rows must project at least one column
+const emptyValuesRows = Postgres.Query.values([
+  {}
+] as const)
+void emptyValuesRows
+
 const unnestSource = Postgres.Query.unnest({
   id: [Postgres.Query.literal(1), Postgres.Query.literal(2)] as const,
   email: [Postgres.Query.literal("alice@example.com"), Postgres.Query.literal("bob@example.com")] as const
@@ -236,6 +242,12 @@ const invalidMysqlValuesRows = Mysql.Query.values([
   { id: Mysql.Query.literal(2), name: Mysql.Query.literal("Bob") }
 ] as const)
 void invalidMysqlValuesRows
+
+// @ts-expect-error mysql values rows must project at least one column
+const emptyMysqlValuesRows = Mysql.Query.values([
+  {}
+] as const)
+void emptyMysqlValuesRows
 
 const mysqlUnnestSource = Mysql.Query.unnest({
   id: [Mysql.Query.literal(1), Mysql.Query.literal(2)] as const,

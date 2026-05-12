@@ -164,6 +164,12 @@ describe("select sources behavior", () => {
     expect(rendered.params).toEqual([1, "alice@example.com", 2, "bob@example.com"])
   })
 
+  test("rejects postgres values rows with no projected columns", () => {
+    expect(() => Postgres.Query.values([{}] as const)).toThrow(
+      "values(...) rows must specify at least one column"
+    )
+  })
+
   test("renders standalone values and unnest sources in mysql", () => {
     const valuesSource = Mysql.Query.values([
       { id: Mysql.Query.literal(1), email: Mysql.Query.literal("alice@example.com") },
@@ -211,6 +217,12 @@ describe("select sources behavior", () => {
       "select `seed`.`id` as `id`, `seed`.`email` as `email` from (select ? as `id`, ? as `email` union all select ? as `id`, ? as `email`) as `seed`(`id`, `email`)"
     )
     expect(rendered.params).toEqual([1, "alice@example.com", 2, "bob@example.com"])
+  })
+
+  test("rejects mysql values rows with no projected columns", () => {
+    expect(() => Mysql.Query.values([{}] as const)).toThrow(
+      "values(...) rows must specify at least one column"
+    )
   })
 
   test("renders scalar and quantified subqueries in postgres", () => {
