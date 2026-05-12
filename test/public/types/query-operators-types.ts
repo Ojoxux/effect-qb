@@ -128,6 +128,17 @@ const postgresDistinctOnEmail: PostgresDistinctOnRow["email"] = "alice@example.c
 void postgresDistinctOnEmail
 void postgresDistinctOnPlan
 
+const postgresDistinctOnMissingSource = Postgres.Query.select({
+  id: users.id
+}).pipe(
+  Postgres.Query.from(users),
+  Postgres.Query.distinctOn(posts.title)
+)
+
+// @ts-expect-error distinctOn expressions must be backed by available sources before rendering
+const postgresDistinctOnMissingSourceRendered = Postgres.Renderer.make().render(postgresDistinctOnMissingSource)
+void postgresDistinctOnMissingSourceRendered
+
 type MysqlDistinctOnError = BrandedErrorOf<typeof Mysql.Query.distinctOn>
 const mysqlDistinctOnError: MysqlDistinctOnError =
   "effect-qb: distinctOn(...) is only supported by the postgres dialect"
