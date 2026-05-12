@@ -416,6 +416,24 @@ const badForeignKeyArity = Table.foreignKey(["orgId", "role"] as const, () => or
 }))
 void badForeignKeyArity
 
+// @ts-expect-error rich primary key columns must exist on the target table
+const badRichPrimaryKeyColumn = Table.primaryKey({ columns: ["missing"] as const })(Table.make("bad_rich_primary_key_column", {
+  id: C.uuid()
+}))
+void badRichPrimaryKeyColumn
+
+// @ts-expect-error rich primary key columns cannot be nullable
+const badRichPrimaryKeyNullable = Table.primaryKey({ columns: ["slug"] as const })(Table.make("bad_rich_primary_key_nullable", {
+  slug: C.text().pipe(C.nullable)
+}))
+void badRichPrimaryKeyNullable
+
+// @ts-expect-error rich unique columns must exist on the target table
+const badRichUniqueColumn = Table.unique({ columns: ["missing"] as const })(Table.make("bad_rich_unique_column", {
+  id: C.uuid()
+}))
+void badRichUniqueColumn
+
 // @ts-expect-error rich indexes require at least one column or key
 const badRichIndex = Table.index({ name: "bad_rich_index" })
 void badRichIndex
