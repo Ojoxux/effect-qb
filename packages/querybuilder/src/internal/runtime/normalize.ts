@@ -17,7 +17,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const pad = (value: number, width = 2): string => value.toString().padStart(width, "0")
 
 const formatLocalDate = (value: Date): string =>
-  `${value.getUTCFullYear()}-${pad(value.getUTCMonth() + 1)}-${pad(value.getUTCDate())}`
+  `${pad(value.getUTCFullYear(), 4)}-${pad(value.getUTCMonth() + 1)}-${pad(value.getUTCDate())}`
 
 const formatLocalTime = (value: Date): string => {
   const milliseconds = value.getUTCMilliseconds()
