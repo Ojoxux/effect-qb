@@ -4,6 +4,27 @@ All notable changes to this project are documented here.
 
 ## Unreleased
 
+## 0.16.0 - 2026-05-12
+
+### Features
+
+- feat(querybuilder): narrow jsonb unions from discriminator predicates
+- feat(querybuilder): carry predicate facts through query plans
+- feat(querybuilder): expand predicate fact output narrowing
+- feat(querybuilder): add driver value mappings
+
+### Docs
+
+- docs: document stream execution in readme
+
+### Tests
+
+- test(querybuilder): cover driver value mapping types
+
+### Chores
+
+- chore: use tsgo beta channel
+
 ## 0.15.0 - 2026-04-14
 
 ### Features
