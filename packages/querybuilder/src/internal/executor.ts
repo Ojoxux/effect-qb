@@ -238,6 +238,20 @@ const effectiveRuntimeNullability = (
     : nullability
 }
 
+const dbTypeAllowsTopLevelJsonNull = (
+  dbType: Expression.DbType.Any
+): boolean => {
+  if ("base" in dbType) {
+    return dbTypeAllowsTopLevelJsonNull(dbType.base)
+  }
+  return ("variant" in dbType && dbType.variant === "json") || dbType.runtime === "json"
+}
+
+const schemaAcceptsNull = (
+  schema: Schema.Schema.Any | undefined
+): boolean =>
+  schema !== undefined && (Schema.is(schema) as (value: unknown) => boolean)(null)
+
 const decodeProjectionValue = (
   rendered: Renderer.RenderedQuery<any, any>,
   projection: Renderer.RenderedQuery<any, any>["projections"][number],
@@ -263,8 +277,12 @@ const decodeProjectionValue = (
   }
 
   const nullability = effectiveRuntimeNullability(expression, scope)
+  const schema = expressionRuntimeSchema(expression, { assumptions: scope.assumptions })
   if (normalized === null) {
     if (nullability === "never") {
+      if (dbTypeAllowsTopLevelJsonNull(expression[Expression.TypeId].dbType) && schemaAcceptsNull(schema)) {
+        return null
+      }
       throw makeRowDecodeError(
         rendered,
         projection,
@@ -290,7 +308,6 @@ const decodeProjectionValue = (
     )
   }
 
-  const schema = expressionRuntimeSchema(expression, { assumptions: scope.assumptions })
   if (schema === undefined) {
     return normalized
   }
