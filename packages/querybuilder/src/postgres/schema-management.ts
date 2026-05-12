@@ -16,6 +16,75 @@ type QualifiedName<
     : `${SchemaName}.${Name}`
   : Name
 
+type LowerAlpha =
+  | "a"
+  | "b"
+  | "c"
+  | "d"
+  | "e"
+  | "f"
+  | "g"
+  | "h"
+  | "i"
+  | "j"
+  | "k"
+  | "l"
+  | "m"
+  | "n"
+  | "o"
+  | "p"
+  | "q"
+  | "r"
+  | "s"
+  | "t"
+  | "u"
+  | "v"
+  | "w"
+  | "x"
+  | "y"
+  | "z"
+
+type Digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+type SafeIdentifierStart = LowerAlpha | "_"
+type SafeIdentifierRest = SafeIdentifierStart | Digit | "$"
+
+type EscapeIdentifier<Value extends string> =
+  Value extends `${infer Head}"${infer Tail}`
+    ? `${Head}""${EscapeIdentifier<Tail>}`
+    : Value
+
+type IsSafeIdentifierRest<Value extends string> =
+  Value extends ""
+    ? true
+    : Value extends `${infer Head}${infer Tail}`
+      ? Head extends SafeIdentifierRest
+        ? IsSafeIdentifierRest<Tail>
+        : false
+      : false
+
+type IsSafeIdentifier<Value extends string> =
+  Value extends `${infer Head}${infer Tail}`
+    ? Head extends SafeIdentifierStart
+      ? IsSafeIdentifierRest<Tail>
+      : false
+    : false
+
+type RenderIdentifier<Value extends string> =
+  string extends Value
+    ? string
+    : IsSafeIdentifier<Value> extends true
+      ? Value
+      : `"${EscapeIdentifier<Value>}"`
+
+type RenderQualifiedTypeName<
+  Name extends string,
+  SchemaName extends string | undefined
+> = SchemaName extends string
+  ? SchemaName extends "public"
+    ? RenderIdentifier<Name>
+    : `${RenderIdentifier<SchemaName>}.${RenderIdentifier<Name>}`
+  : RenderIdentifier<Name>
+
 type EnumColumn<
   Name extends string,
   Values extends readonly [string, ...string[]],
@@ -24,7 +93,7 @@ type EnumColumn<
   Values[number],
   Values[number],
   Values[number],
-  Expression.DbType.Enum<"postgres", QualifiedName<Name, SchemaName>>,
+  Expression.DbType.Enum<"postgres", RenderQualifiedTypeName<Name, SchemaName>>,
   false,
   false,
   false,
@@ -117,7 +186,7 @@ export interface EnumDefinition<
     readonly schemaName: SchemaName
   }
   readonly qualifiedName: () => QualifiedName<Name, SchemaName>
-  readonly type: () => Expression.DbType.Enum<"postgres", QualifiedName<Name, SchemaName>>
+  readonly type: () => Expression.DbType.Enum<"postgres", RenderQualifiedTypeName<Name, SchemaName>>
   readonly column: () => EnumColumn<Name, Values, SchemaName>
 }
 
