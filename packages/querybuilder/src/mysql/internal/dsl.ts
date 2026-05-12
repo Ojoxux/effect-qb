@@ -40,6 +40,7 @@ import {
   type ExpressionInput,
   type ExtractDialect,
   type ExtractRequired,
+  type FactsOfPlan,
   type GroupByInput,
   type GroupedOfPlan,
   type GroupedKeysFromValues,
@@ -117,7 +118,8 @@ import type {
   JsonValueAtPath,
   NormalizeJsonLiteral
 } from "../../internal/json/types.js"
-import type { AssumeTrue } from "../../internal/predicate/analysis.js"
+import type { AssumeTrue, EmptyFacts } from "../../internal/predicate/analysis.js"
+import type { AssumeFactsTrue } from "../../internal/predicate/context.js"
 import type { FormulaOfPredicate } from "../../internal/predicate/normalize.js"
 import type { TrueFormula } from "../../internal/predicate/formula.js"
 import { assumeFormulaTrue, formulaOfExpression as formulaOfExpressionRuntime, trueFormula } from "../../internal/predicate/runtime.js"
@@ -762,6 +764,18 @@ type DialectExpressionTuple<
   readonly [K in keyof Values]: DialectAsExpression<Values[K], Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
 }
 
+type DialectExpressionArray<
+  Values extends readonly ExpressionInput[],
+  Dialect extends string,
+  TextDb extends Expression.DbType.Any,
+  NumericDb extends Expression.DbType.Any,
+  BoolDb extends Expression.DbType.Any,
+  TimestampDb extends Expression.DbType.Any,
+  NullDb extends Expression.DbType.Any
+> = DialectExpressionTuple<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb> extends infer Tuple extends readonly Expression.Any[]
+  ? Tuple
+  : never
+
 /** Normalized expression tuple for generic string operator inputs. */
 type DialectStringExpressionTuple<
   Values extends readonly ExpressionInput[],
@@ -792,6 +806,20 @@ type PlanAssumptionsAfterWhere<
   DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
 >
 
+type PlanFactsAfterWhere<
+  PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
+  Predicate extends PredicateInput,
+  Dialect extends string,
+  TextDb extends Expression.DbType.Any,
+  NumericDb extends Expression.DbType.Any,
+  BoolDb extends Expression.DbType.Any,
+  TimestampDb extends Expression.DbType.Any,
+  NullDb extends Expression.DbType.Any
+> = AssumeFactsTrue<
+  FactsOfPlan<PlanValue>,
+  FormulaOfPredicate<DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>
+>
+
 type PlanAssumptionsAfterHaving<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
   Predicate extends HavingPredicateInput,
@@ -804,6 +832,20 @@ type PlanAssumptionsAfterHaving<
 > = AssumeTrue<
   AssumptionsOfPlan<PlanValue>,
   DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
+>
+
+type PlanFactsAfterHaving<
+  PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
+  Predicate extends HavingPredicateInput,
+  Dialect extends string,
+  TextDb extends Expression.DbType.Any,
+  NumericDb extends Expression.DbType.Any,
+  BoolDb extends Expression.DbType.Any,
+  TimestampDb extends Expression.DbType.Any,
+  NullDb extends Expression.DbType.Any
+> = AssumeFactsTrue<
+  FactsOfPlan<PlanValue>,
+  FormulaOfPredicate<DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>
 >
 
 type PlanAssumptionsAfterJoin<
@@ -822,6 +864,23 @@ type PlanAssumptionsAfterJoin<
       DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
     >
   : AssumptionsOfPlan<PlanValue>
+
+type PlanFactsAfterJoin<
+  PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
+  Predicate extends PredicateInput,
+  Kind extends QueryAst.JoinKind,
+  Dialect extends string,
+  TextDb extends Expression.DbType.Any,
+  NumericDb extends Expression.DbType.Any,
+  BoolDb extends Expression.DbType.Any,
+  TimestampDb extends Expression.DbType.Any,
+  NullDb extends Expression.DbType.Any
+> = Kind extends "inner"
+  ? AssumeFactsTrue<
+      FactsOfPlan<PlanValue>,
+      FormulaOfPredicate<DialectAsExpression<Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>
+    >
+  : FactsOfPlan<PlanValue>
 
 type ScalarSubqueryInput<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>,
@@ -2998,7 +3057,7 @@ type BinaryPredicateExpression<
     ...values: Values
   ): VariadicBooleanExpression<
     "and",
-    { readonly [K in keyof Values]: DialectAsExpression<Values[K], Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb> } & readonly Expression.Any[],
+    DialectExpressionArray<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
     Dialect,
     TextDb,
     NumericDb,
@@ -3008,7 +3067,7 @@ type BinaryPredicateExpression<
   > =>
     makeVariadicBooleanExpression(
       "and",
-      values.map((value) => toDialectExpression(value)) as { readonly [K in keyof Values]: DialectAsExpression<Values[K], Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb> } & readonly Expression.Any[]
+      values.map((value) => toDialectExpression(value)) as unknown as DialectExpressionArray<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
     )
 
   const or = <
@@ -3017,7 +3076,7 @@ type BinaryPredicateExpression<
     ...values: Values
   ): VariadicBooleanExpression<
     "or",
-    { readonly [K in keyof Values]: DialectAsExpression<Values[K], Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb> } & readonly Expression.Any[],
+    DialectExpressionArray<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
     Dialect,
     TextDb,
     NumericDb,
@@ -3027,7 +3086,7 @@ type BinaryPredicateExpression<
   > =>
     makeVariadicBooleanExpression(
       "or",
-      values.map((value) => toDialectExpression(value)) as { readonly [K in keyof Values]: DialectAsExpression<Values[K], Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb> } & readonly Expression.Any[]
+      values.map((value) => toDialectExpression(value)) as unknown as DialectExpressionArray<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
     )
 
   const not = <Value extends ExpressionInput>(
@@ -4607,7 +4666,10 @@ type SelectFromResult<
   Exclude<OutstandingOfPlan<PlanValue>, SourceNameOf<CurrentSource>>,
   AssumptionsOfPlan<PlanValue>,
   MergeCapabilities<CapabilitiesOfPlan<PlanValue>, SourceCapabilitiesOf<CurrentSource>>,
-  StatementOfPlan<PlanValue>
+  StatementOfPlan<PlanValue>,
+  MutationTargetOfPlan<PlanValue>,
+  InsertSourceStateOfPlan<PlanValue>,
+  FactsOfPlan<PlanValue>
 >
 
 type UpdateFromResult<
@@ -4629,7 +4691,10 @@ type UpdateFromResult<
   Exclude<OutstandingOfPlan<PlanValue>, SourceNameOf<CurrentSource>>,
   AssumptionsOfPlan<PlanValue>,
   MergeCapabilities<CapabilitiesOfPlan<PlanValue>, SourceCapabilitiesOf<CurrentSource>>,
-  StatementOfPlan<PlanValue>
+  StatementOfPlan<PlanValue>,
+  MutationTargetOfPlan<PlanValue>,
+  InsertSourceStateOfPlan<PlanValue>,
+  FactsOfPlan<PlanValue>
 >
 
 type InsertFromResult<
@@ -4650,7 +4715,8 @@ type InsertFromResult<
     : CapabilitiesOfPlan<PlanValue>,
   StatementOfPlan<PlanValue>,
   MutationTargetOfPlan<PlanValue>,
-  "ready"
+  "ready",
+  FactsOfPlan<PlanValue>
 >
 
 type FromPlanConstraint<
@@ -4996,7 +5062,10 @@ type AsCurriedResult<
     ExtractRequired<Selection>,
     TrueFormula,
     "read",
-    "select"
+    "select",
+    any,
+    "ready",
+    EmptyFacts
   >
 
   const {
@@ -5067,7 +5136,10 @@ type AsCurriedResult<
       AddExpressionRequired<OutstandingOfPlan<PlanValue>, AvailableOfPlan<PlanValue>, Predicate>,
       PlanAssumptionsAfterWhere<PlanValue, Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
       CapabilitiesOfPlan<PlanValue>,
-      StatementOfPlan<PlanValue>
+      StatementOfPlan<PlanValue>,
+      MutationTargetOfPlan<PlanValue>,
+      InsertSourceStateOfPlan<PlanValue>,
+      PlanFactsAfterWhere<PlanValue, Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
     >
 
   export type FromApi = <CurrentSource extends FromInput>(
@@ -5092,7 +5164,10 @@ type AsCurriedResult<
       AddExpressionRequired<OutstandingOfPlan<PlanValue>, AvailableOfPlan<PlanValue>, Predicate>,
       PlanAssumptionsAfterHaving<PlanValue, Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
       CapabilitiesOfPlan<PlanValue>,
-      StatementOfPlan<PlanValue>
+      StatementOfPlan<PlanValue>,
+      MutationTargetOfPlan<PlanValue>,
+      InsertSourceStateOfPlan<PlanValue>,
+      PlanFactsAfterHaving<PlanValue, Predicate, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
     >
 
   type CrossJoinApi = <CurrentTable extends SourceLike>(
@@ -5154,7 +5229,10 @@ type AsCurriedResult<
       AddJoinRequired<OutstandingOfPlan<PlanValue>, AvailableOfPlan<PlanValue>, SourceNameOf<CurrentTable>, Predicate, Kind>,
       PlanAssumptionsAfterJoin<PlanValue, Predicate, Kind, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
       MergeCapabilities<CapabilitiesOfPlan<PlanValue>, SourceCapabilitiesOf<CurrentTable>>,
-      StatementOfPlan<PlanValue>
+      StatementOfPlan<PlanValue>,
+      MutationTargetOfPlan<PlanValue>,
+      InsertSourceStateOfPlan<PlanValue>,
+      PlanFactsAfterJoin<PlanValue, Predicate, Kind, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
     >
 
   type BinaryJoinApi<Kind extends QueryAst.JoinKind> = <
@@ -5186,7 +5264,10 @@ type AsCurriedResult<
       AddJoinRequired<OutstandingOfPlan<PlanValue>, AvailableOfPlan<PlanValue>, SourceNameOf<CurrentTable>, Predicate, Kind>,
       PlanAssumptionsAfterJoin<PlanValue, Predicate, Kind, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
       MergeCapabilities<CapabilitiesOfPlan<PlanValue>, SourceCapabilitiesOf<CurrentTable>>,
-      StatementOfPlan<PlanValue>
+      StatementOfPlan<PlanValue>,
+      MutationTargetOfPlan<PlanValue>,
+      InsertSourceStateOfPlan<PlanValue>,
+      PlanFactsAfterJoin<PlanValue, Predicate, Kind, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
     >
 
   type OrderByApi = <Value extends ExpressionInput>(
@@ -5205,7 +5286,10 @@ type AsCurriedResult<
       AddExpressionRequired<OutstandingOfPlan<PlanValue>, AvailableOfPlan<PlanValue>, Value>,
       AssumptionsOfPlan<PlanValue>,
       CapabilitiesOfPlan<PlanValue>,
-      StatementOfPlan<PlanValue>
+      StatementOfPlan<PlanValue>,
+      MutationTargetOfPlan<PlanValue>,
+      InsertSourceStateOfPlan<PlanValue>,
+      FactsOfPlan<PlanValue>
     >
 
   interface LockApi {
@@ -5221,7 +5305,10 @@ type AsCurriedResult<
       OutstandingOfPlan<PlanValue>,
       AssumptionsOfPlan<PlanValue>,
       MergeCapabilities<CapabilitiesOfPlan<PlanValue>, "transaction">,
-      StatementOfPlan<PlanValue>
+      StatementOfPlan<PlanValue>,
+      MutationTargetOfPlan<PlanValue>,
+      InsertSourceStateOfPlan<PlanValue>,
+      FactsOfPlan<PlanValue>
     >
     <Mode extends Dialect extends "mysql" ? "lowPriority" | "ignore" | "quick" : never>(
       mode: Mode,
@@ -5246,7 +5333,10 @@ type AsCurriedResult<
       OutstandingOfPlan<PlanValue>,
       AssumptionsOfPlan<PlanValue>,
       MergeCapabilities<CapabilitiesOfPlan<PlanValue>, "transaction">,
-      StatementOfPlan<PlanValue>
+      StatementOfPlan<PlanValue>,
+      MutationTargetOfPlan<PlanValue>,
+      InsertSourceStateOfPlan<PlanValue>,
+      FactsOfPlan<PlanValue>
     >
   }
 
@@ -5263,7 +5353,10 @@ type AsCurriedResult<
       OutstandingOfPlan<PlanValue>,
       AssumptionsOfPlan<PlanValue>,
       CapabilitiesOfPlan<PlanValue>,
-      StatementOfPlan<PlanValue>
+      StatementOfPlan<PlanValue>,
+      MutationTargetOfPlan<PlanValue>,
+      InsertSourceStateOfPlan<PlanValue>,
+      FactsOfPlan<PlanValue>
     >
 
   type LimitApi = <Value extends NumericExpressionInput>(
@@ -5281,7 +5374,10 @@ type AsCurriedResult<
       AddExpressionRequired<OutstandingOfPlan<PlanValue>, AvailableOfPlan<PlanValue>, DialectAsNumericExpression<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>,
       AssumptionsOfPlan<PlanValue>,
       CapabilitiesOfPlan<PlanValue>,
-      StatementOfPlan<PlanValue>
+      StatementOfPlan<PlanValue>,
+      MutationTargetOfPlan<PlanValue>,
+      InsertSourceStateOfPlan<PlanValue>,
+      FactsOfPlan<PlanValue>
     >
 
   type OffsetApi = <Value extends NumericExpressionInput>(
@@ -5299,7 +5395,10 @@ type AsCurriedResult<
       AddExpressionRequired<OutstandingOfPlan<PlanValue>, AvailableOfPlan<PlanValue>, DialectAsNumericExpression<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>,
       AssumptionsOfPlan<PlanValue>,
       CapabilitiesOfPlan<PlanValue>,
-      StatementOfPlan<PlanValue>
+      StatementOfPlan<PlanValue>,
+      MutationTargetOfPlan<PlanValue>,
+      InsertSourceStateOfPlan<PlanValue>,
+      FactsOfPlan<PlanValue>
     >
 
   const {
@@ -5391,7 +5490,10 @@ type AsCurriedResult<
       Exclude<OutstandingOfPlan<PlanValue> | RequiredFromDependencies<TupleDependencies<Values>>, AvailableNames<AvailableOfPlan<PlanValue>>>,
       AssumptionsOfPlan<PlanValue>,
       CapabilitiesOfPlan<PlanValue>,
-      StatementOfPlan<PlanValue>
+      StatementOfPlan<PlanValue>,
+      MutationTargetOfPlan<PlanValue>,
+      InsertSourceStateOfPlan<PlanValue>,
+      FactsOfPlan<PlanValue>
     >
 
   type ReturningApi = <Selection extends SelectionShape>(
@@ -5411,7 +5513,8 @@ type AsCurriedResult<
       CapabilitiesOfPlan<PlanValue>,
       StatementOfPlan<PlanValue>,
       MutationTargetOfPlan<PlanValue>,
-      InsertSourceStateOfPlan<PlanValue>
+      InsertSourceStateOfPlan<PlanValue>,
+      FactsOfPlan<PlanValue>
     >
 
   export interface InsertApi {
@@ -5429,7 +5532,8 @@ type AsCurriedResult<
       "write",
       "insert",
       Target,
-      "missing"
+      "missing",
+      EmptyFacts
     >
     <Target extends MutationTargetLike, Values extends Record<string, unknown>>(
       target: Target,
@@ -5446,7 +5550,8 @@ type AsCurriedResult<
       "write",
       "insert",
       Target,
-      "ready"
+      "ready",
+      EmptyFacts
     >
   }
 
@@ -5478,7 +5583,8 @@ type AsCurriedResult<
       CapabilitiesOfPlan<PlanValue>,
       StatementOfPlan<PlanValue>,
       MutationTargetOfPlan<PlanValue>,
-      InsertSourceStateOfPlan<PlanValue>
+      InsertSourceStateOfPlan<PlanValue>,
+      FactsOfPlan<PlanValue>
     >
 
   interface UpdateApi {
@@ -5495,7 +5601,10 @@ type AsCurriedResult<
       Exclude<NestedMutationRequiredFromValues<Values>, MutationTargetNamesOf<Targets>>,
       TrueFormula,
       "write",
-      "update"
+      "update",
+      any,
+      "ready",
+      EmptyFacts
     >
     <Target extends MutationTargetLike, Values extends Record<string, unknown>>(
       target: Target,
@@ -5510,7 +5619,10 @@ type AsCurriedResult<
       Exclude<MutationRequiredFromValues<Values>, SourceNameOf<Target>>,
       TrueFormula,
       "write",
-      "update"
+      "update",
+      any,
+      "ready",
+      EmptyFacts
     >
   }
 
@@ -5536,7 +5648,8 @@ type AsCurriedResult<
     "write",
     "insert",
     Target,
-    "ready"
+    "ready",
+    EmptyFacts
   >
 
   interface DeleteApi {
@@ -5552,7 +5665,10 @@ type AsCurriedResult<
       never,
       TrueFormula,
       "write",
-      "delete"
+      "delete",
+      any,
+      "ready",
+      EmptyFacts
     >
     <Targets extends MutationTargetTuple>(
       target: Dialect extends "mysql" ? Targets : never
@@ -5566,7 +5682,10 @@ type AsCurriedResult<
       never,
       TrueFormula,
       "write",
-      "delete"
+      "delete",
+      any,
+      "ready",
+      EmptyFacts
     >
   }
 
@@ -5583,7 +5702,10 @@ type AsCurriedResult<
     never,
     TrueFormula,
     "write",
-    "truncate"
+    "truncate",
+    any,
+    "ready",
+    EmptyFacts
   >
 
   type MergeApi = <
@@ -5637,7 +5759,10 @@ type AsCurriedResult<
     >,
     TrueFormula,
     MergeCapabilities<"write", SourceCapabilitiesOf<Source>>,
-    "merge"
+    "merge",
+    any,
+    "ready",
+    EmptyFacts
   >
 
   const mutationRuntime = makeDslMutationRuntime({
@@ -5692,7 +5817,8 @@ type AsCurriedResult<
       CapabilitiesOfPlan<PlanValue>,
       StatementOfPlan<PlanValue>,
       MutationTargetOfPlan<PlanValue>,
-      InsertSourceStateOfPlan<PlanValue>
+      InsertSourceStateOfPlan<PlanValue>,
+      FactsOfPlan<PlanValue>
     > => mutationRuntime.onConflict(target, options)(plan)
 
   const update: UpdateApi = ((
@@ -5722,7 +5848,8 @@ type AsCurriedResult<
     "write",
     "insert",
     Target,
-    "ready"
+    "ready",
+    EmptyFacts
   > => mutationRuntime.upsert(target, values, conflictColumns as string | readonly string[], updateValues)
 
   const delete_: DeleteApi = ((
@@ -5744,7 +5871,10 @@ type AsCurriedResult<
     never,
     TrueFormula,
     "write",
-    "truncate"
+    "truncate",
+    any,
+    "ready",
+    EmptyFacts
   > => mutationRuntime.truncate(target, options)
 
   const merge: MergeApi = <
@@ -5798,7 +5928,10 @@ type AsCurriedResult<
     >,
     TrueFormula,
     MergeCapabilities<"write", SourceCapabilitiesOf<Source>>,
-    "merge"
+    "merge",
+    any,
+    "ready",
+    EmptyFacts
   > => mutationRuntime.merge(target, source, on, options)
 
   type TransactionApi = (options?: TransactionOptions) => QueryPlan<

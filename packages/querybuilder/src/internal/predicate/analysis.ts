@@ -1,8 +1,43 @@
-import type { AnalyzeFormula } from "./context.js"
+import type { AnalyzeFormula, PredicateContext } from "./context.js"
 import type { FormulaOfPredicate } from "./normalize.js"
 import type { And, Not, PredicateFormula, TrueFormula } from "./formula.js"
 
 type ContextOf<Formula extends PredicateFormula> = AnalyzeFormula<Formula>
+
+export type EmptyFacts = AnalyzeFormula<TrueFormula>
+
+export type FactsOfFormula<
+  Formula extends PredicateFormula
+> = AnalyzeFormula<Formula>
+
+export type GuaranteedNonNullKeysInFacts<
+  Facts extends PredicateContext
+> = Facts["nonNullKeys"]
+
+export type GuaranteedNullKeysInFacts<
+  Facts extends PredicateContext
+> = Facts["nullKeys"]
+
+export type GuaranteedSourceNamesInFacts<
+  Facts extends PredicateContext
+> = Facts["sourceNames"]
+
+export type GuaranteedLiteralSetInFacts<
+  Facts extends PredicateContext,
+  Key extends string
+> = Key extends keyof Facts["literalSets"]
+  ? Facts["literalSets"][Key]
+  : never
+
+export type GuaranteedJsonLiteralSetInFacts<
+  Facts extends PredicateContext,
+  ColumnKey extends string,
+  Path extends string
+> = ColumnKey extends keyof Facts["jsonLiteralSets"]
+  ? Path extends keyof Facts["jsonLiteralSets"][ColumnKey]
+    ? Facts["jsonLiteralSets"][ColumnKey][Path]
+    : never
+  : never
 
 export type GuaranteedNonNullKeys<
   Assumptions extends PredicateFormula

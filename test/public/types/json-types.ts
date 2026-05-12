@@ -111,6 +111,16 @@ const option2Or3Payload = Q.select({
   Q.where(Q.in(variantKindExpr, "option2", "option3"))
 )
 
+const option2Or3PayloadViaOr = Q.select({
+  payload: variantDocs.payload
+}).pipe(
+  Q.from(variantDocs),
+  Q.where(Q.or(
+    Q.eq(variantKindExpr, "option2"),
+    Q.eq(variantKindExpr, "option3")
+  ))
+)
+
 
 type City = E.RuntimeOf<typeof cityExpr>
 type CityText = E.RuntimeOf<typeof cityTextExpr>
@@ -141,6 +151,7 @@ type JsonbStripped = Exclude<E.RuntimeOf<typeof jsonbStrippedExpr>, null>
 type Option3PayloadRow = Q.ResultRow<typeof option3Payload>
 type Option3PayloadRuntimeRow = Q.RuntimeResultRow<typeof option3Payload>
 type Option2Or3PayloadRow = Q.ResultRow<typeof option2Or3Payload>
+type Option2Or3PayloadViaOrRow = Q.ResultRow<typeof option2Or3PayloadViaOr>
 
 const city: City = "Paris"
 const cityText: CityText = "Paris"
@@ -181,14 +192,18 @@ const jsonbStrippedPostcode: JsonbStripped["profile"]["address"]["postcode"] = u
 declare const option3PayloadRow: Option3PayloadRow
 declare const option3PayloadRuntimeRow: Option3PayloadRuntimeRow
 declare const option2Or3PayloadRow: Option2Or3PayloadRow
+declare const option2Or3PayloadViaOrRow: Option2Or3PayloadViaOrRow
 const option3PayloadKind: "option3" = option3PayloadRow.payload.kind
 const option3PayloadValue: string = option3PayloadRow.payload.option3Value
 const conservativeOption3RuntimeKind: "option1" | "option2" | "option3" = option3PayloadRuntimeRow.payload.kind
 const option2Or3PayloadKind: "option2" | "option3" = option2Or3PayloadRow.payload.kind
+const option2Or3PayloadViaOrKind: "option2" | "option3" = option2Or3PayloadViaOrRow.payload.kind
 // @ts-expect-error discriminator equality should remove unrelated jsonb union members
 option3PayloadRow.payload.option1Value
 // @ts-expect-error discriminator IN should remove excluded jsonb union members
 option2Or3PayloadRow.payload.option1Value
+// @ts-expect-error discriminator OR should remove excluded jsonb union members
+option2Or3PayloadViaOrRow.payload.option1Value
 void city
 void cityText
 void jsonTypeName
@@ -229,6 +244,7 @@ void option3PayloadKind
 void option3PayloadValue
 void conservativeOption3RuntimeKind
 void option2Or3PayloadKind
+void option2Or3PayloadViaOrKind
 void jsonbSetExpr
 void jsonbInsertExpr
 void jsonbDeleteExpr

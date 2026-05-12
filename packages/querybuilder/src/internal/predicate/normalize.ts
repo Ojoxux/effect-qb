@@ -159,7 +159,7 @@ type FormulaTupleOf<
   Values extends readonly Expression.Any[]
 > = {
   readonly [K in keyof Values]: Values[K] extends Expression.Any ? FormulaOfExpression<Values[K]> : never
-} & readonly PredicateFormula[]
+} extends infer Tuple extends readonly PredicateFormula[] ? Tuple : never
 
 type AllFormulaOfValues<
   Values extends readonly Expression.Any[]
@@ -167,7 +167,42 @@ type AllFormulaOfValues<
 
 type AnyFormulaOfValues<
   Values extends readonly Expression.Any[]
-> = import("./formula.js").NormalizeBooleanConstants<AnyFormula<FormulaTupleOf<Values>>>
+> = FormulaTupleOf<Values> extends infer Formulas extends readonly PredicateFormula[]
+  ? CompactOrLiteralSet<Formulas> extends infer Compact extends PredicateFormula
+    ? [Compact] extends [never]
+      ? import("./formula.js").NormalizeBooleanConstants<AnyFormula<Formulas>>
+      : Compact
+    : import("./formula.js").NormalizeBooleanConstants<AnyFormula<Formulas>>
+  : import("./formula.js").NormalizeBooleanConstants<AnyFormula<FormulaTupleOf<Values>>>
+
+type LiteralSetDetails<Formula extends PredicateFormula> =
+  Formula extends AtomFormula<EqLiteralAtom<infer Key extends string, infer Value extends string>>
+    ? readonly [Key, Value]
+    : Formula extends AtomFormula<LiteralSetAtom<infer Key extends string, infer Values extends string>>
+      ? readonly [Key, Values]
+      : never
+
+type CompactOrLiteralSet<
+  Items extends readonly PredicateFormula[],
+  Key extends string = never,
+  Values extends string = never,
+  Seen extends readonly unknown[] = []
+> = Seen["length"] extends 20
+  ? never
+  : Items extends readonly [
+    infer Head extends PredicateFormula,
+    ...infer Tail extends readonly PredicateFormula[]
+  ]
+    ? LiteralSetDetails<Head> extends readonly [infer HeadKey extends string, infer HeadValues extends string]
+      ? [Key] extends [never]
+        ? CompactOrLiteralSet<Tail, HeadKey, HeadValues, readonly [...Seen, unknown]>
+        : [HeadKey] extends [Key]
+          ? CompactOrLiteralSet<Tail, Key, Values | HeadValues, readonly [...Seen, unknown]>
+          : never
+      : never
+    : [Key] extends [never]
+      ? never
+      : AtomOf<LiteralSetAtom<Key, Values>>
 
 type FormulaOfInValues<
   Left extends Expression.Any,
@@ -182,8 +217,11 @@ type FormulaOfInValues<
 
 type LiteralSetValuesOf<
   Values extends readonly Expression.Any[],
-  Current extends string = never
-> = Values extends readonly [
+  Current extends string = never,
+  Seen extends readonly unknown[] = []
+> = Seen["length"] extends 20
+  ? string
+  : Values extends readonly [
   infer Head extends Expression.Any,
   ...infer Tail extends readonly Expression.Any[]
 ]
@@ -192,7 +230,7 @@ type LiteralSetValuesOf<
       ? never
       : Literal extends null
         ? never
-        : LiteralSetValuesOf<Tail, Current | ValueKey<Literal>>
+        : LiteralSetValuesOf<Tail, Current | ValueKey<Literal>, readonly [...Seen, unknown]>
     : never
   : Current
 
@@ -204,7 +242,9 @@ type FormulaOfIn<
   : LiteralSetValuesOf<Values> extends infer ValueSet extends string
     ? [ValueSet] extends [never]
       ? OrFormulas<FormulaOfInValues<Left, Values>>
-      : AtomOf<LiteralSetAtom<PredicateKeyOfExpression<Left>, ValueSet>>
+      : string extends ValueSet
+        ? CombineFacts<NonNullFactsOfExpression<Left>, UnknownTag<"in:literal-set-too-large">>
+        : AtomOf<LiteralSetAtom<PredicateKeyOfExpression<Left>, ValueSet>>
     : OrFormulas<FormulaOfInValues<Left, Values>>
 
 type FormulaOfNotInValues<

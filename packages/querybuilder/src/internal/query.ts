@@ -10,7 +10,17 @@ import type { JsonNode } from "./json/ast.js"
 import type * as JsonPath from "./json/path.js"
 import type { QueryCapability } from "./query-requirements.js"
 import type { CaseBranchAssumeFalse, CaseBranchAssumeTrue, CaseBranchDecision } from "./case-analysis.js"
-import type { ContradictsFormula, GuaranteedLiteralSet, GuaranteedNonNullKeys, GuaranteedNullKeys, GuaranteedSourceNames } from "./predicate/analysis.js"
+import type {
+  ContradictsFormula,
+  EmptyFacts,
+  FactsOfFormula,
+  GuaranteedJsonLiteralSetInFacts,
+  GuaranteedNonNullKeysInFacts,
+  GuaranteedNullKeysInFacts,
+  GuaranteedSourceNamesInFacts
+} from "./predicate/analysis.js"
+import type { AssumeFactsFalse, AssumeFactsTrue, PredicateContext } from "./predicate/context.js"
+import type { FormulaOfPredicate } from "./predicate/normalize.js"
 import type { ColumnKeyOfExpression } from "./predicate/key.js"
 import type { PredicateFormula, TrueFormula } from "./predicate/formula.js"
 import { trueFormula } from "./predicate/runtime.js"
@@ -113,12 +123,14 @@ export interface QueryState<
   Capabilities extends QueryCapability,
   Statement extends QueryAst.QueryStatement,
   Target,
-  InsertState extends InsertSourceState
+  InsertState extends InsertSourceState,
+  Facts extends PredicateContext
 > {
   readonly required: Outstanding
   readonly availableNames: AvailableNames
   readonly grouped: Grouped
   readonly assumptions: Assumptions
+  readonly facts: Facts
   readonly capabilities: Capabilities
   readonly statement: Statement
   readonly target: Target
@@ -1067,6 +1079,9 @@ export type OutstandingOfPlan<
 export type AssumptionsOfPlan<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any, any, any>
 > = QueryPlanState<PlanValue>["assumptions"]
+export type FactsOfPlan<
+  PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any, any, any>
+> = QueryPlanState<PlanValue>["facts"]
 export type CapabilitiesOfPlan<
   PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any, any, any>
 > = QueryPlanState<PlanValue>["capabilities"]
@@ -1324,12 +1339,13 @@ type MergeNullabilityStates<
 type FoldEffectiveNullability<
   Values extends readonly Expression.Any[],
   Available extends Record<string, RowSet.AnySource>,
-  Assumptions extends PredicateFormula
+  Assumptions extends PredicateFormula,
+  Facts extends PredicateContext
 > = Extract<{
-  [K in keyof Values]: Values[K] extends Expression.Any ? EffectiveNullability<Values[K], Available, Assumptions> : never
+  [K in keyof Values]: Values[K] extends Expression.Any ? EffectiveNullability<Values[K], Available, Assumptions, Facts> : never
 }[number], "always"> extends never
   ? Extract<{
-      [K in keyof Values]: Values[K] extends Expression.Any ? EffectiveNullability<Values[K], Available, Assumptions> : never
+      [K in keyof Values]: Values[K] extends Expression.Any ? EffectiveNullability<Values[K], Available, Assumptions, Facts> : never
     }[number], "maybe"> extends never
     ? "never"
     : "maybe"
@@ -1338,12 +1354,13 @@ type FoldEffectiveNullability<
 type CoalesceEffectiveNullability<
   Values extends readonly Expression.Any[],
   Available extends Record<string, RowSet.AnySource>,
-  Assumptions extends PredicateFormula
+  Assumptions extends PredicateFormula,
+  Facts extends PredicateContext
 > = Extract<{
-  [K in keyof Values]: Values[K] extends Expression.Any ? EffectiveNullability<Values[K], Available, Assumptions> : never
+  [K in keyof Values]: Values[K] extends Expression.Any ? EffectiveNullability<Values[K], Available, Assumptions, Facts> : never
 }[number], "never"> extends never
   ? Extract<{
-      [K in keyof Values]: Values[K] extends Expression.Any ? EffectiveNullability<Values[K], Available, Assumptions> : never
+      [K in keyof Values]: Values[K] extends Expression.Any ? EffectiveNullability<Values[K], Available, Assumptions, Facts> : never
     }[number], "maybe"> extends never
     ? "always"
     : "maybe"
@@ -1357,16 +1374,16 @@ type NullabilityOfOutput<Output> =
 type PreciseFactSet<Value extends string> = string extends Value ? never : Value
 
 type KnownGuaranteedNullKeys<
-  Assumptions extends PredicateFormula
-> = PreciseFactSet<GuaranteedNullKeys<Assumptions>>
+  Facts extends PredicateContext
+> = PreciseFactSet<GuaranteedNullKeysInFacts<Facts>>
 
 type KnownGuaranteedNonNullKeys<
-  Assumptions extends PredicateFormula
-> = PreciseFactSet<GuaranteedNonNullKeys<Assumptions>>
+  Facts extends PredicateContext
+> = PreciseFactSet<GuaranteedNonNullKeysInFacts<Facts>>
 
 type KnownGuaranteedSourceNames<
-  Assumptions extends PredicateFormula
-> = PreciseFactSet<GuaranteedSourceNames<Assumptions>>
+  Facts extends PredicateContext
+> = PreciseFactSet<GuaranteedSourceNamesInFacts<Facts>>
 
 type ExplicitlyRequiredSourceNames<
   Available extends Record<string, RowSet.AnySource>
@@ -1393,7 +1410,7 @@ type ImpliedSourceNamesFromRequired<
 > = Extract<{
   readonly [K in Extract<keyof Available, string>]:
     K extends Required
-      ? PreciseFactSet<GuaranteedSourceNames<PresentFormulaOfSource<Available[K]>>>
+      ? PreciseFactSet<GuaranteedSourceNamesInFacts<FactsOfFormula<PresentFormulaOfSource<Available[K]>>>>
       : never
 }[Extract<keyof Available, string>], string>
 
@@ -1416,17 +1433,20 @@ type ExpandRequiredSourceNamesStep<
 
 type DirectlyAbsentSourceNames<
   Available extends Record<string, RowSet.AnySource>,
-  Assumptions extends PredicateFormula
+  Assumptions extends PredicateFormula,
+  Facts extends PredicateContext
 > = Extract<{
   readonly [K in Extract<keyof Available, string>]:
-    K extends string
-      ? PresenceWitnessesOfSource<Available[K]> extends infer Witnesses extends string
-        ? Extract<Witnesses, KnownGuaranteedNullKeys<Assumptions>> extends never
-          ? ContradictsFormula<Assumptions, PresentFormulaOfSource<Available[K]>> extends true
-            ? K
-            : never
-          : K
-        : never
+    Available[K] extends RowSet.Source<any, infer Mode extends RowSet.SourceMode, any, any>
+      ? Mode extends "required"
+        ? never
+        : PresenceWitnessesOfSource<Available[K]> extends infer Witnesses extends string
+          ? Extract<Witnesses, KnownGuaranteedNullKeys<Facts>> extends never
+            ? ContradictsFormula<Assumptions, PresentFormulaOfSource<Available[K]>> extends true
+              ? K
+              : never
+            : K
+          : never
       : never
 }[Extract<keyof Available, string>], string>
 
@@ -1435,7 +1455,7 @@ type ImpliedAbsentSourceNames<
   Absent extends string
 > = Extract<{
   readonly [K in Extract<keyof Available, string>]:
-    Extract<PreciseFactSet<GuaranteedSourceNames<PresentFormulaOfSource<Available[K]>>>, Absent> extends never
+    Extract<PreciseFactSet<GuaranteedSourceNamesInFacts<FactsOfFormula<PresentFormulaOfSource<Available[K]>>>>, Absent> extends never
       ? never
       : K
 }[Extract<keyof Available, string>], string>
@@ -1459,23 +1479,26 @@ type ExpandAbsentSourceNamesStep<
 
 type AbsentSourceNamesInScope<
   Available extends Record<string, RowSet.AnySource>,
-  Assumptions extends PredicateFormula
-> = ExpandAbsentSourceNames<Available, DirectlyAbsentSourceNames<Available, Assumptions>>
+  Assumptions extends PredicateFormula,
+  Facts extends PredicateContext
+> = ExpandAbsentSourceNames<Available, DirectlyAbsentSourceNames<Available, Assumptions, Facts>>
 
 type RequiredSourceNamesInScope<
   Available extends Record<string, RowSet.AnySource>,
-  Assumptions extends PredicateFormula
+  Assumptions extends PredicateFormula,
+  Facts extends PredicateContext
 > = Exclude<
   ExpandRequiredSourceNames<
     Available,
-    ExplicitlyRequiredSourceNames<Available> | KnownGuaranteedSourceNames<Assumptions>
+    ExplicitlyRequiredSourceNames<Available> | KnownGuaranteedSourceNames<Facts>
   >,
-  AbsentSourceNamesInScope<Available, Assumptions>
+  AbsentSourceNamesInScope<Available, Assumptions, Facts>
 >
 
 type EffectiveAvailable<
   Available extends Record<string, RowSet.AnySource>,
-  Assumptions extends PredicateFormula
+  Assumptions extends PredicateFormula,
+  Facts extends PredicateContext
 > = {
   readonly [K in keyof Available]:
     Available[K] extends RowSet.Source<
@@ -1486,7 +1509,7 @@ type EffectiveAvailable<
     >
       ? RowSet.Source<
           Name,
-          K extends RequiredSourceNamesInScope<Available, Assumptions> ? "required" : Mode,
+          K extends RequiredSourceNamesInScope<Available, Assumptions, Facts> ? "required" : Mode,
           PresentFormula,
           PresenceWitness
         > & {
@@ -1498,8 +1521,9 @@ type EffectiveAvailable<
 type HasAbsentSource<
   Dependencies extends Expression.BindingId,
   Available extends Record<string, RowSet.AnySource>,
-  Assumptions extends PredicateFormula
-> = Extract<Dependencies, AbsentSourceNamesInScope<Available, Assumptions>> extends never ? false : true
+  Assumptions extends PredicateFormula,
+  Facts extends PredicateContext
+> = Extract<Dependencies, AbsentSourceNamesInScope<Available, Assumptions, Facts>> extends never ? false : true
 
 type OptionalSourceNamesInScope<
   Available extends Record<string, RowSet.AnySource>
@@ -1510,20 +1534,21 @@ type OptionalSourceNamesInScope<
 type BaseEffectiveNullability<
   Value extends Expression.Any,
   Available extends Record<string, RowSet.AnySource>,
-  Assumptions extends PredicateFormula
+  Assumptions extends PredicateFormula,
+  Facts extends PredicateContext
 > = AstOf<Value> extends ExpressionAst.ColumnNode<infer TableName extends string, infer ColumnName extends string>
-  ? TableName extends AbsentSourceNamesInScope<Available, Assumptions>
+  ? TableName extends AbsentSourceNamesInScope<Available, Assumptions, Facts>
     ? "always"
-    : `${TableName}.${ColumnName}` extends KnownGuaranteedNullKeys<Assumptions>
+    : `${TableName}.${ColumnName}` extends KnownGuaranteedNullKeys<Facts>
     ? "always"
-    : `${TableName}.${ColumnName}` extends KnownGuaranteedNonNullKeys<Assumptions>
+    : `${TableName}.${ColumnName}` extends KnownGuaranteedNonNullKeys<Facts>
       ? "never"
       : Expression.NullabilityOf<Value> extends "always" ? "always"
-        : HasAbsentSource<DependenciesOf<Value>, Available, Assumptions> extends true ? "always"
+        : HasAbsentSource<DependenciesOf<Value>, Available, Assumptions, Facts> extends true ? "always"
           : HasOptionalSource<DependenciesOf<Value>, Available> extends true ? "maybe"
             : Expression.NullabilityOf<Value>
   : Expression.NullabilityOf<Value> extends "always" ? "always"
-    : HasAbsentSource<DependenciesOf<Value>, Available, Assumptions> extends true ? "always"
+    : HasAbsentSource<DependenciesOf<Value>, Available, Assumptions, Facts> extends true ? "always"
       : HasOptionalSource<DependenciesOf<Value>, Available> extends true ? "maybe"
         : Expression.NullabilityOf<Value>
 
@@ -1531,59 +1556,90 @@ type CaseOutputOf<
   Branches extends readonly ExpressionAst.CaseBranchNode[],
   Else extends Expression.Any,
   Available extends Record<string, RowSet.AnySource>,
-  Assumptions extends PredicateFormula
+  Assumptions extends PredicateFormula,
+  Facts extends PredicateContext
 > = Branches extends readonly [
   infer Head extends ExpressionAst.CaseBranchNode,
   ...infer Tail extends readonly ExpressionAst.CaseBranchNode[]
 ]
   ? Head extends ExpressionAst.CaseBranchNode<infer Predicate extends Expression.Any, infer Then extends Expression.Any>
     ? CaseBranchDecision<Assumptions, Predicate> extends "skip"
-      ? CaseOutputOf<Tail, Else, Available, Assumptions>
+      ? CaseOutputOf<Tail, Else, Available, Assumptions, Facts>
       : CaseBranchDecision<Assumptions, Predicate> extends "take"
-        ? ExpressionOutput<Then, EffectiveAvailable<Available, CaseBranchAssumeTrue<Assumptions, Predicate>>, CaseBranchAssumeTrue<Assumptions, Predicate>>
-        : ExpressionOutput<Then, EffectiveAvailable<Available, CaseBranchAssumeTrue<Assumptions, Predicate>>, CaseBranchAssumeTrue<Assumptions, Predicate>> |
-          CaseOutputOf<Tail, Else, Available, CaseBranchAssumeFalse<Assumptions, Predicate>>
+        ? FormulaOfPredicate<Predicate> extends infer BranchFormula extends PredicateFormula
+          ? ExpressionOutput<
+              Then,
+              EffectiveAvailable<
+                Available,
+                CaseBranchAssumeTrue<Assumptions, Predicate>,
+                AssumeFactsTrue<Facts, BranchFormula>
+              >,
+              CaseBranchAssumeTrue<Assumptions, Predicate>,
+              AssumeFactsTrue<Facts, BranchFormula>
+            >
+          : never
+        : FormulaOfPredicate<Predicate> extends infer BranchFormula extends PredicateFormula
+          ? ExpressionOutput<
+              Then,
+              EffectiveAvailable<
+                Available,
+                CaseBranchAssumeTrue<Assumptions, Predicate>,
+                AssumeFactsTrue<Facts, BranchFormula>
+              >,
+              CaseBranchAssumeTrue<Assumptions, Predicate>,
+              AssumeFactsTrue<Facts, BranchFormula>
+            > |
+            CaseOutputOf<
+              Tail,
+              Else,
+              Available,
+              CaseBranchAssumeFalse<Assumptions, Predicate>,
+              AssumeFactsFalse<Facts, BranchFormula>
+            >
+          : never
     : never
-  : ExpressionOutput<Else, EffectiveAvailable<Available, Assumptions>, Assumptions>
+  : ExpressionOutput<Else, EffectiveAvailable<Available, Assumptions, Facts>, Assumptions, Facts>
 
 /** Effective nullability of an expression after source-scope nullability is applied. */
 type EffectiveNullabilityOfAst<
   Value extends Expression.Any,
   Ast extends ExpressionAst.Any,
   Available extends Record<string, RowSet.AnySource>,
-  Assumptions extends PredicateFormula = TrueAssumptions
+  Assumptions extends PredicateFormula = TrueAssumptions,
+  Facts extends PredicateContext = EmptyFacts
 > = Ast extends ExpressionAst.ColumnNode<any, any>
-  ? BaseEffectiveNullability<Value, Available, Assumptions>
+  ? BaseEffectiveNullability<Value, Available, Assumptions, Facts>
   : Ast extends ExpressionAst.LiteralNode<any>
     ? Expression.NullabilityOf<Value>
     : Ast extends ExpressionAst.UnaryNode<infer Kind, infer UnaryValue extends Expression.Any>
       ? Kind extends "upper" | "lower" | "not"
-        ? EffectiveNullability<UnaryValue, Available, Assumptions>
+        ? EffectiveNullability<UnaryValue, Available, Assumptions, Facts>
         : Kind extends "isNull" | "isNotNull" | "count"
           ? "never"
           : Expression.NullabilityOf<Value>
       : Ast extends ExpressionAst.BinaryNode<"eq", infer Left extends Expression.Any, infer Right extends Expression.Any>
-        ? EffectiveNullability<Left, Available, Assumptions> extends "never"
-          ? EffectiveNullability<Right, Available, Assumptions> extends "never" ? "never" : "maybe"
+        ? EffectiveNullability<Left, Available, Assumptions, Facts> extends "never"
+          ? EffectiveNullability<Right, Available, Assumptions, Facts> extends "never" ? "never" : "maybe"
           : "maybe"
         : Ast extends ExpressionAst.VariadicNode<infer Kind, infer Values extends readonly Expression.Any[]>
           ? Kind extends "coalesce"
-            ? CoalesceEffectiveNullability<Values, Available, Assumptions>
+            ? CoalesceEffectiveNullability<Values, Available, Assumptions, Facts>
             : Kind extends "and" | "or" | "concat"
-              ? FoldEffectiveNullability<Values, Available, Assumptions>
-              : BaseEffectiveNullability<Value, Available, Assumptions>
+              ? FoldEffectiveNullability<Values, Available, Assumptions, Facts>
+              : BaseEffectiveNullability<Value, Available, Assumptions, Facts>
           : Ast extends ExpressionAst.CaseNode<infer Branches extends readonly ExpressionAst.CaseBranchNode[], infer Else extends Expression.Any>
-            ? NullabilityOfOutput<CaseOutputOf<Branches, Else, Available, Assumptions>>
-          : BaseEffectiveNullability<Value, Available, Assumptions>
+            ? NullabilityOfOutput<CaseOutputOf<Branches, Else, Available, Assumptions, Facts>>
+          : BaseEffectiveNullability<Value, Available, Assumptions, Facts>
 
 export type EffectiveNullability<
   Value extends Expression.Any,
   Available extends Record<string, RowSet.AnySource>,
-  Assumptions extends PredicateFormula = TrueAssumptions
+  Assumptions extends PredicateFormula = TrueAssumptions,
+  Facts extends PredicateContext = EmptyFacts
 > =
   AstOf<Value> extends infer Ast extends ExpressionAst.Any
-    ? EffectiveNullabilityOfAst<Value, Ast, Available, Assumptions>
-    : BaseEffectiveNullability<Value, Available, Assumptions>
+    ? EffectiveNullabilityOfAst<Value, Ast, Available, Assumptions, Facts>
+    : BaseEffectiveNullability<Value, Available, Assumptions, Facts>
 
 type LiteralKeyValue<Value extends string> =
   Value extends `string:${infer Literal}` ? Literal :
@@ -1600,10 +1656,10 @@ type LiteralSetRuntime<Values> =
 type JsonConstraintFailures<
   Member,
   ColumnKey extends string,
-  Assumptions extends PredicateFormula
+  Facts extends PredicateContext
 > = {
   readonly [Key in keyof Member & string]:
-    GuaranteedLiteralSet<Assumptions, `${ColumnKey}#json:${Key}`> extends infer Values
+    GuaranteedJsonLiteralSetInFacts<Facts, ColumnKey, Key> extends infer Values
       ? [Values] extends [never]
         ? never
         : string extends Member[Key]
@@ -1617,33 +1673,34 @@ type JsonConstraintFailures<
 type RefineJsonRuntimeForColumn<
   Runtime,
   ColumnKey extends string,
-  Assumptions extends PredicateFormula
+  Facts extends PredicateContext
 > = Runtime extends object
   ? Runtime extends unknown
-    ? [JsonConstraintFailures<Runtime, ColumnKey, Assumptions>] extends [never] ? Runtime : never
+    ? [JsonConstraintFailures<Runtime, ColumnKey, Facts>] extends [never] ? Runtime : never
     : never
   : Runtime
 
 type AssumptionRefinedRuntime<
   Value extends Expression.Any,
   Runtime,
-  Assumptions extends PredicateFormula
+  Facts extends PredicateContext
 > = [ColumnKeyOfExpression<Value>] extends [infer ColumnKey extends string]
-  ? RefineJsonRuntimeForColumn<Runtime, ColumnKey, Assumptions>
+  ? RefineJsonRuntimeForColumn<Runtime, ColumnKey, Facts>
   : Runtime
 
 /** Result runtime type of an expression after effective nullability is resolved. */
 export type ExpressionOutput<
   Value extends Expression.Any,
   Available extends Record<string, RowSet.AnySource>,
-  Assumptions extends PredicateFormula = TrueAssumptions
+  Assumptions extends PredicateFormula = TrueAssumptions,
+  Facts extends PredicateContext = EmptyFacts
 > = AstOf<Value> extends infer Ast extends ExpressionAst.Any
   ? Ast extends ExpressionAst.CaseNode<infer Branches extends readonly ExpressionAst.CaseBranchNode[], infer Else extends Expression.Any>
-    ? CaseOutputOf<Branches, Else, Available, Assumptions>
-    : EffectiveNullabilityOfAst<Value, Ast, Available, Assumptions> extends infer Nullability
+    ? CaseOutputOf<Branches, Else, Available, Assumptions, Facts>
+    : EffectiveNullabilityOfAst<Value, Ast, Available, Assumptions, Facts> extends infer Nullability
       ? Expression.NullabilityOf<Value> extends infer BaseNullability
         ? Expression.RuntimeOf<Value> extends infer Runtime
-          ? AssumptionRefinedRuntime<Value, Runtime, Assumptions> extends infer RefinedRuntime
+          ? AssumptionRefinedRuntime<Value, Runtime, Facts> extends infer RefinedRuntime
             ? Nullability extends "never"
               ? BaseNullability extends "never"
                 ? RefinedRuntime
@@ -1661,23 +1718,26 @@ export type ExpressionOutput<
 export type OutputOfSelection<
   Selection,
   Available extends Record<string, RowSet.AnySource>,
-  Assumptions extends PredicateFormula = TrueAssumptions
+  Assumptions extends PredicateFormula = TrueAssumptions,
+  Facts extends PredicateContext = EmptyFacts
 > = Selection extends Expression.Any
-  ? ExpressionOutput<Selection, Available, Assumptions>
+  ? ExpressionOutput<Selection, Available, Assumptions, Facts>
   : Selection extends Record<string, any>
     ? {
-        readonly [K in keyof Selection]: OutputOfSelection<Selection[K], Available, Assumptions>
+        readonly [K in keyof Selection]: OutputOfSelection<Selection[K], Available, Assumptions, Facts>
       }
     : never
 
 type ResolvedSelectionOutput<
   Selection,
   Available extends Record<string, RowSet.AnySource>,
-  Assumptions extends PredicateFormula
+  Assumptions extends PredicateFormula,
+  Facts extends PredicateContext
 > = OutputOfSelection<
   Selection,
-  EffectiveAvailable<Available, Assumptions>,
-  Assumptions
+  EffectiveAvailable<Available, Assumptions, Facts>,
+  Assumptions,
+  Facts
 >
 
 /** Resolved row type produced by a concrete query plan. */
@@ -1685,7 +1745,9 @@ export type ResultRow<PlanValue extends QueryPlan<any, any, any, any, any, any, 
   SelectionOfPlan<PlanValue> extends infer Selection
     ? AvailableOfPlan<PlanValue> extends infer Available extends Record<string, RowSet.AnySource>
       ? AssumptionsOfPlan<PlanValue> extends infer Assumptions extends PredicateFormula
-        ? ResolvedSelectionOutput<Selection, Available, Assumptions>
+        ? FactsOfPlan<PlanValue> extends infer Facts extends PredicateContext
+          ? ResolvedSelectionOutput<Selection, Available, Assumptions, Facts>
+          : never
         : never
       : never
     : never
@@ -1697,7 +1759,7 @@ export type ResultRows<PlanValue extends QueryPlan<any, any, any, any, any, any,
 export type RuntimeResultRow<PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>> =
   SelectionOfPlan<PlanValue> extends infer Selection
     ? AvailableOfPlan<PlanValue> extends infer Available extends Record<string, RowSet.AnySource>
-      ? OutputOfSelection<Selection, Available, TrueAssumptions>
+      ? OutputOfSelection<Selection, Available, TrueAssumptions, EmptyFacts>
       : never
     : never
 
@@ -1907,7 +1969,8 @@ export type QueryPlan<
   Capabilities extends QueryCapability = "read",
   Statement extends QueryAst.QueryStatement = "select",
   Target = any,
-  InsertState extends InsertSourceState = InsertSourceState
+  InsertState extends InsertSourceState = InsertSourceState,
+  Facts extends PredicateContext = PredicateContext
 > = RowSet.RowSet<Selection, Required, Available, Dialect> & {
   readonly [QueryTypeId]: QueryState<
     Outstanding,
@@ -1917,7 +1980,8 @@ export type QueryPlan<
     Capabilities,
     Statement,
     Target,
-    InsertState
+    InsertState,
+    Facts
   >
   readonly [QueryAst.TypeId]: QueryAst.Ast<Selection, Grouped, Statement>
 }
@@ -2053,7 +2117,8 @@ export const makePlan = <
   Capabilities extends QueryCapability = "read",
   Statement extends QueryAst.QueryStatement = "select",
   Target = any,
-  InsertState extends InsertSourceState = InsertSourceState
+  InsertState extends InsertSourceState = InsertSourceState,
+  Facts extends PredicateContext = PredicateContext
 >(
   state: RowSet.State<Selection, Required, Available, Dialect>,
   ast: QueryAst.Ast<Selection, Grouped, Statement>,
@@ -2061,8 +2126,9 @@ export const makePlan = <
   _capabilities?: Capabilities,
   _statement?: Statement,
   _target?: Target,
-  _insertState?: InsertState
-): QueryPlan<Selection, Required, Available, Dialect, Grouped, ScopedNames, Outstanding, Assumptions, Capabilities, Statement, Target, InsertState> => {
+  _insertState?: InsertState,
+  _facts?: Facts
+): QueryPlan<Selection, Required, Available, Dialect, Grouped, ScopedNames, Outstanding, Assumptions, Capabilities, Statement, Target, InsertState, Facts> => {
   const plan = Object.create(PlanProto)
   Object.defineProperty(plan, "pipe", {
     configurable: true,
@@ -2078,6 +2144,7 @@ export const makePlan = <
     availableNames: undefined as unknown as ScopedNames,
     grouped: undefined as unknown as Grouped,
     assumptions: ((_assumptions ?? trueFormula()) as Assumptions),
+    facts: ((_facts ?? undefined) as unknown as Facts),
     capabilities: undefined as unknown as Capabilities,
     statement: (_statement ?? ("select" as Statement)) as Statement,
     target: (_target ?? (undefined as unknown as Target)) as Target,
@@ -2098,7 +2165,7 @@ export const getAst = <
 /** Returns the internal phantom query state carried by a query plan. */
 export const getQueryState = (
   plan: QueryPlan<any, any, any, any, any, any, any, any, any, any>
-): QueryState<any, any, any, any, any, any, any, any> => plan[QueryTypeId]
+): QueryState<any, any, any, any, any, any, any, any, any> => plan[QueryTypeId]
 
 /**
  * Collects the required table names referenced by a runtime selection object.

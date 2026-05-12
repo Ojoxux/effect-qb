@@ -9,6 +9,7 @@ export interface Context<
   EqLiterals = {},
   NeqLiterals = {},
   LiteralSets = {},
+  JsonLiteralSets = {},
   SourceNames extends string = never,
   Contradiction extends boolean = false,
   Unknown extends boolean = false
@@ -18,6 +19,7 @@ export interface Context<
   readonly eqLiterals: EqLiterals
   readonly neqLiterals: NeqLiterals
   readonly literalSets: LiteralSets
+  readonly jsonLiteralSets: JsonLiteralSets
   readonly sourceNames: SourceNames
   readonly contradiction: Contradiction
   readonly unknown: Unknown
@@ -30,6 +32,7 @@ type AnyContext = Context<
   Record<string, string>,
   Record<string, string>,
   Record<string, string>,
+  Record<string, Record<string, string>>,
   string,
   boolean,
   boolean
@@ -98,9 +101,54 @@ type MergeLiteralSetMaps<Left, Right> = {
         : never
 }
 
+type MergeJsonLiteralSetPathMaps<Left, Right> = {
+  readonly [K in Extract<keyof Left | keyof Right, string>]:
+    K extends keyof Left
+      ? K extends keyof Right
+        ? Extract<Left[K], Right[K]>
+        : Left[K]
+      : K extends keyof Right
+        ? Right[K]
+        : never
+}
+
+type MergeJsonLiteralSetMaps<Left, Right> = {
+  readonly [K in Extract<keyof Left | keyof Right, string>]:
+    K extends keyof Left
+      ? K extends keyof Right
+        ? MergeJsonLiteralSetPathMaps<Left[K], Right[K]>
+        : Left[K]
+      : K extends keyof Right
+        ? Right[K]
+        : never
+}
+
 type FilterNeverValues<Map> = {
   readonly [K in keyof Map as Map[K] extends never ? never : K]: Map[K]
 }
+
+type JsonKeyParts<Key extends string> = Key extends `${infer ColumnKey}#json:${infer Path}`
+  ? readonly [ColumnKey, Path]
+  : never
+
+type LiteralSetMapAfterAdd<
+  LiteralSets,
+  Key extends string,
+  Values extends string
+> = [JsonKeyParts<Key>] extends [never]
+  ? FilterNeverValues<MergeLiteralSetMaps<LiteralSets, { readonly [K in Key]: Values }>>
+  : LiteralSets
+
+type JsonLiteralSetMapAfterAdd<
+  JsonLiteralSets,
+  Key extends string,
+  Values extends string
+> = JsonKeyParts<Key> extends readonly [infer ColumnKey extends string, infer Path extends string]
+  ? MergeJsonLiteralSetMaps<
+      JsonLiteralSets,
+      { readonly [C in ColumnKey]: { readonly [P in Path]: Values } }
+    >
+  : JsonLiteralSets
 
 type MarkContradiction<Ctx extends AnyContext> = Context<
   Ctx["nonNullKeys"],
@@ -108,6 +156,7 @@ type MarkContradiction<Ctx extends AnyContext> = Context<
   Ctx["eqLiterals"],
   Ctx["neqLiterals"],
   Ctx["literalSets"],
+  Ctx["jsonLiteralSets"],
   Ctx["sourceNames"],
   true,
   Ctx["unknown"]
@@ -119,6 +168,7 @@ type MarkUnknown<Ctx extends AnyContext> = Context<
   Ctx["eqLiterals"],
   Ctx["neqLiterals"],
   Ctx["literalSets"],
+  Ctx["jsonLiteralSets"],
   Ctx["sourceNames"],
   Ctx["contradiction"],
   true
@@ -133,6 +183,7 @@ type AddNonNull<
   Ctx["eqLiterals"],
   Ctx["neqLiterals"],
   Ctx["literalSets"],
+  Ctx["jsonLiteralSets"],
   Ctx["sourceNames"] | SourceNameOfKey<Key>,
   Key extends Ctx["nullKeys"] ? true : Ctx["contradiction"],
   Ctx["unknown"]
@@ -147,6 +198,7 @@ type AddNull<
   Ctx["eqLiterals"],
   Ctx["neqLiterals"],
   Ctx["literalSets"],
+  Ctx["jsonLiteralSets"],
   Ctx["sourceNames"] | SourceNameOfKey<Key>,
   Key extends Ctx["nonNullKeys"] ? true : Ctx["contradiction"],
   Ctx["unknown"]
@@ -161,7 +213,8 @@ type AddLiteralSet<
   Ctx["nullKeys"],
   Ctx["eqLiterals"],
   Ctx["neqLiterals"],
-  FilterNeverValues<MergeLiteralSetMaps<Ctx["literalSets"], { readonly [K in Key]: Values }>>,
+  LiteralSetMapAfterAdd<Ctx["literalSets"], Key, Values>,
+  JsonLiteralSetMapAfterAdd<Ctx["jsonLiteralSets"], Key, Values>,
   Ctx["sourceNames"] | SourceNameOfKey<Key>,
   EqLiteralValueOf<Ctx["eqLiterals"], Key> extends infer EqValue
     ? [EqValue] extends [never]
@@ -182,7 +235,8 @@ type AddEqLiteral<
   Ctx["nullKeys"],
   FilterNeverValues<MergeEqLiteralMaps<Ctx["eqLiterals"], { readonly [K in Key]: Value }>>,
   Ctx["neqLiterals"],
-  FilterNeverValues<MergeLiteralSetMaps<Ctx["literalSets"], { readonly [K in Key]: Value }>>,
+  LiteralSetMapAfterAdd<Ctx["literalSets"], Key, Value>,
+  JsonLiteralSetMapAfterAdd<Ctx["jsonLiteralSets"], Key, Value>,
   Ctx["sourceNames"] | SourceNameOfKey<Key>,
   EqLiteralValueOf<Ctx["eqLiterals"], Key> extends never
     ? NeqLiteralValuesOf<Ctx["neqLiterals"], Key> extends infer NeqValues
@@ -210,6 +264,7 @@ type AddNeqLiteral<
   Ctx["eqLiterals"],
   FilterNeverValues<MergeNeqLiteralMaps<Ctx["neqLiterals"], { readonly [K in Key]: Value }>>,
   Ctx["literalSets"],
+  Ctx["jsonLiteralSets"],
   Ctx["sourceNames"] | SourceNameOfKey<Key>,
   EqLiteralValueOf<Ctx["eqLiterals"], Key> extends infer EqValue
     ? [EqValue] extends [never]
@@ -320,6 +375,20 @@ type UnionLiteralSetMaps<
   readonly [K in Extract<keyof Left, keyof Right>]: Left[K] | Right[K]
 }>
 
+type UnionJsonLiteralSetPathMaps<
+  Left,
+  Right
+> = FilterNeverValues<{
+  readonly [K in Extract<keyof Left, keyof Right>]: Left[K] | Right[K]
+}>
+
+type UnionJsonLiteralSetMaps<
+  Left,
+  Right
+> = {
+  readonly [K in Extract<keyof Left, keyof Right>]: UnionJsonLiteralSetPathMaps<Left[K], Right[K]>
+}
+
 type IntersectContexts<
   Left extends AnyContext,
   Right extends AnyContext
@@ -329,6 +398,7 @@ type IntersectContexts<
   IntersectEqLiteralMaps<Left["eqLiterals"], Right["eqLiterals"]>,
   IntersectNeqLiteralMaps<Left["neqLiterals"], Right["neqLiterals"]>,
   UnionLiteralSetMaps<Left["literalSets"], Right["literalSets"]>,
+  UnionJsonLiteralSetMaps<Left["jsonLiteralSets"], Right["jsonLiteralSets"]>,
   Extract<Left["sourceNames"], Right["sourceNames"]>,
   Left["contradiction"] extends true
     ? Right["contradiction"]
@@ -342,17 +412,20 @@ type AnalyzeAnyBranches<
   Ctx extends AnyContext,
   Items extends readonly PredicateFormula[],
   Direction extends Polarity,
-  Current extends AnyContext | never = never
-> = Items extends readonly [
+  Current extends AnyContext | never = never,
+  Seen extends readonly unknown[] = []
+> = Seen["length"] extends 20
+  ? MarkUnknown<Ctx>
+  : Items extends readonly [
   infer Head extends PredicateFormula,
   ...infer Tail extends readonly PredicateFormula[]
 ]
   ? AnalyzeBranch<Ctx, Head, Direction> extends infer Branch extends AnyContext
     ? Branch["contradiction"] extends true
-      ? AnalyzeAnyBranches<Ctx, Tail, Direction, Current>
+      ? AnalyzeAnyBranches<Ctx, Tail, Direction, Current, readonly [...Seen, unknown]>
       : [Current] extends [never]
-        ? AnalyzeAnyBranches<Ctx, Tail, Direction, Branch>
-        : AnalyzeAnyBranches<Ctx, Tail, Direction, IntersectContexts<Current, Branch>>
+        ? AnalyzeAnyBranches<Ctx, Tail, Direction, Branch, readonly [...Seen, unknown]>
+        : AnalyzeAnyBranches<Ctx, Tail, Direction, IntersectContexts<Current, Branch>, readonly [...Seen, unknown]>
     : never
   : [Current] extends [never]
     ? MarkContradiction<Ctx>
@@ -409,3 +482,15 @@ export type AnalyzeStack<
 
 export type AnalyzeFormula<Formula extends PredicateFormula> =
   AnalyzeStack<EmptyContext, readonly [Frame<Formula, "positive">]>
+
+export type PredicateContext = AnyContext
+
+export type AssumeFactsTrue<
+  Ctx extends PredicateContext,
+  Formula extends PredicateFormula
+> = AnalyzeStack<Ctx, readonly [Frame<Formula, "positive">]>
+
+export type AssumeFactsFalse<
+  Ctx extends PredicateContext,
+  Formula extends PredicateFormula
+> = AnalyzeStack<Ctx, readonly [Frame<Formula, "negative">]>
