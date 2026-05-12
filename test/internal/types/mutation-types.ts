@@ -305,6 +305,21 @@ const mysqlJoinedDelete = Mysql.Query.limit(2)(
 
 const mysqlMultiDelete = Mysql.Query.delete([mysqlMutationUsers, mysqlMutationPosts])
 
+// @ts-expect-error mysql multi-target updates cannot include postgres tables
+const badMysqlMultiUpdatePostgresTarget = Mysql.Query.update([mysqlMutationUsers, pgPosts], {
+  users: {
+    email: "bad@example.com"
+  },
+  posts: {
+    title: "bad"
+  }
+})
+void badMysqlMultiUpdatePostgresTarget
+
+// @ts-expect-error mysql multi-target deletes cannot include postgres tables
+const badMysqlMultiDeletePostgresTarget = Mysql.Query.delete([mysqlMutationUsers, pgPosts])
+void badMysqlMultiDeletePostgresTarget
+
 type PostgresJoinedUpdateStatement = Q.StatementOfPlan<typeof postgresJoinedUpdate>
 type PostgresJoinedDeleteStatement = Q.StatementOfPlan<typeof postgresJoinedDelete>
 type MysqlJoinedUpdateStatement = Q.StatementOfPlan<typeof mysqlJoinedUpdate>
