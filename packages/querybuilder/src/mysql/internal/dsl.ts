@@ -5600,7 +5600,10 @@ type AsCurriedResult<
       AddJoinRequired<OutstandingOfPlan<PlanValue>, AvailableOfPlan<PlanValue>, SourceNameOf<CurrentTable>, never, "cross", SourceRequiredOf<CurrentTable>>,
       AssumptionsOfPlan<PlanValue>,
       MergeCapabilities<CapabilitiesOfPlan<PlanValue>, SourceCapabilitiesOf<CurrentTable>>,
-      StatementOfPlan<PlanValue>
+      StatementOfPlan<PlanValue>,
+      MutationTargetOfPlan<PlanValue>,
+      InsertSourceStateOfPlan<PlanValue>,
+      FactsOfPlan<PlanValue>
     >
 
   type JoinApi = <
