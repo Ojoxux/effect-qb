@@ -269,6 +269,16 @@ const unionNullTitle: UnionTitledPostsRow["title"] = null
 void unionTitle
 void unionNullTitle
 
+const nullableTitledSetPosts = Q.select({
+  title: setPosts.title
+}).pipe(
+  Q.from(setPosts)
+)
+
+// @ts-expect-error set operands must have matching narrowed result rows
+const unsafelyNarrowedUnion = Q.unionAll(titledSetPosts, nullableTitledSetPosts)
+void unsafelyNarrowedUnion
+
 const incompleteSetOperand = Q.select({
   email: users.email
 })
