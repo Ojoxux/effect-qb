@@ -341,6 +341,7 @@ describe("postgres schema management", () => {
             {
               kind: "index",
               name: "users_email_support_idx",
+              method: "gin",
               keys: [
                 {
                   kind: "column",
@@ -364,9 +365,46 @@ describe("postgres schema management", () => {
     expect(plan.safeChanges).toContainEqual(
       expect.objectContaining({
         kind: "createIndex",
-        sql: `create index "users_email_support_idx" on "public"."users" ("email" collate "tenant.a"."special.collation" "ops.schema"."text.pattern_ops")`
+        sql: `create index "users_email_support_idx" on "public"."users" using gin ("email" collate "tenant.a"."special.collation" "ops.schema"."text.pattern_ops")`
       })
     )
+  })
+
+  test("rejects invalid postgres index methods before rendering ddl", () => {
+    const source: SchemaModel = {
+      dialect: "postgres",
+      enums: [],
+      tables: [
+        {
+          kind: "table",
+          schemaName: "public",
+          name: "users",
+          columns: [
+            {
+              name: "email",
+              ddlType: "text",
+              dbTypeKind: "text",
+              nullable: false,
+              hasDefault: false,
+              generated: false
+            }
+          ],
+          options: [
+            {
+              kind: "index",
+              method: "gin; drop table users",
+              columns: ["email"]
+            }
+          ]
+        }
+      ]
+    }
+
+    expect(() => planPostgresSchemaDiff(source, {
+      dialect: "postgres",
+      enums: [],
+      tables: []
+    })).toThrow("Postgres index method must be an identifier")
   })
 
   test("rejects invalid postgres index key ordering metadata before rendering ddl", () => {

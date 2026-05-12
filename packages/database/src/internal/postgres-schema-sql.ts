@@ -68,6 +68,26 @@ const parseQualifiedIdentifier = (value: string): readonly string[] | undefined 
 const qualifyIdentifier = (value: string): string =>
   (parseQualifiedIdentifier(value) ?? value.split(".")).map(quote).join(".")
 
+const safeIdentifier = /^[A-Za-z_][A-Za-z0-9_$]*$/
+
+const renderIndexMethod = (method: unknown): string => {
+  if (method === undefined) {
+    return ""
+  }
+  if (typeof method !== "string") {
+    throw new Error("Postgres index method must be an identifier")
+  }
+  const trimmed = method.trim()
+  if (safeIdentifier.test(trimmed)) {
+    return ` using ${trimmed}`
+  }
+  const parsed = parseQualifiedIdentifier(trimmed)
+  if (parsed?.length === 1) {
+    return ` using ${quote(parsed[0]!)}`
+  }
+  throw new Error("Postgres index method must be an identifier")
+}
+
 const renderAction = (action: ReferentialAction): string => {
   switch (action) {
     case "noAction":
@@ -183,7 +203,7 @@ export const renderIndexDefinition = (
       : `(${SchemaExpression.renderDdlExpressionSql(key.expression)})`
     return `${base}${key.collation ? ` collate ${qualifyIdentifier(key.collation)}` : ""}${key.operatorClass ? ` ${qualifyIdentifier(key.operatorClass)}` : ""}${renderIndexOrder(key.order)}${renderIndexNulls(key.nulls)}`
   }).join(", ")
-  return `create${option.unique ? " unique" : ""} index ${quote(name)} on ${qualify(table.schemaName, table.name)}${option.method ? ` using ${option.method}` : ""} (${renderedKeys})${option.include && option.include.length > 0 ? ` include (${option.include.map(quote).join(", ")})` : ""}${option.predicate ? ` where ${SchemaExpression.renderDdlExpressionSql(option.predicate)}` : ""}`
+  return `create${option.unique ? " unique" : ""} index ${quote(name)} on ${qualify(table.schemaName, table.name)}${renderIndexMethod(option.method)} (${renderedKeys})${option.include && option.include.length > 0 ? ` include (${option.include.map(quote).join(", ")})` : ""}${option.predicate ? ` where ${SchemaExpression.renderDdlExpressionSql(option.predicate)}` : ""}`
 }
 
 export const renderCreateTable = (table: TableModel): string => {
