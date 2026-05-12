@@ -213,6 +213,20 @@ describe("postgres insert behavior", () => {
     }, ["email"] as const, {})).toThrow("upsert update assignments require at least one assignment")
   })
 
+  test("rejects postgres upsert conflict columns with unknown columns at runtime", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    expect(() => Postgres.Query.upsert(users, {
+      id: userId,
+      email: "alice@example.com"
+    }, unsafeAny(["missing"]), {
+      email: "alice@example.com"
+    })).toThrow("effect-qb: unknown conflict target column")
+  })
+
   test("canonicalizes insert values using the target column runtime contract", () => {
     const metrics = Postgres.Table.make("metrics", {
       total: Postgres.Column.number(),

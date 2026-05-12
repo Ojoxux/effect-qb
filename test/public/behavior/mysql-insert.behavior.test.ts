@@ -215,6 +215,20 @@ describe("mysql insert behavior", () => {
     }, ["email"] as const, {})).toThrow("upsert update assignments require at least one assignment")
   })
 
+  test("rejects mysql upsert conflict columns with unknown columns at runtime", () => {
+    const users = Mysql.Table.make("users", {
+      id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey),
+      email: Mysql.Column.text()
+    })
+
+    expect(() => Mysql.Query.upsert(users, {
+      id: userId,
+      email: "alice@example.com"
+    }, unsafeAny(["missing"]), {
+      email: "alice@example.com"
+    })).toThrow("effect-qb: unknown conflict target column")
+  })
+
   test("rejects mysql conflict targets with unknown columns at runtime", () => {
     const users = Mysql.Table.make("users", {
       id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey),

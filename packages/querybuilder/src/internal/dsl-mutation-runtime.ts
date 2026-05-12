@@ -14,7 +14,7 @@ type DslMutationRuntimeContext = {
   readonly buildConflictTarget: (target: any, input: any) => any
   readonly mutationTargetClauses: (target: any) => readonly any[]
   readonly mutationAvailableSources: (target: any) => Record<string, any>
-  readonly normalizeColumnList: (columns: string | readonly string[]) => readonly string[]
+  readonly normalizeConflictColumns: (target: any, columns: string | readonly string[]) => readonly string[]
   readonly targetSourceDetails: (target: any) => { readonly sourceName: string; readonly sourceBaseName: string }
   readonly sourceDetails: (source: any) => { readonly sourceName: string; readonly sourceBaseName: string }
 }
@@ -223,7 +223,7 @@ export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
         kind: "conflict",
         target: {
           kind: "columns",
-          columns: ctx.normalizeColumnList(conflictColumns) as readonly [string, ...string[]]
+          columns: ctx.normalizeConflictColumns(target, conflictColumns) as readonly [string, ...string[]]
         },
         action: updateAssignments.length > 0 ? "doUpdate" : "doNothing",
         values: updateAssignments.length > 0 ? updateAssignments : undefined

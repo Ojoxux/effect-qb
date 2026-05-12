@@ -6399,7 +6399,7 @@ type AsCurriedResult<
     buildConflictTarget,
     mutationTargetClauses,
     mutationAvailableSources,
-    normalizeColumnList,
+    normalizeConflictColumns,
     targetSourceDetails,
     sourceDetails
   })
