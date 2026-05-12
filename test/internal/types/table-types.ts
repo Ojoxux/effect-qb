@@ -657,6 +657,32 @@ const badMysqlJoinPostgres = Mysql.Query.select({
 )
 void badMysqlJoinPostgres
 
+// @ts-expect-error postgres mutations cannot target mysql tables
+const badPostgresInsertMysql = Postgres.Query.insert(mysqlUsers, {
+  email: "alice@example.com"
+})
+void badPostgresInsertMysql
+
+// @ts-expect-error mysql mutations cannot target postgres tables
+const badMysqlInsertPostgres = Mysql.Query.insert(postgresUsers, {
+  email: "alice@example.com"
+})
+void badMysqlInsertPostgres
+
+// @ts-expect-error postgres updates cannot target mysql tables
+const badPostgresUpdateMysql = Postgres.Query.update(mysqlUsers, {
+  email: "alice@example.com"
+})
+void badPostgresUpdateMysql
+
+// @ts-expect-error mysql deletes cannot target postgres tables
+const badMysqlDeletePostgres = Mysql.Query.delete(postgresUsers)
+void badMysqlDeletePostgres
+
+// @ts-expect-error postgres truncate cannot target mysql tables
+const badPostgresTruncateMysql = Postgres.Query.truncate(mysqlUsers)
+void badPostgresTruncateMysql
+
 const mysqlDialect: typeof mysqlUsers.id[typeof Expression.TypeId]["dbType"]["dialect"] = "mysql"
 const postgresDialect: typeof postgresUsers.id[typeof Expression.TypeId]["dbType"]["dialect"] = "postgres"
 
