@@ -194,4 +194,21 @@ describe("cross-cutting statement behavior", () => {
       "limit(...) is not supported for update statements"
     )
   })
+
+  test("rejects runtime orderBy modifiers on unsupported mutation statements", () => {
+    const users = Postgres.Table.make("users", {
+      id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
+      email: Postgres.Column.text()
+    })
+
+    const orderedUpdate = Postgres.Query.update(users, {
+      email: "updated@example.com"
+    }).pipe(
+      Postgres.Query.orderBy(users.id)
+    )
+
+    expect(() => Postgres.Renderer.make().render(orderedUpdate)).toThrow(
+      "orderBy(...) is not supported for update statements"
+    )
+  })
 })
