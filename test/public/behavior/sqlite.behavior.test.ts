@@ -474,6 +474,12 @@ describe("sqlite behavior", () => {
         readOnly: true
       }))
     ).toThrow("Unsupported sqlite transaction options")
+
+    expect(() =>
+      render(Sqlite.Query.transaction({
+        readOnly: false
+      }))
+    ).toThrow("Unsupported sqlite transaction options")
   })
 
   test("rejects empty sqlite membership predicates", () => {

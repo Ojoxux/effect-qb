@@ -892,7 +892,7 @@ const renderTransactionClause = (
 ): string => {
   switch (clause.kind) {
     case "transaction": {
-      if (clause.isolationLevel !== undefined || clause.readOnly === true) {
+      if (clause.isolationLevel !== undefined || clause.readOnly !== undefined) {
         throw new Error("Unsupported sqlite transaction options")
       }
       return "begin"
