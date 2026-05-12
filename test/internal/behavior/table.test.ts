@@ -153,6 +153,30 @@ describe("table definitions", () => {
     expect(() => Table.index([] as unknown as string[])).toThrow("Table options require at least one column")
   })
 
+  test("postgres rich index specs normalize columns-only input", () => {
+    const users = Table.make("rich_index_users", {
+      id: C.uuid().pipe(C.primaryKey),
+      email: C.text()
+    }).pipe(
+      Table.index({ columns: ["email"] as const })
+    )
+
+    expect(users[Table.OptionsSymbol].find((option) => option.kind === "index")).toMatchObject({
+      kind: "index",
+      columns: ["email"]
+    })
+
+    expect(() => Table.index({ columns: [] as unknown as string[], name: "empty_idx" })).toThrow(
+      "Table options require at least one column"
+    )
+
+    expect(() => Table.make("empty_manual_index_users", {
+      id: C.uuid()
+    }).pipe(
+      Table.option(unsafeAny({ kind: "index", columns: [] }))
+    )).toThrow("Index on table 'empty_manual_index_users' requires at least one column or key")
+  })
+
   test("class tables reject table-level primary keys", () => {
     class BadClassTable extends Table.Class<BadClassTable>("bad_class_table")({
       id: C.uuid(),

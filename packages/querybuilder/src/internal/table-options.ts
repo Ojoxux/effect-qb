@@ -331,7 +331,7 @@ export const validateOptions = <Fields extends TableFieldMap>(
               throw new Error(`Unknown index key column '${key.column}' on table '${tableName}'`)
             }
           }
-          if (option.columns === undefined && (option.keys === undefined || option.keys.length === 0)) {
+          if (columns.length === 0 && (option.keys === undefined || option.keys.length === 0)) {
             throw new Error(`Index on table '${tableName}' requires at least one column or key`)
           }
         }

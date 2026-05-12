@@ -30,6 +30,9 @@ const dropIndexPlan = Q.dropIndex(memberships, ["role", "orgId"], {
 })
 const createSingleColumnIndexPlan = Q.createIndex(memberships, "role")
 const dropSingleColumnIndexPlan = Q.dropIndex(memberships, "role")
+const richColumnsOnlyIndexTable = memberships.pipe(Table.index({
+  columns: ["role"] as const
+}))
 
 type CreateTableStatement = Q.StatementOfPlan<typeof createTablePlan>
 type DropTableStatement = Q.StatementOfPlan<typeof dropTablePlan>
@@ -60,6 +63,7 @@ void createIndexCapability
 void dropIndexCapability
 void createSingleColumnIndexPlan
 void dropSingleColumnIndexPlan
+void richColumnsOnlyIndexTable
 
 // @ts-expect-error ddl plans cannot be filtered
 Q.where(Q.eq(memberships.id, "membership-id"))(createTablePlan)
@@ -75,6 +79,9 @@ Q.createIndex(memberships, ["missing"])
 
 // @ts-expect-error dropIndex only accepts known table columns
 Q.dropIndex(memberships, ["missing"])
+
+// @ts-expect-error rich index columns cannot be empty
+Table.index({ columns: [] as const })
 
 const renderer = Renderer.make()
 const executor = Executor.custom(<PlanValue extends Q.QueryPlan<any, any, any, any, any, any, any, any, any, any>>(

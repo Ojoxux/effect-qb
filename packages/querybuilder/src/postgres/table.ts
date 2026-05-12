@@ -278,6 +278,10 @@ type RichIndexKeysOption<Spec> = Spec extends { readonly keys: infer Keys extend
   ? { readonly keys: RichIndexKeys<Keys> }
   : {}
 
+type RichIndexColumnsConstraint<Spec> = Spec extends { readonly columns: infer Columns extends string | readonly string[] }
+  ? BaseTable.NonEmptyColumnInput<Columns> extends never ? never : unknown
+  : unknown
+
 type RichIndexOptionSpec<Spec> = IndexOptionSpec & {
   readonly kind: "index"
   readonly name?: string
@@ -341,8 +345,13 @@ const makeTableScopedOption = <
   return builder
 }
 
-const normalizeColumns = (columns: string | readonly string[]): readonly [string, ...string[]] =>
-  (Array.isArray(columns) ? [...columns] : [columns]) as unknown as readonly [string, ...string[]]
+const normalizeColumns = (columns: string | readonly string[]): readonly [string, ...string[]] => {
+  const normalized = Array.isArray(columns) ? [...columns] : [columns]
+  if (normalized.length === 0) {
+    throw new Error("Table options require at least one column")
+  }
+  return normalized as unknown as readonly [string, ...string[]]
+}
 
 const normalizeIndexKeys = (
   keys: readonly [RichIndexKeyInput, ...RichIndexKeyInput[]]
@@ -417,14 +426,14 @@ export const index: {
   }>
   <Table extends SchemaTable, const Columns extends string | readonly string[], const Spec extends Omit<RichIndexInput<Columns>, "predicate"> & {
       readonly predicate: TableExpressionFactory<Table>
-    }>(
-    spec: Spec
+  }>(
+    spec: Spec & RichIndexColumnsConstraint<Spec>
   ): TableScopedOptionBuilder<Table, RichIndexOptionSpec<Spec>>
   <const Columns extends string | readonly string[], const Spec extends RichIndexInput<Columns>>(
-    spec: Spec
+    spec: Spec & RichIndexColumnsConstraint<Spec>
   ): BaseTable.TableOption<RichIndexOptionSpec<Spec>>
 } = ((input: unknown) =>
-  isObject(input) && ("keys" in input || "name" in input || "unique" in input || "method" in input || "include" in input || "predicate" in input)
+  isObject(input) && ("columns" in input || "keys" in input || "name" in input || "unique" in input || "method" in input || "include" in input || "predicate" in input)
     ? (() => {
         const spec = input as RichIndexInput<string | readonly string[]> & {
           readonly predicate?: DdlExpressionLike | TableExpressionFactory<SchemaTable>
