@@ -4906,6 +4906,30 @@ type NestedMutationDialectFromValues<
         }[keyof Values]
       : never
 
+type KnownMutationDialectFromValues<
+  Values,
+  Dialect extends string,
+  TextDb extends Expression.DbType.Any,
+  NumericDb extends Expression.DbType.Any,
+  BoolDb extends Expression.DbType.Any,
+  TimestampDb extends Expression.DbType.Any,
+  NullDb extends Expression.DbType.Any
+> = NestedMutationDialectFromValues<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb> extends infer Current
+  ? Current extends string
+    ? string extends Current ? never : Current
+    : never
+  : never
+
+type KnownIncompatibleMutationDialectFromValues<
+  Values,
+  Dialect extends string,
+  TextDb extends Expression.DbType.Any,
+  NumericDb extends Expression.DbType.Any,
+  BoolDb extends Expression.DbType.Any,
+  TimestampDb extends Expression.DbType.Any,
+  NullDb extends Expression.DbType.Any
+> = Exclude<KnownMutationDialectFromValues<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>, Dialect>
+
 type MutationValuesDialectConstraint<
   Values,
   Dialect extends string,
@@ -4914,7 +4938,7 @@ type MutationValuesDialectConstraint<
   BoolDb extends Expression.DbType.Any,
   TimestampDb extends Expression.DbType.Any,
   NullDb extends Expression.DbType.Any
-> = Exclude<NestedMutationDialectFromValues<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>, Dialect> extends never
+> = KnownIncompatibleMutationDialectFromValues<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb> extends never
   ? unknown
   : never
 
@@ -5880,12 +5904,12 @@ type AsCurriedResult<
     >
     <Target extends MutationTargetLike, Values extends Record<string, unknown>>(
       target: Target,
-      values: MutationValuesInput<"insert", Target, Values>
+      values: MutationValuesInput<"insert", Target, Values> & MutationValuesDialectConstraint<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
     ): QueryPlan<
       {},
       Exclude<MutationRequiredFromValues<Values>, SourceNameOf<Target>>,
       AddAvailable<{}, SourceNameOf<Target>>,
-      TableDialectOf<Target>,
+      TableDialectOf<Target> | KnownMutationDialectFromValues<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
       never,
       SourceNameOf<Target>,
       Exclude<MutationRequiredFromValues<Values>, SourceNameOf<Target>>,
@@ -5939,7 +5963,7 @@ type AsCurriedResult<
       {},
       Exclude<NestedMutationRequiredFromValues<Values>, MutationTargetNamesOf<Targets>>,
       AddAvailableMany<{}, MutationTargetNamesOf<Targets>>,
-      TableDialectOf<Targets[0]> | NestedMutationDialectFromValues<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
+      TableDialectOf<Targets[0]> | KnownMutationDialectFromValues<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
       never,
       MutationTargetNamesOf<Targets>,
       Exclude<NestedMutationRequiredFromValues<Values>, MutationTargetNamesOf<Targets>>,
@@ -5952,12 +5976,12 @@ type AsCurriedResult<
     >
     <Target extends MutationTargetLike, Values extends Record<string, unknown>>(
       target: Target,
-      values: MutationValuesInput<"update", Target, Values>
+      values: MutationValuesInput<"update", Target, Values> & MutationValuesDialectConstraint<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
     ): QueryPlan<
       {},
       Exclude<MutationRequiredFromValues<Values>, SourceNameOf<Target>>,
       AddAvailable<{}, SourceNameOf<Target>>,
-      TableDialectOf<Target>,
+      TableDialectOf<Target> | KnownMutationDialectFromValues<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
       never,
       SourceNameOf<Target>,
       Exclude<MutationRequiredFromValues<Values>, SourceNameOf<Target>>,
@@ -5985,8 +6009,8 @@ type AsCurriedResult<
     Exclude<MutationRequiredFromValues<Values> | MutationRequiredFromValues<Exclude<UpdateValues, undefined>>, SourceNameOf<Target>>,
     AddAvailable<{}, SourceNameOf<Target>>,
     | TableDialectOf<Target>
-    | MutationDialectFromValues<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
-    | MutationDialectFromValues<Exclude<UpdateValues, undefined>, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
+    | KnownMutationDialectFromValues<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
+    | KnownMutationDialectFromValues<Exclude<UpdateValues, undefined>, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
     never,
     SourceNameOf<Target>,
     Exclude<MutationRequiredFromValues<Values> | MutationRequiredFromValues<Exclude<UpdateValues, undefined>>, SourceNameOf<Target>>,
