@@ -2073,9 +2073,15 @@ type BinaryPredicateExpression<
     })
   }
 
-  const collate = <Value extends ExpressionInput>(
+  type NormalizedCollation<Collation extends string | readonly [string, ...string[]]> =
+    Collation extends string ? readonly [Collation] : Collation
+
+  const collate = <
+    Value extends ExpressionInput,
+    Collation extends string | readonly [string, ...string[]]
+  >(
     value: Value & TextInput<NoInfer<Value>, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "collate">,
-    collation: string | readonly [string, ...string[]]
+    collation: Collation
   ): AstBackedExpression<
     Expression.RuntimeOf<DialectAsStringExpression<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>,
     Expression.DbTypeOf<DialectAsStringExpression<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>,
@@ -2083,10 +2089,10 @@ type BinaryPredicateExpression<
     DialectOfDialectStringInput<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
     KindOf<DialectAsStringExpression<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>,
     DependenciesOfDialectStringInput<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
-    ExpressionAst.CollateNode<DialectAsStringExpression<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>
+    ExpressionAst.CollateNode<DialectAsStringExpression<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>, NormalizedCollation<Collation>>
   > => {
     const expression = toDialectStringExpression(value as any)
-    const normalizedCollation: readonly [string, ...string[]] = typeof collation === "string" ? [collation] : collation
+    const normalizedCollation = (typeof collation === "string" ? [collation] : collation) as NormalizedCollation<Collation>
     return makeExpression({
       runtime: expression[Expression.TypeId].runtime as Expression.RuntimeOf<DialectAsStringExpression<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>,
       dbType: expression[Expression.TypeId].dbType as Expression.DbTypeOf<DialectAsStringExpression<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>,
@@ -2106,7 +2112,7 @@ type BinaryPredicateExpression<
       DialectOfDialectStringInput<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
       KindOf<DialectAsStringExpression<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>,
       DependenciesOfDialectStringInput<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
-      ExpressionAst.CollateNode<DialectAsStringExpression<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>>
+      ExpressionAst.CollateNode<DialectAsStringExpression<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>, NormalizedCollation<Collation>>
     >
   }
 

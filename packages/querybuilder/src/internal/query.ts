@@ -394,6 +394,8 @@ type GroupingKeyOfAst<Ast extends ExpressionAst.Any> =
       ? `excluded:${ColumnName}`
     : Ast extends ExpressionAst.CastNode<infer Value extends Expression.Any, infer Target extends Expression.DbType.Any>
       ? `cast(${GroupingKeyOfExpression<Value>} as ${Target["dialect"]}:${Target["kind"]})`
+    : Ast extends ExpressionAst.CollateNode<infer Value extends Expression.Any, infer Collation extends readonly [string, ...string[]]>
+      ? `collate(${GroupingKeyOfExpression<Value>},${JsonStringKeysGroupingKey<Collation>})`
     : Ast extends ExpressionAst.UnaryNode<infer Kind extends ExpressionAst.UnaryKind, infer Value extends Expression.Any>
       ? `${Kind}(${GroupingKeyOfExpression<Value>})`
     : Ast extends ExpressionAst.BinaryNode<infer Kind extends ExpressionAst.BinaryKind, infer Left extends Expression.Any, infer Right extends Expression.Any>

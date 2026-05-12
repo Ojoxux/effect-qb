@@ -36,11 +36,12 @@ export interface CastNode<
 
 /** Explicit collation captured by the internal expression AST. */
 export interface CollateNode<
-  Value extends Expression.Any = Expression.Any
+  Value extends Expression.Any = Expression.Any,
+  Collation extends readonly [string, ...string[]] = readonly [string, ...string[]]
 > {
   readonly kind: "collate"
   readonly value: Value
-  readonly collation: readonly [string, ...string[]]
+  readonly collation: Collation
 }
 
 /** General SQL function call captured by the internal expression AST. */
