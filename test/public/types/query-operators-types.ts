@@ -32,6 +32,9 @@ void zeroColumnSelectPlan
 const omittedSelectionPlan = Q.select().pipe(Q.from(users))
 void omittedSelectionPlan
 
+// @ts-expect-error select(...) expects a projection object
+Q.select(Q.literal(1))
+
 const predicateHelpersPlan = Q.select({
   distinctEmail: Q.isDistinctFrom(users.email, "alice@example.com"),
   sameEmail: Q.isNotDistinctFrom(users.email, "alice@example.com"),

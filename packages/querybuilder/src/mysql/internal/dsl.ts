@@ -5592,13 +5592,21 @@ type AsCurriedResult<
     readonly __effect_qb_error__: "effect-qb: mysql select statements require at least one selected expression"
   }
 
+  type SelectionRootObjectError<Selection> = Selection & {
+    readonly __effect_qb_error__: "effect-qb: selections must be projection objects"
+    readonly __effect_qb_hint__: "Use select({ value: expression }) or returning({ value: expression })"
+  }
+
+  type SelectionRootObjectConstraint<Selection> =
+    Selection extends Expression.Any ? SelectionRootObjectError<Selection> : unknown
+
   type SelectSelectionNonEmptyConstraint<Selection> =
     [Extract<keyof Selection, string>] extends [never]
       ? SelectSelectionNonEmptyError<Selection>
       : unknown
 
   export type SelectApi = <Selection extends SelectionShape>(
-    selection: Selection & SelectSelectionNonEmptyConstraint<Selection>
+    selection: Selection & SelectionRootObjectConstraint<Selection> & SelectSelectionNonEmptyConstraint<Selection>
   ) => QueryPlan<
     Selection,
     ExtractRequired<Selection>,
@@ -6064,7 +6072,7 @@ type AsCurriedResult<
 
   type ReturningApi = Dialect extends "postgres"
     ? <Selection extends SelectionShape>(
-        selection: Selection & ReturningSelectionNonEmptyConstraint<Selection>
+        selection: Selection & SelectionRootObjectConstraint<Selection> & ReturningSelectionNonEmptyConstraint<Selection>
       ) =>
         <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
           plan: PlanValue & RequireMutationStatement<PlanValue>

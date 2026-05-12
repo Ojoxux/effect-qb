@@ -24,6 +24,9 @@ Q.select({})
 // @ts-expect-error sqlite select statements require at least one selected expression
 Q.select()
 
+// @ts-expect-error sqlite select statements require a projection object
+Q.select(Q.literal(1))
+
 const selectUsers = Q.select({
   id: users.id,
   email: users.email,
@@ -110,6 +113,11 @@ Q.insert(users, userInsert).pipe(
 Q.insert(users, userInsert).pipe(
   // @ts-expect-error sqlite returning selections require at least one selected expression
   Q.returning({})
+)
+
+Q.insert(users, userInsert).pipe(
+  // @ts-expect-error sqlite returning selections require a projection object
+  Q.returning(users.id)
 )
 
 Q.insert(users, userInsert).pipe(

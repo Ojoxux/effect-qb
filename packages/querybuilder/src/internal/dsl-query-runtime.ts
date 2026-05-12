@@ -20,6 +20,17 @@ type DslQueryRuntimeContext = {
 }
 
 export const makeDslQueryRuntime = (ctx: DslQueryRuntimeContext) => {
+  const assertSelectionObject = (apiName: string, selection: any): void => {
+    if (
+      selection === null ||
+      typeof selection !== "object" ||
+      Array.isArray(selection) ||
+      Expression.TypeId in selection
+    ) {
+      throw new Error(`${apiName}(...) expects a projection object`)
+    }
+  }
+
   const values = (rows: readonly [Record<string, any>, ...Record<string, any>[]]) => {
     if (rows.length === 0) {
       throw new Error("values(...) requires at least one row")
@@ -102,8 +113,9 @@ export const makeDslQueryRuntime = (ctx: DslQueryRuntimeContext) => {
     return Object.assign(source, columns)
   }
 
-  const select = (selection: any = {}) =>
-    ctx.makePlan({
+  const select = (selection: any = {}) => {
+    assertSelectionObject("select", selection)
+    return ctx.makePlan({
       selection,
       required: ctx.extractRequiredRuntime(selection),
       available: {},
@@ -117,6 +129,7 @@ export const makeDslQueryRuntime = (ctx: DslQueryRuntimeContext) => {
       groupBy: [],
       orderBy: []
     }, undefined, "read", "select")
+  }
 
   const groupBy = (...values: readonly Expression.Any[]) =>
     (plan: any) => {
@@ -138,6 +151,7 @@ export const makeDslQueryRuntime = (ctx: DslQueryRuntimeContext) => {
     }
 
   const returning = (selection: any) => {
+    assertSelectionObject("returning", selection)
     if (flattenSelection(selection as Record<string, unknown>).length === 0) {
       throw new Error("returning(...) requires at least one selected expression")
     }

@@ -16,6 +16,9 @@ Q.select({})
 // @ts-expect-error MySQL select statements require at least one selected expression.
 Q.select()
 
+// @ts-expect-error MySQL select statements require a projection object.
+Q.select(Q.literal(1))
+
 const fullJoinPlan = Q.select({
   userId: users.id,
   postId: posts.id

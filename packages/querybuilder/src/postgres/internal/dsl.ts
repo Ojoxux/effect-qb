@@ -5639,8 +5639,16 @@ type AsCurriedResult<
     "generate_series"
   >
 
+  type SelectionRootObjectError<Selection> = Selection & {
+    readonly __effect_qb_error__: "effect-qb: selections must be projection objects"
+    readonly __effect_qb_hint__: "Use select({ value: expression }) or returning({ value: expression })"
+  }
+
+  type SelectionRootObjectConstraint<Selection> =
+    Selection extends Expression.Any ? SelectionRootObjectError<Selection> : unknown
+
   export type SelectApi = <Selection extends SelectionShape = {}>(
-    selection?: Selection
+    selection?: Selection & SelectionRootObjectConstraint<Selection>
   ) => QueryPlan<
     Selection,
     ExtractRequired<Selection>,
@@ -6131,7 +6139,7 @@ type AsCurriedResult<
         : unknown
 
   type ReturningApi = <Selection extends SelectionShape>(
-    selection: Selection & ReturningSelectionNonEmptyConstraint<Selection>
+    selection: Selection & SelectionRootObjectConstraint<Selection> & ReturningSelectionNonEmptyConstraint<Selection>
   ) =>
     <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
       plan: PlanValue & RequireMutationStatement<PlanValue>

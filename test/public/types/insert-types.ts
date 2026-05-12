@@ -145,6 +145,13 @@ Q.returning({})(Q.insert(users, {
   bio: "writer"
 }))
 
+// @ts-expect-error returning selections require a projection object
+Q.returning(users.id)(Q.insert(users, {
+  id: "user-id",
+  email: "alice@example.com",
+  bio: "writer"
+}))
+
 void invalidDefaultInsertPlan
 const positionalInsertSource = Q.select({
   userId: users.id,

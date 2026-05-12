@@ -64,6 +64,12 @@ describe("postgres dialect behavior", () => {
     expect(rendered.projections).toEqual([])
   })
 
+  test("rejects scalar postgres selections before rendering bare select", () => {
+    expect(() => Postgres.Query.select(unsafeAny(Postgres.Query.literal(1)))).toThrow(
+      "select(...) expects a projection object"
+    )
+  })
+
   test("renders omitted postgres selections as zero-column selects", () => {
     const { users } = makePostgresSocialGraph()
 
