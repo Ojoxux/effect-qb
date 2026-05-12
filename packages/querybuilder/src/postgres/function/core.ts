@@ -12,11 +12,29 @@ import { isSequenceDefinition, type SequenceDefinition } from "../schema-managem
 
 /** Postgres scalar core functions. */
 export { coalesce, call, uuidGenerateV4 }
+
+const safeUnquotedIdentifier = /^[a-z_][a-z0-9_$]*$/
+
+const quoteIdentifier = (value: string): string =>
+  `"${value.replaceAll("\"", "\"\"")}"`
+
+const renderIdentifier = (value: string): string =>
+  safeUnquotedIdentifier.test(value)
+    ? value
+    : quoteIdentifier(value)
+
+const renderQualifiedSequenceName = (
+  value: SequenceDefinition<string, string | undefined>
+): string =>
+  value.schemaName === undefined || value.schemaName === "public"
+    ? renderIdentifier(value.name)
+    : `${renderIdentifier(value.schemaName)}.${renderIdentifier(value.name)}`
+
 export const nextVal = (
   value: ExpressionInput | SequenceDefinition<string, string | undefined>
 ) =>
   nextValInternal(
     isSequenceDefinition(value)
-      ? cast(literal(value.qualifiedName()), postgresType.regclass())
+      ? cast(literal(renderQualifiedSequenceName(value)), postgresType.regclass())
       : value
   )
