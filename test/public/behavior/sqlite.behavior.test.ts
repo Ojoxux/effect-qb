@@ -170,6 +170,22 @@ describe("sqlite behavior", () => {
     expect(rendered.params).toEqual(["user-1", "alice@example.com", 1, 0])
   })
 
+  test("rejects sqlite conflict action predicates without update assignments", () => {
+    const users = Sqlite.Table.make("users", {
+      id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),
+      email: Sqlite.Column.text()
+    })
+
+    expect(() => render(Sqlite.Query.insert(users, {
+      id: "user-1",
+      email: "alice@example.com"
+    }).pipe(
+      Sqlite.Query.onConflict(["email"] as const, {
+        where: Sqlite.Query.isNotNull(users.email)
+      } as any)
+    ))).toThrow("conflict action predicates require update assignments")
+  })
+
   test("rejects sqlite conflict targets with unknown columns at runtime", () => {
     const users = Sqlite.Table.make("users", {
       id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),

@@ -4796,6 +4796,14 @@ type SqliteConflictWhereError<Values> = Values & {
   readonly __effect_qb_hint__: "Move the condition into the update assignment expressions or use the Postgres dialect"
 }
 
+type ConflictActionWhereWithoutUpdateError<Values> = Values & {
+  readonly __effect_qb_error__: "effect-qb: conflict action where(...) requires update assignments"
+  readonly __effect_qb_hint__: "Add update assignments or move the predicate into the conflict target"
+}
+
+type ConflictActionWhereInput<Dialect extends string> =
+  Dialect extends "postgres" | "sqlite" ? PredicateInput : SqliteConflictWhereError<PredicateInput>
+
 type InsertShapeExtraKeys<TargetShape, SourceShape> = Exclude<Extract<keyof SourceShape, string>, Extract<keyof TargetShape, string>>
 type InsertShapeMissingKeys<TargetShape, SourceShape> = Exclude<RequiredKeys<TargetShape>, Extract<keyof SourceShape, string>>
 type InsertShapeMismatchedKeys<TargetShape, SourceShape> = Extract<{
@@ -4935,10 +4943,15 @@ type ConflictActionInput<
   Target extends MutationTargetLike,
   Dialect extends string,
   UpdateValues extends MutationInputOf<Table.UpdateOf<Target>> | undefined = MutationInputOf<Table.UpdateOf<Target>> | undefined
-> = {
-  readonly update?: UpdateValues
-  readonly where?: Dialect extends "postgres" | "sqlite" ? PredicateInput : SqliteConflictWhereError<PredicateInput>
-}
+> =
+  | {
+      readonly update: Exclude<UpdateValues, undefined>
+      readonly where?: ConflictActionWhereInput<Dialect>
+    }
+  | {
+      readonly update?: undefined
+      readonly where?: ConflictActionWhereWithoutUpdateError<PredicateInput>
+    }
 
 type ConflictTargetPredicate<Target> =
   Target extends { readonly where?: infer Predicate } ? Extract<Predicate, PredicateInput> : never

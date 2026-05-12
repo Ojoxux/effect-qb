@@ -72,6 +72,17 @@ const insertConflictPlan = Q.insert(users, {
   where: Q.isNotNull(Q.excluded(users.bio))
 }))
 
+Q.insert(users, {
+  id: "user-id",
+  email: "alice@example.com",
+  bio: "writer"
+}).pipe(
+  Q.onConflict(["email"] as const, {
+    // @ts-expect-error conflict action predicates require update assignments
+    where: Q.isNotNull(users.bio)
+  })
+)
+
 const invalidConflictTargetPredicatePlan = Q.insert(users, {
   id: "user-id",
   email: "alice@example.com",

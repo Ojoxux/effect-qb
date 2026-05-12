@@ -1189,6 +1189,9 @@ export const renderQueryAst = (
         }
       }
       if (insertAst.conflict) {
+        if (insertAst.conflict.action === "doNothing" && insertAst.conflict.where) {
+          throw new Error("conflict action predicates require update assignments")
+        }
         const updateValues = (insertAst.conflict.values ?? []).map((entry) =>
           `${dialect.quoteIdentifier(entry.columnName)} = ${renderExpression(entry.value, state, dialect)}`
         ).join(", ")
