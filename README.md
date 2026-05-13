@@ -214,9 +214,9 @@ const users = Table.make("users", {
   createdAt: C.timestamp().pipe(C.default(F.localTimestamp()))
 })
 
-Schema.isSchema(users.schemas.select)
-Schema.isSchema(users.schemas.insert)
-Schema.isSchema(users.schemas.update)
+Schema.isSchema(Table.selectSchema(users))
+Schema.isSchema(Table.insertSchema(users))
+Schema.isSchema(Table.updateSchema(users))
 ```
 
 Those schemas are derived from column metadata, not maintained separately.
@@ -314,7 +314,7 @@ type UserSelect = Table.SelectOf<typeof users>
 type UserInsert = Table.InsertOf<typeof users>
 type UserUpdate = Table.UpdateOf<typeof users>
 
-const decoded = Schema.decodeUnknownSync(users.schemas.select)({
+const decoded = Schema.decodeUnknownSync(Table.selectSchema(users))({
   id: "11111111-1111-1111-1111-111111111111",
   happenedOn: "2026-03-20",
   profile: {
@@ -342,7 +342,7 @@ const rowsEffect = Executor.make().execute(plan)
 From that one definition you get:
 
 - bound SQL columns like `users.profile`
-- derived table schemas: `users.schemas.select`, `users.schemas.insert`, `users.schemas.update`
+- derived table schemas: `Table.selectSchema(users)`, `Table.insertSchema(users)`, `Table.updateSchema(users)`
 - static helper types that line up with those schemas
 - executor-side transforms for schema-backed projections
 

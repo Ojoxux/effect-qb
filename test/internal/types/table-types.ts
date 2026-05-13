@@ -35,7 +35,7 @@ const schemaTablePrimaryKey = analytics.table("schema_table_primary_key", {
   slug: C.text(),
   name: C.text()
 }, Table.primaryKey(["id", "slug"] as const))
-type SchemaTablePrimaryKeyUpdate = Schema.Schema.Type<typeof schemaTablePrimaryKey.schemas.update>
+type SchemaTablePrimaryKeyUpdate = Table.UpdateOf<typeof schemaTablePrimaryKey>
 const schemaTablePrimaryKeyUpdate: SchemaTablePrimaryKeyUpdate = { name: "updated" }
 // @ts-expect-error schema table primary key options should update the derived update schema
 const badSchemaTablePrimaryKeyUpdate: SchemaTablePrimaryKeyUpdate = { id: "not-allowed" }
@@ -61,8 +61,8 @@ const datedEvents = Table.make("dated_events", {
   happenedOn: C.date().pipe(C.schema(Schema.DateFromString))
 })
 
-type UserInsert = Schema.Schema.Type<typeof users.schemas.insert>
-type UserUpdate = Schema.Schema.Type<typeof users.schemas.update>
+type UserInsert = Table.InsertOf<typeof users>
+type UserUpdate = Table.UpdateOf<typeof users>
 type UserExpressionDbType = typeof users.id[typeof Expression.TypeId]["dbType"]
 type UserPlanSelection = typeof users[typeof Plan.TypeId]["selection"]
 type EventsSchemaName = typeof events extends Table.TableDefinition<any, any, any, any, infer SchemaName>
@@ -71,8 +71,8 @@ type EventsSchemaName = typeof events extends Table.TableDefinition<any, any, an
 type UsersSchemaName = typeof users extends Table.TableDefinition<any, any, any, any, infer SchemaName>
   ? SchemaName
   : never
-type DatedEventSelect = Schema.Schema.Type<typeof datedEvents.schemas.select>
-type AuditLogInsert = Schema.Schema.Type<typeof auditLog.schemas.insert>
+type DatedEventSelect = Table.SelectOf<typeof datedEvents>
+type AuditLogInsert = Table.InsertOf<typeof auditLog>
 
 const goodInsert: UserInsert = {
   email: "alice@example.com"
@@ -600,7 +600,7 @@ const mysqlSchemaTablePrimaryKey = mysqlSchema.table("mysql_schema_table_primary
   slug: Mysql.Column.text(),
   name: Mysql.Column.text()
 }, Mysql.Table.primaryKey(["id", "slug"] as const))
-type MysqlSchemaTablePrimaryKeyUpdate = Schema.Schema.Type<typeof mysqlSchemaTablePrimaryKey.schemas.update>
+type MysqlSchemaTablePrimaryKeyUpdate = Mysql.Table.UpdateOf<typeof mysqlSchemaTablePrimaryKey>
 const mysqlSchemaTablePrimaryKeyUpdate: MysqlSchemaTablePrimaryKeyUpdate = { name: "updated" }
 // @ts-expect-error mysql schema table primary key options should update the derived update schema
 const badMysqlSchemaTablePrimaryKeyUpdate: MysqlSchemaTablePrimaryKeyUpdate = { id: "not-allowed" }

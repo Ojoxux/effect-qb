@@ -80,10 +80,8 @@ import {
   type TableDialectOf,
   type StatementOfPlan,
   type MutationInputOf,
-  type MutationTargetLike,
   type MutationTargetOfPlan,
   type MergeCapabilities,
-  type MutationTargetInput,
   type MutationValuesInput,
   type SourceDialectOf,
   type SourceLike,
@@ -100,7 +98,6 @@ import {
   type TableLike,
   type UpdateInputOfTarget,
   type MutationTargetNamesOf,
-  type MutationTargetTuple,
   type TupleDependencies,
   type TupleDialect,
   type ResultRow
@@ -137,6 +134,10 @@ import { makeCteSource, makeDerivedSource, makeLateralSource } from "../../inter
 import * as ProjectionAlias from "../../internal/projection-alias.js"
 import * as QueryAst from "../../internal/query-ast.js"
 import { normalizeColumnList } from "../../internal/table-options.js"
+
+type MutationTargetLike = Table.AnyTable<Dialect>
+type MutationTargetTuple = readonly [MutationTargetLike, MutationTargetLike, ...MutationTargetLike[]]
+type MutationTargetInput = MutationTargetLike | MutationTargetTuple
 
 /**
  * Dialect-specific DB type profile used to specialize the shared query
@@ -6358,7 +6359,7 @@ type AsCurriedResult<
     target: Target,
     source: Source & (
       SourceRequiredOf<Source> extends never ? unknown : SourceRequirementError<Source>
-    ),
+    ) & SourceDialectConstraint<Source, Dialect>,
     on: On,
     options: MergeOptions<Target, MatchedValues, InsertValues, MatchedPredicate, NotMatchedPredicate>
   ) => QueryPlan<

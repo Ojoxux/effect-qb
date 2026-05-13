@@ -40,7 +40,7 @@ describe("table behavior", () => {
       { kind: "primaryKey", columns: ["orgId", "userId"] },
       { kind: "index", columns: ["role", "orgId"] }
     ])
-    expect(Schema.decodeUnknownSync(memberships.schemas.update)({
+    expect(Schema.decodeUnknownSync(Table.updateSchema(memberships))({
       role: "admin",
       orgId: "ignored"
     })).toEqual({
@@ -102,13 +102,13 @@ describe("table behavior", () => {
       bio: null
     }
 
-    expect(Schema.decodeUnknownSync(factoryUsers.schemas.insert)(input)).toEqual(
-      Schema.decodeUnknownSync(ClassUsers.schemas.insert)(input)
+    expect(Schema.decodeUnknownSync(Table.insertSchema(factoryUsers))(input)).toEqual(
+      Schema.decodeUnknownSync(Table.insertSchema(ClassUsers))(input)
     )
-    expect(Schema.decodeUnknownSync(factoryUsers.schemas.update)({
+    expect(Schema.decodeUnknownSync(Table.updateSchema(factoryUsers))({
       bio: null
     })).toEqual(
-      Schema.decodeUnknownSync(ClassUsers.schemas.update)({
+      Schema.decodeUnknownSync(Table.updateSchema(ClassUsers))({
         bio: null
       })
     )
@@ -120,7 +120,7 @@ describe("table behavior", () => {
       happenedOn: C.date().pipe(C.schema(Schema.DateFromString))
     })
 
-    const decoded = Schema.decodeUnknownSync(events.schemas.select)({
+    const decoded = Schema.decodeUnknownSync(Table.selectSchema(events))({
       happenedOn: "2026-03-20"
     })
 
@@ -134,7 +134,7 @@ describe("table behavior", () => {
       nickname: C.text().pipe(C.nullable, C.brand)
     })
 
-    expect(Schema.decodeUnknownSync(accounts.schemas.select)({
+    expect(Schema.decodeUnknownSync(Table.selectSchema(accounts))({
       id: "550e8400-e29b-41d4-a716-446655440000",
       nickname: null
     })).toEqual(unsafeAny({
@@ -163,11 +163,11 @@ describe("table behavior", () => {
       tags: C.text().pipe(C.array({ nullableElements: true }))
     })
 
-    expect(() => Schema.decodeUnknownSync(strict.schemas.select)({
+    expect(() => Schema.decodeUnknownSync(Table.selectSchema(strict))({
       tags: ["alpha", null]
     })).toThrow()
 
-    expect(Schema.decodeUnknownSync(relaxed.schemas.select)({
+    expect(Schema.decodeUnknownSync(Table.selectSchema(relaxed))({
       tags: ["alpha", null]
     })).toEqual({
       tags: ["alpha", null]

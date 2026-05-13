@@ -24,10 +24,13 @@ import {
   validateOptions
 } from "./table-options.js"
 import {
-  deriveSchemas,
+  deriveInsertSchema,
+  deriveSelectSchema,
+  deriveUpdateSchema,
   type InsertRow,
   type SelectRow,
   type TableFieldMap,
+  type TableSchemaVariant,
   type UpdateRow
 } from "./schema-derivation.js"
 
@@ -39,6 +42,7 @@ export const OptionsSymbol: unique symbol = Symbol.for("effect-qb/Table/normaliz
 export const options: unique symbol = Symbol.for("effect-qb/Table/declaredOptions")
 
 const CacheSymbol: unique symbol = Symbol.for("effect-qb/Table/cache")
+const SchemaCacheSymbol: unique symbol = Symbol.for("effect-qb/Table/schemaCache")
 const DeclaredOptionsSymbol: unique symbol = Symbol.for("effect-qb/Table/factoryDeclaredOptions")
 
 type InlinePrimaryKeyKeys<Fields extends TableFieldMap> = Extract<{
@@ -153,6 +157,14 @@ export interface TableSchemas<
   readonly update: Schema.Schema<UpdateRow<Name, Fields, PrimaryKeyColumns>>
 }
 
+type TableSchemaCache<
+  Name extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string
+> = Partial<TableSchemas<Name, Fields, PrimaryKeyColumns>> & {
+  schemas?: TableSchemas<Name, Fields, PrimaryKeyColumns>
+}
+
 interface TableState<
   Name extends string,
   Fields extends TableFieldMap,
@@ -245,13 +257,12 @@ export type TableClassStatic<
   >
 
 /** Minimal structural table-like contract used across helper APIs. */
-export type AnyTable = TableDefinition<any, any, any, any, any> | TableClassStatic<any, any, any, any>
+export type AnyTable<Dialect extends string = string> = {
+  readonly [TypeId]: TableState<string, TableFieldMap, string, TableKind, string | undefined>
+  readonly [OptionsSymbol]: readonly TableOptionSpec[]
+} & Plan.RowSet<any, any, Record<string, Plan.AnySource>, Dialect>
 
-type FieldsOfAnyTable<Table extends AnyTable> = Table extends TableDefinition<any, infer Fields extends TableFieldMap, any, any, any>
-  ? Fields
-  : Table extends TableClassStatic<any, infer Fields extends TableFieldMap, any, any>
-    ? Fields
-    : never
+type FieldsOfAnyTable<Table extends AnyTable> = Table[typeof TypeId]["fields"]
 
 type ColumnNamesOfAnyTable<Table extends AnyTable> = Extract<keyof FieldsOfAnyTable<Table>, string>
 
@@ -292,7 +303,6 @@ type BuildArtifacts<
   PrimaryKeyColumns extends keyof Fields & string
 > = {
   readonly columns: BoundColumns<Name, Fields>
-  readonly schemas: TableSchemas<Name, Fields, PrimaryKeyColumns>
   readonly normalizedOptions: readonly TableOptionSpec[]
   readonly primaryKey: readonly PrimaryKeyColumns[]
 }
@@ -314,13 +324,147 @@ const buildArtifacts = <
   const columns = Object.fromEntries(
     Object.entries(fields).map(([key, column]) => [key, bindColumn(name, key, column, name, schemaName)])
   ) as BoundColumns<Name, Fields>
-  const schemas = deriveSchemas(name, fields, primaryKey)
   return {
     columns,
-    schemas,
     normalizedOptions,
     primaryKey
   }
+}
+
+const getSchemaCache = <
+  Name extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string
+>(
+  table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, any> | TableClassStatic<Name, Fields, PrimaryKeyColumns, any>
+): TableSchemaCache<Name, Fields, PrimaryKeyColumns> => {
+  const target = table as unknown as {
+    [SchemaCacheSymbol]?: TableSchemaCache<Name, Fields, PrimaryKeyColumns>
+  }
+  if (target[SchemaCacheSymbol] !== undefined) {
+    return target[SchemaCacheSymbol]
+  }
+  const cache: TableSchemaCache<Name, Fields, PrimaryKeyColumns> = {}
+  Object.defineProperty(table, SchemaCacheSymbol, {
+    configurable: true,
+    value: cache
+  })
+  return cache
+}
+
+const deriveTableSchema = <
+  Variant extends TableSchemaVariant,
+  Name extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string
+>(
+  table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, any> | TableClassStatic<Name, Fields, PrimaryKeyColumns, any>,
+  variant: Variant
+): TableSchemas<Name, Fields, PrimaryKeyColumns>[Variant] => {
+  const state = table[TypeId]
+  switch (variant) {
+    case "select":
+      return deriveSelectSchema(state.name, state.fields, state.primaryKey) as TableSchemas<Name, Fields, PrimaryKeyColumns>[Variant]
+    case "insert":
+      return deriveInsertSchema(state.name, state.fields, state.primaryKey) as TableSchemas<Name, Fields, PrimaryKeyColumns>[Variant]
+    case "update":
+      return deriveUpdateSchema(state.name, state.fields, state.primaryKey) as TableSchemas<Name, Fields, PrimaryKeyColumns>[Variant]
+  }
+}
+
+const schemaFor = <
+  Variant extends TableSchemaVariant,
+  Name extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string
+>(
+  table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, any> | TableClassStatic<Name, Fields, PrimaryKeyColumns, any>,
+  variant: Variant
+): TableSchemas<Name, Fields, PrimaryKeyColumns>[Variant] => {
+  const cache = getSchemaCache(table)
+  const cached = cache[variant]
+  if (cached !== undefined) {
+    return cached as TableSchemas<Name, Fields, PrimaryKeyColumns>[Variant]
+  }
+  const schema = deriveTableSchema(table, variant)
+  cache[variant] = schema as any
+  return schema
+}
+
+export function selectSchema<
+  Name extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string
+>(
+  table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, any> | TableClassStatic<Name, Fields, PrimaryKeyColumns, any>
+): Schema.Schema<SelectRow<Name, Fields>> {
+  return schemaFor(table, "select") as Schema.Schema<SelectRow<Name, Fields>>
+}
+
+export function insertSchema<
+  Name extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string
+>(
+  table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, any> | TableClassStatic<Name, Fields, PrimaryKeyColumns, any>
+): Schema.Schema<InsertRow<Name, Fields>> {
+  return schemaFor(table, "insert") as Schema.Schema<InsertRow<Name, Fields>>
+}
+
+export function updateSchema<
+  Name extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string
+>(
+  table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, any> | TableClassStatic<Name, Fields, PrimaryKeyColumns, any>
+): Schema.Schema<UpdateRow<Name, Fields, PrimaryKeyColumns>> {
+  return schemaFor(table, "update") as Schema.Schema<UpdateRow<Name, Fields, PrimaryKeyColumns>>
+}
+
+const schemasFor = <
+  Name extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string
+>(
+  table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, any> | TableClassStatic<Name, Fields, PrimaryKeyColumns, any>
+): TableSchemas<Name, Fields, PrimaryKeyColumns> => {
+  const cache = getSchemaCache(table)
+  if (cache.schemas !== undefined) {
+    return cache.schemas
+  }
+  const schemas = {} as TableSchemas<Name, Fields, PrimaryKeyColumns>
+  Object.defineProperties(schemas, {
+    select: {
+      enumerable: true,
+      get: () => selectSchema(table)
+    },
+    insert: {
+      enumerable: true,
+      get: () => insertSchema(table)
+    },
+    update: {
+      enumerable: true,
+      get: () => updateSchema(table)
+    }
+  })
+  cache.schemas = schemas
+  return schemas
+}
+
+const defineSchemasGetter = <
+  Name extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string
+>(
+  table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, any>
+): void => {
+  Object.defineProperty(table, "schemas", {
+    configurable: true,
+    enumerable: true,
+    get() {
+      return schemasFor(table)
+    }
+  })
 }
 
 const makeTable = <
@@ -346,7 +490,7 @@ const makeTable = <
   const table = attachPipe(Object.create(TableProto))
   table.name = name
   table.columns = artifacts.columns
-  table.schemas = artifacts.schemas
+  defineSchemasGetter(table)
   table[TypeId] = {
     name,
     baseName,
@@ -457,7 +601,6 @@ const ensureClassArtifacts = <
   )
   const artifacts = {
     columns: table.columns,
-    schemas: table.schemas,
     normalizedOptions: table[OptionsSymbol],
     primaryKey: table[TypeId].primaryKey as readonly PrimaryKeyColumns[]
   } satisfies BuildArtifacts<Name, Fields, PrimaryKeyColumns>
@@ -604,7 +747,7 @@ export const alias = <
   const aliased = attachPipe(Object.create(TableProto))
   aliased.name = aliasName
   aliased.columns = columns
-  aliased.schemas = deriveSchemas(aliasName, state.fields, state.primaryKey)
+  defineSchemasGetter(aliased)
   aliased[TypeId] = {
     name: aliasName,
     baseName: state.baseName,
@@ -663,7 +806,7 @@ export function Class<
         }
 
         static get schemas() {
-          return ensureClassArtifacts(this as any).schemas
+          return schemasFor(this as any)
         }
 
         static get [TypeId]() {
@@ -800,15 +943,21 @@ export const check = <Name extends string>(
   predicate
 })
 
-/** Extracts the row type of a table's select schema. */
-export type SelectOf<Table extends { readonly schemas: { readonly select: Schema.Schema<any> } }> = Schema.Schema.Type<
-  Table["schemas"]["select"]
->
-/** Extracts the payload type of a table's insert schema. */
-export type InsertOf<Table extends { readonly schemas: { readonly insert: Schema.Schema<any> } }> = Schema.Schema.Type<
-  Table["schemas"]["insert"]
->
-/** Extracts the payload type of a table's update schema. */
-export type UpdateOf<Table extends { readonly schemas: { readonly update: Schema.Schema<any> } }> = Schema.Schema.Type<
-  Table["schemas"]["update"]
->
+/** Extracts the row type produced by `selectSchema(table)`. */
+export type SelectOf<Table extends AnyTable> = Table[typeof TypeId] extends {
+  readonly name: infer Name extends string
+  readonly fields: infer Fields extends TableFieldMap
+} ? SelectRow<Name, Fields> : never
+
+/** Extracts the payload type produced by `insertSchema(table)`. */
+export type InsertOf<Table extends AnyTable> = Table[typeof TypeId] extends {
+  readonly name: infer Name extends string
+  readonly fields: infer Fields extends TableFieldMap
+} ? InsertRow<Name, Fields> : never
+
+/** Extracts the payload type produced by `updateSchema(table)`. */
+export type UpdateOf<Table extends AnyTable> = Table[typeof TypeId] extends {
+  readonly name: infer Name extends string
+  readonly fields: infer Fields extends TableFieldMap
+  readonly primaryKey: readonly (infer PrimaryKeyColumns)[]
+} ? UpdateRow<Name, Fields, Extract<PrimaryKeyColumns, keyof Fields & string>> : never

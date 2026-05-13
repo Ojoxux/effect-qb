@@ -92,7 +92,10 @@ export type TableClassStatic<Name extends string, Fields extends TableFieldMap, 
     readonly tableName: Name;
 } & BoundColumns<Name, Fields> & Plan.RowSet<BoundColumns<Name, Fields>, never, Record<Name, Plan.Source<Name, "required", TrueFormula>>, TableDialect<Fields>>;
 /** Minimal structural table-like contract used across helper APIs. */
-export type AnyTable = TableDefinition<any, any, any, any, any> | TableClassStatic<any, any, any, any>;
+export type AnyTable<Dialect extends string = string> = {
+    readonly [TypeId]: TableState<string, TableFieldMap, string, TableKind, string | undefined>;
+    readonly [OptionsSymbol]: readonly TableOptionSpec[];
+} & Plan.RowSet<any, any, Record<string, Plan.AnySource>, Dialect>;
 /** Public table-option builder type used by `Table.index`, `Table.primaryKey`, and friends. */
 export type TableOption<Spec extends TableOptionSpec = TableOptionSpec> = {
     <Name extends string, Fields extends TableFieldMap, PrimaryKeyColumns extends keyof Fields & string>(table: OptionInputTable<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>, Spec>): ApplyOption<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>, Spec>;
@@ -114,6 +117,12 @@ export declare const schema: <SchemaName extends string>(schemaName: SchemaName)
  * downstream SQL rendering work.
  */
 export declare const alias: <Name extends string, Fields extends TableFieldMap, PrimaryKeyColumns extends keyof Fields & string, SchemaName extends string, AliasName extends string>(table: TableClassStatic<Name, Fields, PrimaryKeyColumns, SchemaName> | TableDefinition<Name, Fields, PrimaryKeyColumns, any, SchemaName>, aliasName: AliasName) => TableDefinition<AliasName, Fields, PrimaryKeyColumns, "alias", SchemaName>;
+/** Returns the lazily derived select schema for a table. */
+export declare function selectSchema<Name extends string, Fields extends TableFieldMap, PrimaryKeyColumns extends keyof Fields & string>(table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, any> | TableClassStatic<Name, Fields, PrimaryKeyColumns, any>): Schema.Schema<SelectRow<Name, Fields>>;
+/** Returns the lazily derived insert schema for a table. */
+export declare function insertSchema<Name extends string, Fields extends TableFieldMap, PrimaryKeyColumns extends keyof Fields & string>(table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, any> | TableClassStatic<Name, Fields, PrimaryKeyColumns, any>): Schema.Schema<InsertRow<Name, Fields>>;
+/** Returns the lazily derived update schema for a table. */
+export declare function updateSchema<Name extends string, Fields extends TableFieldMap, PrimaryKeyColumns extends keyof Fields & string>(table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, any> | TableClassStatic<Name, Fields, PrimaryKeyColumns, any>): Schema.Schema<UpdateRow<Name, Fields, PrimaryKeyColumns>>;
 /**
  * Class-based table constructor mirroring `Schema.Class`.
  *
@@ -153,21 +162,19 @@ export declare const check: <Name extends string>(name: Name, predicate: DdlExpr
     readonly name: Name;
     readonly predicate: DdlExpressionLike;
 }>;
-/** Extracts the row type of a table's select schema. */
-export type SelectOf<Table extends {
-    readonly schemas: {
-        readonly select: Schema.Schema<any>;
-    };
-}> = Schema.Schema.Type<Table["schemas"]["select"]>;
-/** Extracts the payload type of a table's insert schema. */
-export type InsertOf<Table extends {
-    readonly schemas: {
-        readonly insert: Schema.Schema<any>;
-    };
-}> = Schema.Schema.Type<Table["schemas"]["insert"]>;
-/** Extracts the payload type of a table's update schema. */
-export type UpdateOf<Table extends {
-    readonly schemas: {
-        readonly update: Schema.Schema<any>;
-    };
-}> = Schema.Schema.Type<Table["schemas"]["update"]>;
+/** Extracts the row type produced by `selectSchema(table)`. */
+export type SelectOf<Table extends AnyTable> = Table[typeof TypeId] extends {
+    readonly name: infer Name extends string;
+    readonly fields: infer Fields extends TableFieldMap;
+} ? SelectRow<Name, Fields> : never;
+/** Extracts the payload type produced by `insertSchema(table)`. */
+export type InsertOf<Table extends AnyTable> = Table[typeof TypeId] extends {
+    readonly name: infer Name extends string;
+    readonly fields: infer Fields extends TableFieldMap;
+} ? InsertRow<Name, Fields> : never;
+/** Extracts the payload type produced by `updateSchema(table)`. */
+export type UpdateOf<Table extends AnyTable> = Table[typeof TypeId] extends {
+    readonly name: infer Name extends string;
+    readonly fields: infer Fields extends TableFieldMap;
+    readonly primaryKey: readonly (infer PrimaryKeyColumns)[];
+} ? UpdateRow<Name, Fields, Extract<PrimaryKeyColumns, keyof Fields & string>> : never;

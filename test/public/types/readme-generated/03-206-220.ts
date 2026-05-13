@@ -13,8 +13,8 @@ const users = Table.make("users", {
   createdAt: C.timestamp().pipe(C.default(F.localTimestamp()))
 })
 
-Schema.isSchema(users.schemas.select)
-Schema.isSchema(users.schemas.insert)
-Schema.isSchema(users.schemas.update)
+Schema.isSchema(Table.selectSchema(users))
+Schema.isSchema(Table.insertSchema(users))
+Schema.isSchema(Table.updateSchema(users))
 
 export {};

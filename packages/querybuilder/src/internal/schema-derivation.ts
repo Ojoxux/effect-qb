@@ -1,4 +1,3 @@
-import * as VariantSchema from "@effect/experimental/VariantSchema"
 import type * as Brand from "effect/Brand"
 import * as Schema from "effect/Schema"
 
@@ -12,13 +11,7 @@ import {
   type UpdateType
 } from "./column-state.js"
 
-/** Variant-schema helper used to derive select / insert / update schemas. */
-export const TableSchema = VariantSchema.make({
-  variants: ["select", "insert", "update"] as const,
-  defaultVariant: "select"
-})
-
-type Variants = "select" | "insert" | "update"
+export type TableSchemaVariant = "select" | "insert" | "update"
 
 /** Normalized field map used by table definitions. */
 export type TableFieldMap = Record<string, AnyColumnDefinition>
@@ -153,11 +146,95 @@ const updateSchema = (
   return Schema.optional(base)
 }
 
+type SchemaOfVariant<
+  Variant extends TableSchemaVariant,
+  TableName extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string
+> = Variant extends "select" ? Schema.Schema<SelectRow<TableName, Fields>>
+  : Variant extends "insert" ? Schema.Schema<InsertRow<TableName, Fields>>
+  : Schema.Schema<UpdateRow<TableName, Fields, PrimaryKeyColumns>>
+
+const fieldSchemaForVariant = (
+  variant: TableSchemaVariant,
+  column: AnyColumnDefinition,
+  tableName: string,
+  columnName: string,
+  primaryKeySet: ReadonlySet<string>
+): any | undefined => {
+  switch (variant) {
+    case "select":
+      return selectSchema(column, tableName, columnName)
+    case "insert":
+      return insertSchema(column, tableName, columnName)
+    case "update":
+      return updateSchema(column, tableName, columnName, primaryKeySet.has(columnName))
+  }
+}
+
+export const deriveSchema = <
+  Variant extends TableSchemaVariant,
+  TableName extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string
+>(
+  variant: Variant,
+  tableName: TableName,
+  fields: Fields,
+  primaryKeyColumns: readonly PrimaryKeyColumns[]
+): SchemaOfVariant<Variant, TableName, Fields, PrimaryKeyColumns> => {
+  const primaryKeySet = new Set<string>(primaryKeyColumns)
+  const structFields: Record<string, any> = {}
+  for (const [key, column] of Object.entries(fields)) {
+    const schema = fieldSchemaForVariant(variant, column, tableName, key, primaryKeySet)
+    if (schema !== undefined) {
+      structFields[key] = schema
+    }
+  }
+  return Schema.Struct(structFields) as unknown as SchemaOfVariant<Variant, TableName, Fields, PrimaryKeyColumns>
+}
+
+export const deriveSelectSchema = <
+  TableName extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string
+>(
+  tableName: TableName,
+  fields: Fields,
+  primaryKeyColumns: readonly PrimaryKeyColumns[]
+): Schema.Schema<SelectRow<TableName, Fields>> =>
+  deriveSchema("select", tableName, fields, primaryKeyColumns)
+
+export const deriveInsertSchema = <
+  TableName extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string
+>(
+  tableName: TableName,
+  fields: Fields,
+  primaryKeyColumns: readonly PrimaryKeyColumns[]
+): Schema.Schema<InsertRow<TableName, Fields>> =>
+  deriveSchema("insert", tableName, fields, primaryKeyColumns)
+
+export const deriveUpdateSchema = <
+  TableName extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string
+>(
+  tableName: TableName,
+  fields: Fields,
+  primaryKeyColumns: readonly PrimaryKeyColumns[]
+): Schema.Schema<UpdateRow<TableName, Fields, PrimaryKeyColumns>> =>
+  deriveSchema("update", tableName, fields, primaryKeyColumns)
+
 /**
  * Derives the `select`, `insert`, and `update` schemas for a table.
  *
  * This is the central place where the column capability flags are turned into
  * real runtime schemas.
+ *
+ * @deprecated Prefer `deriveSelectSchema`, `deriveInsertSchema`, and
+ * `deriveUpdateSchema` so individual variants are derived lazily.
  */
 export const deriveSchemas = <
   TableName extends string,
@@ -171,33 +248,8 @@ export const deriveSchemas = <
   readonly select: Schema.Schema<SelectRow<TableName, Fields>>
   readonly insert: Schema.Schema<InsertRow<TableName, Fields>>
   readonly update: Schema.Schema<UpdateRow<TableName, Fields, PrimaryKeyColumns>>
-} => {
-  const primaryKeySet = new Set<string>(primaryKeyColumns)
-  const variants: Record<string, VariantSchema.Field<any>> = {}
-  for (const [key, column] of Object.entries(fields)) {
-    const config: Record<Variants, any> = {
-      select: selectSchema(column, tableName, key),
-      insert: undefined,
-      update: undefined
-    }
-    const insert = insertSchema(column, tableName, key)
-    const update = updateSchema(column, tableName, key, primaryKeySet.has(key))
-    if (insert !== undefined) {
-      config.insert = insert
-    } else {
-      delete config.insert
-    }
-    if (update !== undefined) {
-      config.update = update
-    } else {
-      delete config.update
-    }
-    variants[key] = TableSchema.Field(config)
-  }
-  const struct = TableSchema.Struct(variants as any)
-  return {
-    select: TableSchema.extract(struct, "select") as unknown as Schema.Schema<SelectRow<TableName, Fields>>,
-    insert: TableSchema.extract(struct, "insert") as unknown as Schema.Schema<InsertRow<TableName, Fields>>,
-    update: TableSchema.extract(struct, "update") as unknown as Schema.Schema<UpdateRow<TableName, Fields, PrimaryKeyColumns>>
-  }
-}
+} => ({
+  select: deriveSelectSchema(tableName, fields, primaryKeyColumns),
+  insert: deriveInsertSchema(tableName, fields, primaryKeyColumns),
+  update: deriveUpdateSchema(tableName, fields, primaryKeyColumns)
+})

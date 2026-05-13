@@ -30,15 +30,15 @@ describe("table definitions", () => {
     expect(users[RowSet.TypeId].selection.id).toBe(users.id)
     expect(users[RowSet.TypeId].available.users.name).toBe("users")
     expect(users[RowSet.TypeId].available.users.mode).toBe("required")
-    expect(Schema.isSchema(users.schemas.select)).toBe(true)
-    expect(Schema.isSchema(users.schemas.insert)).toBe(true)
-    expect(Schema.isSchema(users.schemas.update)).toBe(true)
+    expect(Schema.isSchema(Table.selectSchema(users))).toBe(true)
+    expect(Schema.isSchema(Table.insertSchema(users))).toBe(true)
+    expect(Schema.isSchema(Table.updateSchema(users))).toBe(true)
 
-    const insert = Schema.decodeUnknownSync(users.schemas.insert)({
+    const insert = Schema.decodeUnknownSync(Table.insertSchema(users))({
       email: "alice@example.com",
       bio: null
     })
-    const update = Schema.decodeUnknownSync(users.schemas.update)({
+    const update = Schema.decodeUnknownSync(Table.updateSchema(users))({
       email: "next@example.com"
     })
 
@@ -48,6 +48,29 @@ describe("table definitions", () => {
 
     const options = users[Table.OptionsSymbol]
     expect(options.map((option) => option.kind)).toEqual(["primaryKey", "unique", "index"])
+  })
+
+  test("table schema helpers derive and cache individual variants lazily", () => {
+    const users = Table.make("users", {
+      id: C.uuid().pipe(C.primaryKey),
+      email: C.text(),
+      bio: C.text().pipe(C.nullable)
+    })
+    const schemaCacheSymbol = Symbol.for("effect-qb/Table/schemaCache")
+
+    expect(unsafeAny(users)[schemaCacheSymbol]).toBeUndefined()
+
+    const insert = Table.insertSchema(users)
+    expect(Table.insertSchema(users)).toBe(insert)
+    expect(unsafeAny(users)[schemaCacheSymbol].insert).toBe(insert)
+    expect("select" in unsafeAny(users)[schemaCacheSymbol]).toBe(false)
+    expect("update" in unsafeAny(users)[schemaCacheSymbol]).toBe(false)
+
+    const schemas = users.schemas
+    expect(users.schemas).toBe(schemas)
+    expect("select" in unsafeAny(users)[schemaCacheSymbol]).toBe(false)
+    expect(schemas.insert).toBe(insert)
+    expect(schemas.select).toBe(Table.selectSchema(users))
   })
 
   test("table schema namespaces preserve physical schema metadata", () => {
@@ -76,7 +99,7 @@ describe("table definitions", () => {
     }
 
     expect(Users.email).toBe(Users.columns.email)
-    expect(Schema.isSchema(Users.schemas.insert)).toBe(true)
+    expect(Schema.isSchema(Table.insertSchema(Users))).toBe(true)
     expect(Users[Table.OptionsSymbol].map((option) => option.kind)).toEqual(["primaryKey", "unique", "index"])
   })
 

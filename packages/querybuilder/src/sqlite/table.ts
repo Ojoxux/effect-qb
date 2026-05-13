@@ -1,5 +1,3 @@
-import type * as Schema from "effect/Schema"
-
 import type * as Expression from "../internal/scalar.js"
 import { ColumnTypeId, type AnyColumnDefinition } from "../internal/column-state.js"
 import * as BaseTable from "../internal/table.js"
@@ -33,25 +31,15 @@ export type TableClassStatic<
   SchemaName extends string | undefined = undefined
 > = BaseTable.TableClassStatic<Name, Fields, PrimaryKeyColumns, SchemaName>
 
-export type AnyTable = BaseTable.AnyTable
+export type AnyTable = BaseTable.AnyTable<Dialect>
 
-type FieldsOfTable<Table> = Table extends BaseTable.TableDefinition<any, infer Fields extends DialectFieldMap, any, any, any>
+type FieldsOfTable<Table extends BaseTable.AnyTable> = Table[typeof BaseTable.TypeId]["fields"] extends infer Fields extends DialectFieldMap
   ? Fields
-  : Table extends BaseTable.TableClassStatic<any, infer Fields extends DialectFieldMap, any, any>
-    ? Fields
-    : never
+  : never
 
-type PrimaryKeyOfTable<Table> = Table extends BaseTable.TableDefinition<any, any, infer PrimaryKeyColumns extends string, any, any>
-  ? PrimaryKeyColumns
-  : Table extends BaseTable.TableClassStatic<any, any, infer PrimaryKeyColumns extends string, any>
-    ? PrimaryKeyColumns
-    : never
+type PrimaryKeyOfTable<Table extends BaseTable.AnyTable> = Table[typeof BaseTable.TypeId]["primaryKey"][number]
 
-type SchemaNameOfTable<Table> = Table extends BaseTable.TableDefinition<any, any, any, any, infer SchemaName>
-  ? SchemaName
-  : Table extends BaseTable.TableClassStatic<any, any, any, infer SchemaName>
-    ? SchemaName
-    : never
+type SchemaNameOfTable<Table extends BaseTable.AnyTable> = Table[typeof BaseTable.TypeId]["schemaName"]
 
 type ApplySchemaTableOptions<
   Name extends string,
@@ -169,15 +157,19 @@ export const foreignKey = <
   columns: LocalColumns & BaseTable.NonEmptyColumnInput<LocalColumns>,
   target: () => TargetTable,
   referencedColumns: TargetColumns & BaseTable.NonEmptyColumnInput<TargetColumns> & BaseTable.MatchingColumnArityInput<LocalColumns, TargetColumns>
-): BaseTable.TableOption =>
-  BaseTable.foreignKey<LocalColumns, BaseTable.AnyTable, TargetColumns>(
+) =>
+  BaseTable.foreignKey<LocalColumns, TargetTable, TargetColumns>(
     columns as LocalColumns & BaseTable.NonEmptyColumnInput<LocalColumns>,
-    target as () => BaseTable.AnyTable,
+    target,
     referencedColumns as TargetColumns & BaseTable.NonEmptyColumnInput<TargetColumns> & BaseTable.MatchingColumnArityInput<LocalColumns, TargetColumns>
   )
 
 export const check = BaseTable.check
 
-export type SelectOf<Table extends { readonly schemas: { readonly select: Schema.Schema<any> } }> = BaseTable.SelectOf<Table>
-export type InsertOf<Table extends { readonly schemas: { readonly insert: Schema.Schema<any> } }> = BaseTable.InsertOf<Table>
-export type UpdateOf<Table extends { readonly schemas: { readonly update: Schema.Schema<any> } }> = BaseTable.UpdateOf<Table>
+export const selectSchema = BaseTable.selectSchema
+export const insertSchema = BaseTable.insertSchema
+export const updateSchema = BaseTable.updateSchema
+
+export type SelectOf<Table extends AnyTable> = BaseTable.SelectOf<Table>
+export type InsertOf<Table extends AnyTable> = BaseTable.InsertOf<Table>
+export type UpdateOf<Table extends AnyTable> = BaseTable.UpdateOf<Table>

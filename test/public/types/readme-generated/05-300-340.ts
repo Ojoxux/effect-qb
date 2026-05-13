@@ -19,7 +19,7 @@ type UserSelect = Table.SelectOf<typeof users>
 type UserInsert = Table.InsertOf<typeof users>
 type UserUpdate = Table.UpdateOf<typeof users>
 
-const decoded = Schema.decodeUnknownSync(users.schemas.select)({
+const decoded = Schema.decodeUnknownSync(Table.selectSchema(users))({
   id: "11111111-1111-1111-1111-111111111111",
   happenedOn: "2026-03-20",
   profile: {

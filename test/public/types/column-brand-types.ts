@@ -35,9 +35,7 @@ type PostgresIdRuntime =
 type PostgresNicknameRuntime =
   (typeof brandedPostgresNickname)[Postgres.Scalar.TypeId]["runtime"];
 type PostgresAgeSchema = Schema.Schema.Type<typeof brandedPostgresAge.schema>;
-type InlineBrandedPostgresSelect = Schema.Schema.Type<
-  typeof inlineBrandedPostgresAccounts.schemas.select
->;
+type InlineBrandedPostgresSelect = Postgres.Table.SelectOf<typeof inlineBrandedPostgresAccounts>;
 
 type _AssertPostgresIdRuntime = Assert<
   PostgresIdRuntime extends string & Brand.Brand<"accounts.id"> ? true : false
