@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import * as Schema from "effect/Schema"
 
+import * as Mysql from "#mysql"
+import * as Sqlite from "#sqlite"
 import { Column as C, Scalar as Expression, Function as F, Query as Q, Table } from "#postgres"
 import { unsafeAny, unsafeNever } from "../../helpers/unsafe.ts"
 
@@ -78,6 +80,30 @@ describe("table behavior", () => {
     expect(unsafeAny(twiceAliased)[Table.OptionsSymbol]).toEqual(unsafeAny(users)[Table.OptionsSymbol])
   })
 
+  test("schema helpers and legacy schema facade work for aliases", () => {
+    const users = Table.make("users", {
+      id: C.uuid().pipe(C.primaryKey),
+      email: C.text(),
+      bio: C.text().pipe(C.nullable)
+    })
+    const aliasedUsers = Table.alias(users, "u")
+    const id = "550e8400-e29b-41d4-a716-446655440000"
+
+    const select = Table.selectSchema(aliasedUsers)
+    expect(aliasedUsers.schemas.select).toBe(select)
+    expect(Table.insertSchema(aliasedUsers)).toBe(aliasedUsers.schemas.insert)
+    expect(Table.updateSchema(aliasedUsers)).toBe(aliasedUsers.schemas.update)
+    expect(Schema.decodeUnknownSync(select)({
+      id,
+      email: "alice@example.com",
+      bio: null
+    })).toEqual({
+      id,
+      email: "alice@example.com",
+      bio: null
+    })
+  })
+
   test("factory and class tables derive the same runtime schemas for equivalent definitions", () => {
     const factoryUsers = Table.make("users", {
       id: C.uuid().pipe(C.primaryKey, C.generated(Q.literal("generated-user-id"))),
@@ -113,6 +139,66 @@ describe("table behavior", () => {
       })
     )
     expect(unsafeAny(factoryUsers)[Table.OptionsSymbol]).toEqual(unsafeAny(ClassUsers)[Table.OptionsSymbol])
+  })
+
+  test("mysql and sqlite table modules expose schema helpers", () => {
+    const mysqlUsers = Mysql.Table.make("mysql_users", {
+      id: Mysql.Column.uuid().pipe(Mysql.Column.primaryKey),
+      email: Mysql.Column.text(),
+      bio: Mysql.Column.text().pipe(Mysql.Column.nullable)
+    })
+    const sqliteUsers = Sqlite.Table.make("sqlite_users", {
+      id: Sqlite.Column.text().pipe(Sqlite.Column.primaryKey),
+      email: Sqlite.Column.text(),
+      bio: Sqlite.Column.text().pipe(Sqlite.Column.nullable)
+    })
+    const id = "550e8400-e29b-41d4-a716-446655440000"
+
+    expect(Schema.decodeUnknownSync(Mysql.Table.selectSchema(mysqlUsers))({
+      id,
+      email: "mysql@example.com",
+      bio: null
+    })).toEqual({
+      id,
+      email: "mysql@example.com",
+      bio: null
+    })
+    expect(Schema.decodeUnknownSync(Mysql.Table.insertSchema(mysqlUsers))({
+      id,
+      email: "mysql@example.com"
+    })).toEqual({
+      id,
+      email: "mysql@example.com"
+    })
+    expect(Schema.decodeUnknownSync(Mysql.Table.updateSchema(mysqlUsers))({
+      id,
+      bio: null
+    })).toEqual({
+      bio: null
+    })
+
+    expect(Schema.decodeUnknownSync(Sqlite.Table.selectSchema(sqliteUsers))({
+      id: "sqlite-user-id",
+      email: "sqlite@example.com",
+      bio: null
+    })).toEqual({
+      id: "sqlite-user-id",
+      email: "sqlite@example.com",
+      bio: null
+    })
+    expect(Schema.decodeUnknownSync(Sqlite.Table.insertSchema(sqliteUsers))({
+      id: "sqlite-user-id",
+      email: "sqlite@example.com"
+    })).toEqual({
+      id: "sqlite-user-id",
+      email: "sqlite@example.com"
+    })
+    expect(Schema.decodeUnknownSync(Sqlite.Table.updateSchema(sqliteUsers))({
+      id: "ignored",
+      bio: null
+    })).toEqual({
+      bio: null
+    })
   })
 
   test("column schema pipes feed derived table schemas", () => {
