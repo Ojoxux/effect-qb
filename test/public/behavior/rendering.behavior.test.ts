@@ -363,7 +363,7 @@ describe("rendering behavior", () => {
     }
   })
 
-  test("rejects cast expressions without a target type before rendering SQL", () => {
+  test("cast expressions trust typed target db types without renderer-time validation", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const value = Standard.Query.cast(Standard.Query.literal(1), Standard.Query.type.text())
     ;(value as any)[expressionAst].target = undefined
@@ -371,18 +371,10 @@ describe("rendering behavior", () => {
       value
     })
 
-    expect(() => Standard.Renderer.make().render(plan)).toThrow(
-      "cast(...) requires a target db type"
-    )
-    expect(() => Renderer.make().render(plan)).toThrow(
-      "cast(...) requires a target db type"
-    )
-    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
-      "cast(...) requires a target db type"
-    )
-    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
-      "cast(...) requires a target db type"
-    )
+    expect(Standard.Renderer.make().render(plan).sql).toContain(" as undefined)")
+    expect(Renderer.make().render(plan).sql).toContain(" as undefined)")
+    expect(Mysql.Renderer.make().render(plan).sql).toContain(" as undefined)")
+    expect(Sqlite.Renderer.make().render(plan).sql).toContain(" as undefined)")
   })
 
   test("custom db type casts trust typed db type names without renderer-time validation", () => {
@@ -405,7 +397,7 @@ describe("rendering behavior", () => {
     expect(Sqlite.Renderer.make().render(sqlitePlan).sql).toContain(" as )")
   })
 
-  test("rejects grouped cast expressions without a target type before rendering SQL", () => {
+  test("grouped cast expressions trust typed target db types without renderer-time validation", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const users = Standard.Table.make("users", {
       email: Standard.Column.text()
@@ -419,18 +411,10 @@ describe("rendering behavior", () => {
     )
     ;(value as any)[expressionAst].target = undefined
 
-    expect(() => Standard.Renderer.make().render(plan)).toThrow(
-      "cast(...) requires a target db type"
-    )
-    expect(() => Renderer.make().render(plan)).toThrow(
-      "cast(...) requires a target db type"
-    )
-    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
-      "cast(...) requires a target db type"
-    )
-    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
-      "cast(...) requires a target db type"
-    )
+    expect(Standard.Renderer.make().render(plan).sql).toContain(" as undefined)")
+    expect(Renderer.make().render(plan).sql).toContain(" as undefined)")
+    expect(Mysql.Renderer.make().render(plan).sql).toContain(" as undefined)")
+    expect(Sqlite.Renderer.make().render(plan).sql).toContain(" as undefined)")
   })
 
   test("renders safe extract fields as SQL field syntax", () => {
