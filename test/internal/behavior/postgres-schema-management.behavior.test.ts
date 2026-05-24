@@ -601,6 +601,44 @@ describe("postgres schema management", () => {
     )
   })
 
+  test("schema diff planning preserves valid index keys when malformed keys are present", () => {
+    const sourceUsers = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
+    })
+    ;(sourceUsers as any)[StdRoot.Table.OptionsSymbol] = [
+      ...(sourceUsers as any)[StdRoot.Table.OptionsSymbol],
+      {
+        kind: "index",
+        keys: [null, { kind: "column", column: "id" }]
+      }
+    ]
+
+    const source: SchemaModel = {
+      dialect: "postgres",
+      enums: [],
+      tables: [toTableModel(sourceUsers as unknown as Parameters<typeof toTableModel>[0])]
+    }
+    const database: SchemaModel = {
+      dialect: "postgres",
+      enums: [],
+      tables: []
+    }
+
+    expect(() => planPostgresSchemaDiff(source, database)).not.toThrow()
+    expect(planPostgresSchemaDiff(source, database).changes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "createTable",
+          key: "public.users"
+        }),
+        expect.objectContaining({
+          kind: "createIndex",
+          key: "public.users.users_id_idx"
+        })
+      ])
+    )
+  })
+
   test("classifies safe and destructive schema changes", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid(),

@@ -179,11 +179,33 @@ const isKnownConstraintOption = (
   }
 }
 
-const indexKeysOf = (option: Extract<TableOptionSpec, { readonly kind: "index" }>): readonly IndexKeySpec[] =>
-  option.keys ?? (option.columns ?? []).map((column) => ({
-    kind: "column" as const,
-    column
-  }))
+const isIndexKeySpec = (key: unknown): key is IndexKeySpec => {
+  if (typeof key !== "object" || key === null || !("kind" in key)) {
+    return false
+  }
+  if ((key as { readonly kind?: unknown }).kind === "column") {
+    return typeof (key as { readonly column?: unknown }).column === "string"
+  }
+  if ((key as { readonly kind?: unknown }).kind === "expression") {
+    return "expression" in key
+  }
+  return false
+}
+
+const indexKeysOf = (option: Extract<TableOptionSpec, { readonly kind: "index" }>): readonly IndexKeySpec[] => {
+  if (Array.isArray(option.keys)) {
+    return option.keys.filter(isIndexKeySpec)
+  }
+  if (Array.isArray(option.columns)) {
+    return option.columns
+      .filter((column): column is string => typeof column === "string")
+      .map((column) => ({
+        kind: "column" as const,
+        column
+      }))
+  }
+  return []
+}
 
 const renderIndexOrder = (order: unknown): string => {
   if (order === undefined) {
