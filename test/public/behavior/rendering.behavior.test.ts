@@ -754,6 +754,56 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects function call arguments without value expressions before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const value = Standard.Function.call("lower", Standard.Query.literal("ALICE"))
+    ;(value as any)[expressionAst].args = [undefined]
+    const plan = Standard.Query.select({
+      value
+    })
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "function call arguments require value expressions"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "function call arguments require value expressions"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "function call arguments require value expressions"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "function call arguments require value expressions"
+    )
+  })
+
+  test("rejects grouped function call arguments without value expressions before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const users = Standard.Table.make("users", {
+      email: Standard.Column.text()
+    })
+    const value = Standard.Function.call("lower", users.email)
+    const plan = Standard.Query.select({
+      value
+    }).pipe(
+      Standard.Query.from(users),
+      Standard.Query.groupBy(value)
+    )
+    ;(value as any)[expressionAst].args = [undefined]
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "function call arguments require value expressions"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "function call arguments require value expressions"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "function call arguments require value expressions"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "function call arguments require value expressions"
+    )
+  })
+
   test("rejects unary expressions without value operands before rendering SQL", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const users = Standard.Table.make("users", {

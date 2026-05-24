@@ -65,6 +65,16 @@ const requiredBinaryExpressionGroupingKey = (
   return `${groupingKeyOfExpression(left)},${groupingKeyOfExpression(right)}`
 }
 
+const functionCallArgsGroupingKey = (args: unknown): string => {
+  if (!Array.isArray(args)) {
+    throw new Error("function calls require an argument array")
+  }
+  if (args.some((arg) => !isExpression(arg))) {
+    throw new Error("function call arguments require value expressions")
+  }
+  return args.map(groupingKeyOfExpression).join(",")
+}
+
 const castTargetGroupingKey = (target: unknown): string => {
   if (
     target !== null &&
@@ -155,7 +165,7 @@ export const groupingKeyOfExpression = (expression: Expression.Any): string => {
     case "collate":
       return `collate(${requiredExpressionGroupingKey("collate", ast.value)},${collationGroupingKey(ast.collation)})`
     case "function":
-      return `function(${escapeGroupingText(ast.name)},${ast.args.map(groupingKeyOfExpression).join(",")})`
+      return `function(${escapeGroupingText(ast.name)},${functionCallArgsGroupingKey(ast.args)})`
     case "isNull":
     case "isNotNull":
     case "not":

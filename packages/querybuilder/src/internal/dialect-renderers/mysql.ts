@@ -753,6 +753,9 @@ const renderFunctionCall = (
   if (!Array.isArray(args)) {
     throw new Error("function calls require an argument array")
   }
+  if (args.some((arg) => !isExpression(arg))) {
+    throw new Error("function call arguments require value expressions")
+  }
   if (name === "array") {
     return `ARRAY[${args.map((arg) => renderExpression(arg, state, dialect)).join(", ")}]`
   }
