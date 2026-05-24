@@ -123,9 +123,13 @@ const visitExpression = (
     return next
   }
   switch (ast.kind) {
-    case "cast":
-      next = mergeRuntimeDialect(next, ast.target.dialect)
+    case "cast": {
+      const targetDialect = isObject(ast.target) && typeof ast.target.dialect === "string"
+        ? ast.target.dialect
+        : undefined
+      next = mergeRuntimeDialect(next, targetDialect)
       return visitExpression(ast.value, next, context)
+    }
     case "collate":
     case "upper":
     case "lower":

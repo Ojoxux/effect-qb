@@ -33,12 +33,15 @@ const renderDbType = (
 
 const renderCastType = (
   dialect: SqlDialect,
-  dbType: Expression.DbType.Any
+  dbType: unknown
 ): string => {
-  if (dialect.name !== "sqlite") {
-    return dbType.kind
+  if (typeof dbType !== "object" || dbType === null || typeof (dbType as { readonly kind?: unknown }).kind !== "string") {
+    throw new Error("cast(...) requires a target db type")
   }
-  switch (dbType.kind) {
+  if (dialect.name !== "sqlite") {
+    return (dbType as Expression.DbType.Any).kind
+  }
+  switch ((dbType as Expression.DbType.Any).kind) {
     case "text":
       return "text"
     case "uuid":
@@ -57,7 +60,7 @@ const renderCastType = (
     case "json":
       return "json"
     default:
-      return dbType.kind
+      return (dbType as Expression.DbType.Any).kind
   }
 }
 
