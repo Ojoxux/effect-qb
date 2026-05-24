@@ -267,6 +267,7 @@ describe("postgres schema management", () => {
     ;(users as any)[StdRoot.Table.OptionsSymbol] = [
       { kind: "index", columns: ["id"], method: {} },
       { kind: "index", include: {} },
+      { kind: "index", columns: ["id"], predicate: "id is not null" },
       {
         kind: "index",
         keys: [{ kind: "column", column: "id", operatorClass: {} }]
@@ -289,13 +290,17 @@ describe("postgres schema management", () => {
     })
     expect(model.options[2]).toMatchObject({
       kind: "index",
+      predicate: "id is not null"
+    })
+    expect(model.options[3]).toMatchObject({
+      kind: "index",
       keys: [
         expect.objectContaining({
           operatorClass: {}
         })
       ]
     })
-    expect(model.options[3]).toMatchObject({
+    expect(model.options[4]).toMatchObject({
       kind: "index",
       keys: [
         expect.objectContaining({

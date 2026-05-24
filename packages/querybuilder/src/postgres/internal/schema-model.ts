@@ -160,7 +160,11 @@ const mapOption = (
           : Array.isArray(option.include)
             ? option.include.map((column) => mapCasedValue(column, casing, "columns")) as unknown as readonly string[]
             : option.include,
-        predicate: option.predicate === undefined ? undefined : mapDdlExpression(option.predicate, expressionState),
+        predicate: option.predicate === undefined
+          ? undefined
+          : isDdlExpressionLike(option.predicate)
+            ? mapDdlExpression(option.predicate, expressionState)
+            : option.predicate,
         keys: option.keys === undefined
           ? undefined
           : option.keys.length === 0
