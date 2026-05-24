@@ -660,9 +660,18 @@ const renderJsonOpaquePath = (
     return dialect.renderLiteral(renderJsonPathStringLiteral(value.segments, renderSegment), state)
   }
   if (typeof value === "string") {
+    if (value.trim().length === 0) {
+      throw new Error("SQL/JSON path input must be a non-empty string")
+    }
     return dialect.renderLiteral(value, state)
   }
   if (isExpression(value)) {
+    const ast = (value as Expression.Any & {
+      readonly [ExpressionAst.TypeId]: ExpressionAst.Any
+    })[ExpressionAst.TypeId]
+    if (ast.kind === "literal" && typeof ast.value === "string" && ast.value.trim().length === 0) {
+      throw new Error("SQL/JSON path input must be a non-empty string")
+    }
     return renderExpression(value, state, dialect)
   }
   throw new Error("Unsupported SQL/JSON path input")

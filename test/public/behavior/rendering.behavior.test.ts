@@ -809,6 +809,31 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects empty SQL JSON path predicates before rendering SQL", () => {
+    const pgPathExists = PgJson.jsonb.pathExists(
+      PgJson.jsonb.buildObject({ email: "alice@example.com" }),
+      ""
+    )
+    const mysqlPathExists = Mysql.Json.json.pathExists(
+      Mysql.Json.json.buildObject({ email: "alice@example.com" }),
+      ""
+    )
+    const sqlitePathExists = Sqlite.Json.json.pathExists(
+      Sqlite.Json.json.buildObject({ email: "alice@example.com" }),
+      ""
+    )
+
+    expect(() => Renderer.make().render(Q.select({ pathExists: pgPathExists }))).toThrow(
+      "SQL/JSON path input must be a non-empty string"
+    )
+    expect(() => Mysql.Renderer.make().render(Mysql.Query.select({ pathExists: mysqlPathExists }))).toThrow(
+      "SQL/JSON path input must be a non-empty string"
+    )
+    expect(() => Sqlite.Renderer.make().render(Sqlite.Query.select({ pathExists: sqlitePathExists }))).toThrow(
+      "SQL/JSON path input must be a non-empty string"
+    )
+  })
+
   test("rejects malformed concat expressions before rendering SQL", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const users = Standard.Table.make("users", {
