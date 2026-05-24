@@ -65,6 +65,18 @@ const requiredBinaryExpressionGroupingKey = (
   return `${groupingKeyOfExpression(left)},${groupingKeyOfExpression(right)}`
 }
 
+const castTargetGroupingKey = (target: unknown): string => {
+  if (
+    target !== null &&
+    typeof target === "object" &&
+    typeof (target as { readonly dialect?: unknown }).dialect === "string" &&
+    typeof (target as { readonly kind?: unknown }).kind === "string"
+  ) {
+    return `${(target as { readonly dialect: string }).dialect}:${(target as { readonly kind: string }).kind}`
+  }
+  throw new Error("cast(...) requires a target db type")
+}
+
 const escapeGroupingText = (value: string): string =>
   value
     .replace(/\\/g, "\\\\")
@@ -139,7 +151,7 @@ export const groupingKeyOfExpression = (expression: Expression.Any): string => {
     case "literal":
       return `literal:${literalGroupingKey(ast.value)}`
     case "cast":
-      return `cast(${groupingKeyOfExpression(ast.value)} as ${ast.target.dialect}:${ast.target.kind})`
+      return `cast(${groupingKeyOfExpression(ast.value)} as ${castTargetGroupingKey(ast.target)})`
     case "collate":
       return `collate(${groupingKeyOfExpression(ast.value)},${collationGroupingKey(ast.collation)})`
     case "function":

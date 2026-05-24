@@ -554,6 +554,34 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects grouped cast expressions without a target type before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const users = Standard.Table.make("users", {
+      email: Standard.Column.text()
+    })
+    const value = Standard.Query.cast(users.email, Standard.Query.type.text())
+    const plan = Standard.Query.select({
+      value
+    }).pipe(
+      Standard.Query.from(users),
+      Standard.Query.groupBy(value)
+    )
+    ;(value as any)[expressionAst].target = undefined
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "cast(...) requires a target db type"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "cast(...) requires a target db type"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "cast(...) requires a target db type"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "cast(...) requires a target db type"
+    )
+  })
+
   test("rejects current date function arguments before rendering SQL", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const today = Standard.Function.currentDate()
