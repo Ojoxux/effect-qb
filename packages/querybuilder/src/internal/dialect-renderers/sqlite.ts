@@ -1900,7 +1900,7 @@ export const renderExpression = (
     case "excluded":
       return `excluded.${quoteColumn(ast.columnName, state, dialect)}`
     case "cast":
-      return `cast(${renderExpression(ast.value, state, dialect)} as ${renderCastType(dialect, ast.target)})`
+      return `cast(${renderExpression(expectValueExpression("cast", ast.value), state, dialect)} as ${renderCastType(dialect, ast.target)})`
     case "function":
       return renderFunctionCall(ast.name, ast.args, state, dialect)
     case "eq":

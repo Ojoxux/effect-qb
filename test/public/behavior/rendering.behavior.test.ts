@@ -554,6 +554,28 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects cast expressions without value operands before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const value = Standard.Query.cast(Standard.Query.literal(1), Standard.Query.type.text())
+    ;(value as any)[expressionAst].value = undefined
+    const plan = Standard.Query.select({
+      value
+    })
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "cast(...) requires a value expression"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "cast(...) requires a value expression"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "cast(...) requires a value expression"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "cast(...) requires a value expression"
+    )
+  })
+
   test("rejects grouped cast expressions without a target type before rendering SQL", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const users = Standard.Table.make("users", {
@@ -579,6 +601,34 @@ describe("rendering behavior", () => {
     )
     expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
       "cast(...) requires a target db type"
+    )
+  })
+
+  test("rejects grouped cast expressions without value operands before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const users = Standard.Table.make("users", {
+      email: Standard.Column.text()
+    })
+    const value = Standard.Query.cast(users.email, Standard.Query.type.text())
+    const plan = Standard.Query.select({
+      value
+    }).pipe(
+      Standard.Query.from(users),
+      Standard.Query.groupBy(value)
+    )
+    ;(value as any)[expressionAst].value = undefined
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "cast(...) requires a value expression"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "cast(...) requires a value expression"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "cast(...) requires a value expression"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "cast(...) requires a value expression"
     )
   })
 

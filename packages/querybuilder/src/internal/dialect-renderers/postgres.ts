@@ -1925,7 +1925,7 @@ export const renderExpression = (
         ? `values(${quoteColumn(ast.columnName, state, dialect)})`
         : `excluded.${quoteColumn(ast.columnName, state, dialect)}`
     case "cast":
-      return `cast(${renderExpression(ast.value, state, dialect)} as ${renderCastType(dialect, ast.target)})`
+      return `cast(${renderExpression(expectValueExpression("cast", ast.value), state, dialect)} as ${renderCastType(dialect, ast.target)})`
     case "collate":
       return `(${renderExpression(ast.value, state, dialect)} collate ${renderCollation(ast.collation)})`
     case "function":

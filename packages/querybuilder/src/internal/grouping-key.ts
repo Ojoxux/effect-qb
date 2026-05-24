@@ -151,7 +151,7 @@ export const groupingKeyOfExpression = (expression: Expression.Any): string => {
     case "literal":
       return `literal:${literalGroupingKey(ast.value)}`
     case "cast":
-      return `cast(${groupingKeyOfExpression(ast.value)} as ${castTargetGroupingKey(ast.target)})`
+      return `cast(${requiredExpressionGroupingKey("cast", ast.value)} as ${castTargetGroupingKey(ast.target)})`
     case "collate":
       return `collate(${groupingKeyOfExpression(ast.value)},${collationGroupingKey(ast.collation)})`
     case "function":
