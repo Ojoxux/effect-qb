@@ -683,7 +683,10 @@ const renderFunctionCall = (
   if (name === "current_date" && args.length > 0) {
     throw new Error("current_date does not accept arguments")
   }
-  if (name === "extract" && args.length === 2) {
+  if (name === "extract" && args.length !== 2) {
+    throw new Error("extract(...) requires exactly field and source arguments")
+  }
+  if (name === "extract") {
     const field = args[0]
     const source = args[1]
     if (field === undefined) {

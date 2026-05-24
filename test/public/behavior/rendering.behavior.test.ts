@@ -499,6 +499,26 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects extract function calls with the wrong arity before rendering SQL", () => {
+    const extracted = Standard.Function.call("extract", Standard.Query.literal("year"))
+    const plan = Standard.Query.select({
+      extracted
+    })
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "extract(...) requires exactly field and source arguments"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "extract(...) requires exactly field and source arguments"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "extract(...) requires exactly field and source arguments"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "extract(...) requires exactly field and source arguments"
+    )
+  })
+
   test("rejects malformed coalesce expressions before rendering SQL", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const users = Standard.Table.make("users", {
