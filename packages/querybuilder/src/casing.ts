@@ -12,20 +12,24 @@ export interface TableFactory {
   readonly withCasing: (options: Options) => TableFactory
 }
 
+type CasingTarget =
+  | BaseTable.TableDefinition<any, any, any, any, any>
+  | {
+      readonly [InternalCasing.TypeId]: InternalCasing.State
+      readonly withCasing: (options: Options) => CasingTarget
+    }
+
 const isTable = (value: unknown): value is BaseTable.TableDefinition<any, any, any, any, any> =>
   typeof value === "object" && value !== null && BaseTable.TypeId in value
 
-const isCasingTarget = (value: unknown): value is {
-  readonly [InternalCasing.TypeId]: InternalCasing.State
-  readonly withCasing: (options: Options) => unknown
-} =>
+const isCasingTarget = (value: unknown): value is Exclude<CasingTarget, BaseTable.TableDefinition<any, any, any, any, any>> =>
   typeof value === "object" &&
   value !== null &&
   InternalCasing.TypeId in value &&
-  typeof (value as { readonly withCasing?: unknown }).withCasing === "function"
+  typeof (value as { readonly withCasing?: CasingTarget["withCasing"] }).withCasing === "function"
 
 export const withCasing = (options: Options) =>
-  <Value>(value: Value): Value => {
+  <Value extends CasingTarget>(value: Value): Value => {
     if (isTable(value)) {
       return BaseTable.withCasing(value, options) as Value
     }
