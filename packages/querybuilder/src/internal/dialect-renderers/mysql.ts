@@ -515,6 +515,19 @@ const renderMySqlJsonPath = (
 const isJsonArrayIndexSegment = (segment: JsonPath.AnySegment | string | number | undefined): boolean =>
   typeof segment === "number" || (typeof segment === "object" && segment !== null && segment.kind === "index")
 
+const isExactJsonPathSegment = (segment: JsonPath.AnySegment | string | number): boolean =>
+  typeof segment === "string" ||
+  typeof segment === "number" ||
+  (typeof segment === "object" && segment !== null && (segment.kind === "key" || segment.kind === "index"))
+
+const assertMySqlJsonMutationPath = (
+  segments: ReadonlyArray<JsonPath.AnySegment | string | number>
+): void => {
+  if (!segments.every(isExactJsonPathSegment)) {
+    throw new Error("MySQL JSON mutation paths require key/index segments")
+  }
+}
+
 const renderMySqlJsonInsertPath = (
   segments: ReadonlyArray<JsonPath.AnySegment | string | number>,
   insertAfter: boolean,
@@ -977,6 +990,7 @@ const renderJsonExpression = (
         return `(${baseSql} #- ${renderPostgresJsonPathArray(segments, state, dialect)})`
       }
       if (dialect.name === "mysql") {
+        assertMySqlJsonMutationPath(segments)
         return `json_remove(${renderExpression(base, state, dialect)}, ${renderMySqlJsonPath(segments, state, dialect)})`
       }
       return undefined
@@ -1001,6 +1015,7 @@ const renderJsonExpression = (
         return `${functionName}(${renderPostgresJsonValue(base, state, dialect)}, ${renderPostgresJsonPathArray(segments, state, dialect)}, ${renderPostgresJsonValue(nextValue, state, dialect)}${extra})`
       }
       if (dialect.name === "mysql") {
+        assertMySqlJsonMutationPath(segments)
         const renderedBase = renderExpression(base, state, dialect)
         if (kind === "jsonInsert" && isJsonArrayIndexSegment(segments[segments.length - 1])) {
           const renderedPath = renderMySqlJsonInsertPath(segments, insertAfter, state, dialect)

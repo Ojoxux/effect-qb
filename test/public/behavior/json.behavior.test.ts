@@ -891,6 +891,29 @@ describe("json behavior", () => {
     ])
   })
 
+  test("mysql rejects non-exact json mutation paths before rendering SQL", () => {
+    const docs = makeJsonTable(Mysql)
+    const wildcardPath = Mysql.Json.json.path(
+      Mysql.Json.json.key("profile"),
+      Mysql.Json.json.key("tags"),
+      Mysql.Json.json.wildcard()
+    )
+
+    const deleteWildcard = Mysql.Json.json.delete(docs.payload as any, wildcardPath as any)
+    const setWildcard = Mysql.Json.json.set(docs.payload as any, wildcardPath as any, "featured" as any)
+    const insertWildcard = Mysql.Json.json.insert(docs.payload as any, wildcardPath as any, "featured" as any)
+
+    expect(() =>
+      Mysql.Renderer.make().render(Mysql.Query.select({ deleteWildcard }).pipe(Mysql.Query.from(docs)))
+    ).toThrow("MySQL JSON mutation paths require key/index segments")
+    expect(() =>
+      Mysql.Renderer.make().render(Mysql.Query.select({ setWildcard }).pipe(Mysql.Query.from(docs)))
+    ).toThrow("MySQL JSON mutation paths require key/index segments")
+    expect(() =>
+      Mysql.Renderer.make().render(Mysql.Query.select({ insertWildcard }).pipe(Mysql.Query.from(docs)))
+    ).toThrow("MySQL JSON mutation paths require key/index segments")
+  })
+
   test("mysql binds json_contains_path mode before path arguments", () => {
     const docs = makeJsonTable(Mysql)
 
