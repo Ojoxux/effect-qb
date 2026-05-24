@@ -194,7 +194,7 @@ describe("cross-cutting statement behavior", () => {
     )
   })
 
-  test("rejects invalid rendered postgres merge payload kinds", () => {
+  test("postgres merge builders trust typed payload and action kinds without renderer-time validation", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
@@ -218,9 +218,9 @@ describe("cross-cutting statement behavior", () => {
       }
     )
     ;(mergePayloadPlan as any)[queryAst].merge.kind = "upsert"
-    expect(() =>
-      Postgres.Renderer.make().render(mergePayloadPlan)
-    ).toThrow("Unsupported merge statement kind")
+    expect(Postgres.Renderer.make().render(mergePayloadPlan).sql).toBe(
+      'merge into "users" using "incoming_users" on ("users"."id" = "incoming_users"."id") when matched then update set "email" = "incoming_users"."email"'
+    )
 
     const matchedPlan = Postgres.Query.merge(
       users,
@@ -235,9 +235,9 @@ describe("cross-cutting statement behavior", () => {
       }
     )
     ;(matchedPlan as any)[queryAst].merge.whenMatched.kind = "replace"
-    expect(() =>
-      Postgres.Renderer.make().render(matchedPlan)
-    ).toThrow("Unsupported merge action kind")
+    expect(Postgres.Renderer.make().render(matchedPlan).sql).toBe(
+      'merge into "users" using "incoming_users" on ("users"."id" = "incoming_users"."id") when matched then update set "email" = "incoming_users"."email"'
+    )
 
     const notMatchedPlan = Postgres.Query.merge(
       users,
@@ -253,9 +253,9 @@ describe("cross-cutting statement behavior", () => {
       }
     )
     ;(notMatchedPlan as any)[queryAst].merge.whenNotMatched.kind = "replace"
-    expect(() =>
-      Postgres.Renderer.make().render(notMatchedPlan)
-    ).toThrow("Unsupported merge action kind")
+    expect(Postgres.Renderer.make().render(notMatchedPlan).sql).toBe(
+      'merge into "users" using "incoming_users" on ("users"."id" = "incoming_users"."id") when not matched then insert ("id", "email") values ("incoming_users"."id", "incoming_users"."email")'
+    )
   })
 
 })
