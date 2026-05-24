@@ -372,6 +372,9 @@ const renderCreateIndexSql = (
   const unique = normalizeStatementFlag(ddl.unique)
   const ifNotExists = normalizeStatementFlag(ddl.ifNotExists)
   const name = normalizeStatementIdentifier("createIndex", "option 'name'", ddl.name)
+  if (dialect.name !== "postgres" && ifNotExists) {
+    throw new Error(`Unsupported ${dialect.name} create index options`)
+  }
   const maybeIfNotExists = dialect.name === "postgres" && ifNotExists ? " if not exists" : ""
   const table = targetSource.source as Table.AnyTable
   const tableCasing = casingForTable(table, state)
@@ -386,6 +389,9 @@ const renderDropIndexSql = (
 ): string => {
   const ifExists = normalizeStatementFlag(ddl.ifExists)
   const name = normalizeStatementIdentifier("dropIndex", "option 'name'", ddl.name)
+  if (dialect.name !== "postgres" && ifExists) {
+    throw new Error(`Unsupported ${dialect.name} drop index options`)
+  }
   if (dialect.name === "postgres") {
     const table = typeof targetSource.source === "object" &&
       targetSource.source !== null &&

@@ -97,6 +97,20 @@ describe("ddl rendering behavior", () => {
     )
   })
 
+  test("standard index DDL rejects unsupported existence modifiers", () => {
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      email: StdRoot.Column.text()
+    })
+
+    expect(() =>
+      Standard.Renderer.make().render(Standard.Query.createIndex(users, ["email"], { ifNotExists: true }))
+    ).toThrow("Unsupported standard create index options")
+    expect(() =>
+      Standard.Renderer.make().render(Standard.Query.dropIndex(users, ["email"], { ifExists: true }))
+    ).toThrow("Unsupported standard drop index options")
+  })
+
   test("generated column expressions use table-level casing", () => {
     const users = StdRoot.Table.make("UserAccounts", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
