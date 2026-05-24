@@ -18,6 +18,7 @@ import {
 import { normalizeDbValue } from "../runtime/normalize.js"
 import { flattenSelection, type Projection } from "../projections.js"
 import { type SelectionValue, validateAggregationSelection } from "../aggregation-validation.js"
+import { groupingKeyOfExpression } from "../grouping-key.js"
 import * as SchemaExpression from "../schema-expression.js"
 import { renderReferentialAction, validateOptions, type DdlExpressionLike, type TableOptionSpec } from "../table-options.js"
 import * as Casing from "../casing.js"
@@ -1368,6 +1369,27 @@ const assertNoStatementQueryClauses = (
   }
 }
 
+const validateDistinctOnOrdering = (
+  distinctOn: readonly Expression.Any[] | undefined,
+  orderBy: readonly QueryAst.OrderByClause[]
+): void => {
+  if (distinctOn === undefined || distinctOn.length === 0 || orderBy.length === 0) {
+    return
+  }
+  const remainingDistinctKeys = new Set(distinctOn.map(groupingKeyOfExpression))
+  for (const order of orderBy) {
+    const key = groupingKeyOfExpression(order.value)
+    if (remainingDistinctKeys.has(key)) {
+      remainingDistinctKeys.delete(key)
+      continue
+    }
+    if (remainingDistinctKeys.size > 0) {
+      throw new Error("distinctOn(...) expressions must match the leftmost orderBy(...) expressions")
+    }
+    return
+  }
+}
+
 export const renderQueryAst = (
   ast: QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
   state: RenderState,
@@ -1386,6 +1408,7 @@ export const renderQueryAst = (
         ast.having.map((entry) => entry.predicate),
         ast.orderBy.map((entry) => entry.value)
       )
+      validateDistinctOnOrdering(ast.distinctOn, ast.orderBy)
       const rendered = renderSelectionList(ast.select as Record<string, unknown>, state, dialect, false)
       projections = rendered.projections
       const selectList = rendered.sql.length > 0 ? ` ${rendered.sql}` : ""

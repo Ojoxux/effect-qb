@@ -445,6 +445,24 @@ describe("postgres dialect behavior", () => {
     expect(rendered.params).toEqual([])
   })
 
+  test("rejects distinct on ordering that does not start with distinct expressions", () => {
+    const { users } = makePostgresSocialGraph()
+
+    const plan = Postgres.Query.select({
+      id: users.id,
+      email: users.email
+    }).pipe(
+      Postgres.Query.from(users),
+      Postgres.Query.distinctOn(users.email),
+      Postgres.Query.orderBy(users.id),
+      Postgres.Query.orderBy(users.email)
+    )
+
+    expect(() => render(plan)).toThrow(
+      "distinctOn(...) expressions must match the leftmost orderBy(...) expressions"
+    )
+  })
+
   test("renders the extended read predicate surface with postgres-specific operators", () => {
     const { users } = makePostgresSocialGraph()
 
