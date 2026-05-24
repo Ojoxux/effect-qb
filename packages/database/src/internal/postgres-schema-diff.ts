@@ -272,7 +272,7 @@ const tableShapeSignature = (table: TableModel): string =>
   JSON.stringify({
     schemaName: table.schemaName ?? "public",
     columns: table.columns.map((column) => columnSignature(column)),
-    options: table.options.map((option) =>
+    options: normalizedTableOptions(table).map((option) =>
       option.kind === "index"
         ? indexShapeSignature(option)
         : constraintShapeSignature(option))
@@ -373,15 +373,34 @@ const enumShapeSignature = (enumType: EnumModel): string =>
     values: enumType.values
   })
 
+const isKnownTableOption = (option: unknown): option is TableOptionSpec => {
+  if (typeof option !== "object" || option === null || !("kind" in option)) {
+    return false
+  }
+  switch ((option as { readonly kind?: unknown }).kind) {
+    case "index":
+    case "primaryKey":
+    case "unique":
+    case "foreignKey":
+    case "check":
+      return true
+    default:
+      return false
+  }
+}
+
+const normalizedTableOptions = (table: TableModel): readonly TableOptionSpec[] =>
+  (table.options as readonly unknown[]).filter(isKnownTableOption)
+
 const filterConstraints = (
   table: TableModel
 ): readonly Exclude<TableOptionSpec, { readonly kind: "index" }>[] =>
-  table.options.filter((option): option is Exclude<TableOptionSpec, { readonly kind: "index" }> => option.kind !== "index")
+  normalizedTableOptions(table).filter((option): option is Exclude<TableOptionSpec, { readonly kind: "index" }> => option.kind !== "index")
 
 const filterIndexes = (
   table: TableModel
 ): readonly Extract<TableOptionSpec, { readonly kind: "index" }>[] =>
-  table.options.filter((option): option is Extract<TableOptionSpec, { readonly kind: "index" }> => option.kind === "index")
+  normalizedTableOptions(table).filter((option): option is Extract<TableOptionSpec, { readonly kind: "index" }> => option.kind === "index")
 
 const diffExistingTable = (
   sourceTable: TableModel,

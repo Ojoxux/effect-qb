@@ -521,6 +521,36 @@ describe("postgres schema management", () => {
     })
   })
 
+  test("schema diff planning ignores malformed table option entries", () => {
+    const sourceUsers = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
+    })
+    ;(sourceUsers as any)[StdRoot.Table.OptionsSymbol] = [
+      ...(sourceUsers as any)[StdRoot.Table.OptionsSymbol],
+      null,
+      {},
+      { kind: "partition", columns: ["id"] }
+    ]
+
+    const databaseUsers = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
+    })
+
+    const source: SchemaModel = {
+      dialect: "postgres",
+      enums: [],
+      tables: [toTableModel(sourceUsers as unknown as Parameters<typeof toTableModel>[0])]
+    }
+    const database: SchemaModel = {
+      dialect: "postgres",
+      enums: [],
+      tables: [toTableModel(databaseUsers as unknown as Parameters<typeof toTableModel>[0])]
+    }
+
+    expect(() => planPostgresSchemaDiff(source, database)).not.toThrow()
+    expect(planPostgresSchemaDiff(source, database).changes).toEqual([])
+  })
+
   test("classifies safe and destructive schema changes", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid(),
