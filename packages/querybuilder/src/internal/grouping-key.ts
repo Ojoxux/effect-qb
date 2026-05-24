@@ -150,6 +150,28 @@ const functionCallNameGroupingKey = (name: unknown): string => {
   return escapeGroupingText(name)
 }
 
+const caseGroupingKey = (
+  branches: unknown,
+  fallback: unknown
+): string => {
+  if (!Array.isArray(branches) || branches.length === 0) {
+    throw new Error("case(...) requires at least one branch")
+  }
+  if (!isExpression(fallback)) {
+    throw new Error("case(...) requires an else expression")
+  }
+  if (branches.some((branch) =>
+    typeof branch !== "object" ||
+    branch === null ||
+    !isExpression((branch as { readonly when?: unknown }).when) ||
+    !isExpression((branch as { readonly then?: unknown }).then)
+  )) {
+    throw new Error("case(...) requires every branch to define when and then expressions")
+  }
+  return `case(${branches.map((branch: ExpressionAst.CaseBranchNode) =>
+    `when:${groupingKeyOfExpression(branch.when)}=>${groupingKeyOfExpression(branch.then)}`).join("|")};else:${groupingKeyOfExpression(fallback)})`
+}
+
 const collationGroupingKey = (collation: unknown): string => {
   if (!Array.isArray(collation) || collation.length === 0 || collation.some((segment) => typeof segment !== "string" || segment.length === 0)) {
     throw new Error("collate(...) requires at least one collation identifier")
@@ -257,8 +279,7 @@ export const groupingKeyOfExpression = (expression: Expression.Any): string => {
     case "between":
       return `${ast.kind}(${variadicGroupingKey(ast.kind, ast.values)})`
     case "case":
-      return `case(${ast.branches.map((branch: ExpressionAst.CaseBranchNode) =>
-        `when:${groupingKeyOfExpression(branch.when)}=>${groupingKeyOfExpression(branch.then)}`).join("|")};else:${groupingKeyOfExpression(ast.else)})`
+      return caseGroupingKey(ast.branches, ast.else)
     case "exists":
       return `exists(${subqueryPlanGroupingKey(ast.plan)})`
     case "scalarSubquery":
