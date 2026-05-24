@@ -5,7 +5,8 @@ import * as SqlClient from "@effect/sql/SqlClient"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 
-import { Column as C, Executor, Query as Q, Table } from "#mysql"
+import { Column as C, Table } from "#standard"
+import { Executor, Query as Q } from "#mysql"
 import { createDeferred, execMysql, runMysql } from "./helpers.ts"
 
 const eventsTableName = "integration_mysql_events"
