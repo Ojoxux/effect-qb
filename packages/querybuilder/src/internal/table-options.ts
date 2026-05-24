@@ -560,9 +560,6 @@ export const validateOptions = <Fields extends TableFieldMap>(
               throw new Error(`Index on table '${tableName}' requires key kind to be column or expression`)
             }
           }
-          if (columns.length === 0 && keys.length === 0) {
-            throw new Error(`Index on table '${tableName}' requires at least one column or key`)
-          }
         }
         break
       }

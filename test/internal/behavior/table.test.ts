@@ -207,11 +207,16 @@ describe("table definitions", () => {
       columns: ["email"]
     })
 
-    expect(() => StdRoot.Table.make("empty_manual_index_users", {
+    const emptyManualIndexUsers = StdRoot.Table.make("empty_manual_index_users", {
       id: StdRoot.Column.uuid()
     }).pipe(
       StdRoot.Table.option(unsafeAny({ kind: "index", columns: [] }))
-    )).toThrow("Index on table 'empty_manual_index_users' requires at least one column or key")
+    )
+    const emptyIndex = emptyManualIndexUsers[StdRoot.Table.OptionsSymbol].find((option) => option.kind === "index")
+    expect(emptyIndex).toMatchObject({
+      kind: "index",
+      columns: []
+    })
   })
 
   test("class tables trust type-level primary-key option constraints without runtime validation", () => {
