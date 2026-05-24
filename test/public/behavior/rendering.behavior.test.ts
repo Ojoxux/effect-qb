@@ -290,6 +290,29 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("standard renderer rejects quantified comparisons", () => {
+    const users = Standard.Table.make("users", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey)
+    })
+    const userIds = Standard.Query.select({
+      id: users.id
+    }).pipe(Standard.Query.from(users))
+    const plans = [
+      Standard.Query.select({
+        ok: Standard.Query.compareAny(users.id, userIds, "eq")
+      }).pipe(Standard.Query.from(users)),
+      Standard.Query.select({
+        ok: Standard.Query.compareAll(users.id, userIds, "eq")
+      }).pipe(Standard.Query.from(users))
+    ]
+
+    for (const plan of plans) {
+      expect(() => Standard.Renderer.make().render(plan)).toThrow(
+        "Unsupported standard quantified comparison"
+      )
+    }
+  })
+
   test("renderers reject excluded references outside insert conflict handlers", () => {
     const users = Standard.Table.make("users", {
       email: Standard.Column.text()

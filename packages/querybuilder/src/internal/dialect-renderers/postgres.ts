@@ -2280,10 +2280,22 @@ export const renderExpression = (
       return `(${renderSubqueryExpressionPlan(ast.plan, state, dialect)})`
     case "inSubquery":
       return `(${renderExpression(expectValueExpression("inSubquery", ast.left), state, dialect)} in (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
-    case "comparisonAny":
-      return `(${renderExpression(expectValueExpression("compareAny", ast.left), state, dialect)} ${renderComparisonOperator(ast.operator)} any (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
-    case "comparisonAll":
-      return `(${renderExpression(expectValueExpression("compareAll", ast.left), state, dialect)} ${renderComparisonOperator(ast.operator)} all (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
+    case "comparisonAny": {
+      const left = expectValueExpression("compareAny", ast.left)
+      const operator = renderComparisonOperator(ast.operator)
+      if (dialect.name === "standard") {
+        throw new Error("Unsupported standard quantified comparison")
+      }
+      return `(${renderExpression(left, state, dialect)} ${operator} any (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
+    }
+    case "comparisonAll": {
+      const left = expectValueExpression("compareAll", ast.left)
+      const operator = renderComparisonOperator(ast.operator)
+      if (dialect.name === "standard") {
+        throw new Error("Unsupported standard quantified comparison")
+      }
+      return `(${renderExpression(left, state, dialect)} ${operator} all (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
+    }
     case "window": {
       if (!Array.isArray(ast.partitionBy) || !Array.isArray(ast.orderBy) || typeof ast.function !== "string") {
         throw new Error("window expressions require partitionBy and orderBy arrays")
