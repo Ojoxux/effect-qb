@@ -508,9 +508,6 @@ export const validateOptions = <Fields extends TableFieldMap>(
             throw new Error(`Foreign key on table '${tableName}' must reference the same number of columns`)
           }
           if (reference.knownColumns) {
-            if (!Array.isArray(reference.knownColumns)) {
-              throw new Error(`Foreign key on table '${tableName}' requires known referenced columns to be an array`)
-            }
           }
         }
         if (option.kind === "index") {
