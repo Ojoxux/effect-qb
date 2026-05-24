@@ -4,7 +4,7 @@ import * as Query from "../query.js"
 import * as Expression from "../scalar.js"
 import * as Table from "../table.js"
 import * as QueryAst from "../query-ast.js"
-import type { RenderState, RenderValueContext, SqlDialect } from "../dialect.js"
+import { renderDbTypeName, type RenderState, type RenderValueContext, type SqlDialect } from "../dialect.js"
 import * as ExpressionAst from "../expression-ast.js"
 import * as JsonPath from "../json/path.js"
 import { expectConflictClause } from "../dsl-mutation-runtime.js"
@@ -27,7 +27,7 @@ const renderDbType = (
   if (dialect.name === "sqlite" && dbType.kind === "uuid") {
     return "text"
   }
-  return dbType.kind
+  return renderDbTypeName(dbType.kind)
 }
 
 const isArrayDbType = (dbType: Expression.DbType.Any): boolean =>
@@ -41,7 +41,7 @@ const renderCastType = (
     throw new Error("cast(...) requires a target db type")
   }
   if (dialect.name !== "sqlite") {
-    return (dbType as Expression.DbType.Any).kind
+    return renderDbTypeName((dbType as Expression.DbType.Any).kind)
   }
   switch ((dbType as Expression.DbType.Any).kind) {
     case "text":
@@ -62,7 +62,7 @@ const renderCastType = (
     case "json":
       return "json"
     default:
-      return (dbType as Expression.DbType.Any).kind
+      return renderDbTypeName((dbType as Expression.DbType.Any).kind)
   }
 }
 

@@ -4,7 +4,7 @@ import * as Mysql from "#mysql"
 import * as Sqlite from "#sqlite"
 import * as Standard from "#standard"
 import { Column as C, Table } from "#standard"
-import { Query as Q, Function as F, Json as PgJson, Renderer } from "#postgres"
+import { Cast as PgCast, Query as Q, Function as F, Json as PgJson, Renderer, Type as PgType } from "#postgres"
 import { makeMysqlEmployees, makeMysqlSocialGraph, makeRootSocialGraph } from "../../fixtures/schema.ts"
 import * as StdRoot from "#standard"
 
@@ -417,6 +417,34 @@ describe("rendering behavior", () => {
     )
     expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
       "cast(...) requires a target db type"
+    )
+  })
+
+  test("rejects empty custom db type names before rendering SQL", () => {
+    const standardPlan = Standard.Query.select({
+      value: Standard.Query.cast(Standard.Query.literal(1), Standard.Query.type.custom("") as any)
+    })
+    const postgresPlan = Q.select({
+      value: PgCast.to(Q.literal(1), PgType.custom("") as any)
+    })
+    const mysqlPlan = Mysql.Query.select({
+      value: Mysql.Query.cast(Mysql.Query.literal(1), Mysql.Query.type.custom("") as any)
+    })
+    const sqlitePlan = Sqlite.Query.select({
+      value: Sqlite.Query.cast(Sqlite.Query.literal(1), Sqlite.Query.type.custom("") as any)
+    })
+
+    expect(() => Standard.Renderer.make().render(standardPlan)).toThrow(
+      "db type names must be non-empty"
+    )
+    expect(() => Renderer.make().render(postgresPlan)).toThrow(
+      "db type names must be non-empty"
+    )
+    expect(() => Mysql.Renderer.make().render(mysqlPlan)).toThrow(
+      "db type names must be non-empty"
+    )
+    expect(() => Sqlite.Renderer.make().render(sqlitePlan)).toThrow(
+      "db type names must be non-empty"
     )
   })
 
