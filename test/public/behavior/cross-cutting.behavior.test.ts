@@ -140,20 +140,20 @@ describe("cross-cutting statement behavior", () => {
     expect(Postgres.Renderer.make().render(commitPlan).sql).toBe("commit")
   })
 
-  test("rejects invalid rendered transaction kinds", () => {
+  test("transaction builders trust typed clause kinds without renderer-time validation", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
 
     const postgresPlan = Postgres.Query.transaction()
     ;(postgresPlan as any)[queryAst].transaction.kind = "begin"
-    expect(() =>
-      Postgres.Renderer.make().render(postgresPlan)
-    ).toThrow("Unsupported transaction statement kind")
+    expect(Postgres.Renderer.make().render(postgresPlan).sql).toBe(
+      "start transaction"
+    )
 
     const mysqlPlan = Mysql.Query.transaction()
     ;(mysqlPlan as any)[queryAst].transaction.kind = "begin"
-    expect(() =>
-      Mysql.Renderer.make().render(mysqlPlan)
-    ).toThrow("Unsupported transaction statement kind")
+    expect(Mysql.Renderer.make().render(mysqlPlan).sql).toBe(
+      "start transaction"
+    )
   })
 
   test("rejects invalid rendered query statement kinds", () => {

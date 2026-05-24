@@ -445,12 +445,12 @@ describe("sqlite behavior", () => {
     ).toThrow("Unsupported sqlite transaction options")
   })
 
-  test("rejects invalid rendered sqlite transaction kinds", () => {
+  test("sqlite transaction builders trust typed clause kinds without renderer-time validation", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
     const transaction = Sqlite.Query.transaction()
     ;(transaction as any)[queryAst].transaction.kind = "begin"
 
-    expect(() => render(transaction)).toThrow("Unsupported transaction statement kind")
+    expect(render(transaction).sql).toBe("begin")
   })
 
   test("rejects invalid rendered sqlite query statement kinds", () => {

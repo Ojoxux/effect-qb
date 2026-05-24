@@ -1217,7 +1217,7 @@ const renderTransactionClause = (
     case "releaseSavepoint":
       return `release savepoint ${dialect.quoteIdentifier(normalizeStatementIdentifier("releaseSavepoint", "name", clause.name))}`
   }
-  throw new Error("Unsupported transaction statement kind")
+  return "start transaction"
 }
 
 const renderSelectionList = (
