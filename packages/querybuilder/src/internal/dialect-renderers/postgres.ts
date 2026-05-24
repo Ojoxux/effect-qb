@@ -20,6 +20,7 @@ import { flattenSelection, type Projection } from "../projections.js"
 import { type SelectionValue, validateAggregationSelection } from "../aggregation-validation.js"
 import * as SchemaExpression from "../schema-expression.js"
 import { renderReferentialAction, type DdlExpressionLike } from "../table-options.js"
+import * as Casing from "../casing.js"
 
 const renderDbType = (
   dialect: SqlDialect,
@@ -54,6 +55,110 @@ const renderCastType = (
       return "json"
     default:
       return dbType.kind
+  }
+}
+
+const casingForTable = (
+  table: Table.AnyTable,
+  state: RenderState
+): Casing.Options | undefined =>
+  Casing.merge(state.casing, table[Table.TypeId].casing)
+
+const casedTableName = (
+  table: Table.AnyTable,
+  state: RenderState
+): string => {
+  const tableState = table[Table.TypeId]
+  return Casing.applyCategory(casingForTable(table, state), "tables", tableState.baseName)
+}
+
+const casedSchemaName = (
+  table: Table.AnyTable,
+  state: RenderState
+): string | undefined => {
+  const schemaName = table[Table.TypeId].schemaName
+  return schemaName === undefined
+    ? undefined
+    : Casing.applyCategory(casingForTable(table, state), "schemas", schemaName)
+}
+
+const casedColumnName = (
+  columnName: string,
+  state: RenderState,
+  tableName?: string
+): string => {
+  if (tableName !== undefined) {
+    const mapped = state.sourceNames?.get(tableName)?.columns.get(columnName)
+    if (mapped !== undefined) {
+      return mapped
+    }
+  }
+  return Casing.applyCategory(state.casing, "columns", columnName)
+}
+
+const casedTableReferenceName = (
+  tableName: string,
+  state: RenderState
+): string =>
+  state.sourceNames?.get(tableName)?.tableName ?? Casing.applyCategory(state.casing, "tables", tableName)
+
+const quoteColumn = (
+  columnName: string,
+  state: RenderState,
+  dialect: SqlDialect,
+  tableName?: string
+): string => dialect.quoteIdentifier(casedColumnName(columnName, state, tableName))
+
+const registerSourceReference = (
+  source: unknown,
+  tableName: string,
+  state: RenderState
+): void => {
+  if (typeof source !== "object" || source === null || !(Table.TypeId in source)) {
+    return
+  }
+  const table = source as Table.AnyTable
+  const tableState = table[Table.TypeId]
+  const casing = casingForTable(table, state)
+  const renderedTableName = tableState.kind === "alias"
+    ? tableName
+    : Casing.applyCategory(casing, "tables", tableState.baseName)
+  const columns = new Map(
+    Object.keys(tableState.fields).map((columnName) => [
+      columnName,
+      Casing.applyCategory(casing, "columns", columnName)
+    ] as const)
+  )
+  state.sourceNames?.set(tableName, {
+    tableName: renderedTableName,
+    columns
+  })
+}
+
+const registerQuerySources = (
+  ast: QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
+  state: RenderState
+): void => {
+  if (ast.from !== undefined) {
+    registerSourceReference(ast.from.source, ast.from.tableName, state)
+  }
+  for (const source of ast.fromSources ?? []) {
+    registerSourceReference(source.source, source.tableName, state)
+  }
+  for (const join of ast.joins) {
+    registerSourceReference(join.source, join.tableName, state)
+  }
+  if (ast.into !== undefined) {
+    registerSourceReference(ast.into.source, ast.into.tableName, state)
+  }
+  if (ast.target !== undefined) {
+    registerSourceReference(ast.target.source, ast.target.tableName, state)
+  }
+  for (const target of ast.targets ?? []) {
+    registerSourceReference(target.source, target.tableName, state)
+  }
+  if (ast.using !== undefined) {
+    registerSourceReference(ast.using.source, ast.using.tableName, state)
   }
 }
 
@@ -115,10 +220,11 @@ const renderColumnDefinition = (
   dialect: SqlDialect,
   state: RenderState,
   columnName: string,
-  column: Table.AnyTable[typeof Table.TypeId]["fields"][string]
+  column: Table.AnyTable[typeof Table.TypeId]["fields"][string],
+  tableName?: string
 ): string => {
   const clauses = [
-    dialect.quoteIdentifier(columnName),
+    quoteColumn(columnName, state, dialect, tableName),
     column.metadata.ddlType ?? renderDbType(dialect, column.metadata.dbType)
   ]
   if (column.metadata.identity) {
@@ -143,26 +249,26 @@ const renderCreateTableSql = (
   const table = targetSource.source as Table.AnyTable
   const fields = table[Table.TypeId].fields
   const definitions = Object.entries(fields).map(([columnName, column]) =>
-    renderColumnDefinition(dialect, state, columnName, column)
+    renderColumnDefinition(dialect, state, columnName, column, targetSource.tableName)
   )
   for (const option of table[Table.OptionsSymbol]) {
     switch (option.kind) {
       case "primaryKey":
-        definitions.push(`${option.name ? `constraint ${dialect.quoteIdentifier(option.name)} ` : ""}primary key (${option.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")})${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`)
+        definitions.push(`${option.name ? `constraint ${dialect.quoteIdentifier(Casing.applyCategory(state.casing, "constraints", option.name))} ` : ""}primary key (${option.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")})${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`)
         break
       case "unique":
-        definitions.push(`${option.name ? `constraint ${dialect.quoteIdentifier(option.name)} ` : ""}unique${option.nullsNotDistinct ? " nulls not distinct" : ""} (${option.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")})${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`)
+        definitions.push(`${option.name ? `constraint ${dialect.quoteIdentifier(Casing.applyCategory(state.casing, "constraints", option.name))} ` : ""}unique${option.nullsNotDistinct ? " nulls not distinct" : ""} (${option.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")})${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`)
         break
       case "foreignKey": {
         const reference = option.references()
         definitions.push(
-          `${option.name ? `constraint ${dialect.quoteIdentifier(option.name)} ` : ""}foreign key (${option.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")}) references ${dialect.renderTableReference(reference.tableName, reference.tableName, reference.schemaName)} (${reference.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")})${option.onDelete !== undefined ? ` on delete ${renderReferentialAction(option.onDelete)}` : ""}${option.onUpdate !== undefined ? ` on update ${renderReferentialAction(option.onUpdate)}` : ""}${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`
+          `${option.name ? `constraint ${dialect.quoteIdentifier(Casing.applyCategory(state.casing, "constraints", option.name))} ` : ""}foreign key (${option.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")}) references ${dialect.renderTableReference(Casing.applyCategory(state.casing, "tables", reference.tableName), Casing.applyCategory(state.casing, "tables", reference.tableName), reference.schemaName === undefined ? undefined : Casing.applyCategory(state.casing, "schemas", reference.schemaName))} (${reference.columns.map((column) => quoteColumn(column, state, dialect)).join(", ")})${option.onDelete !== undefined ? ` on delete ${renderReferentialAction(option.onDelete)}` : ""}${option.onUpdate !== undefined ? ` on update ${renderReferentialAction(option.onUpdate)}` : ""}${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`
         )
         break
       }
       case "check":
         definitions.push(
-          `constraint ${dialect.quoteIdentifier(option.name)} check (${renderDdlExpression(option.predicate, { ...state, rowLocalColumns: true }, dialect)})${option.noInherit ? " no inherit" : ""}`
+          `constraint ${dialect.quoteIdentifier(Casing.applyCategory(state.casing, "constraints", option.name))} check (${renderDdlExpression(option.predicate, { ...state, rowLocalColumns: true }, dialect)})${option.noInherit ? " no inherit" : ""}`
         )
         break
       case "index":
@@ -181,7 +287,7 @@ const renderCreateIndexSql = (
   dialect: SqlDialect
 ): string => {
   const maybeIfNotExists = dialect.name === "postgres" && ddl.ifNotExists ? " if not exists" : ""
-  return `create${ddl.unique ? " unique" : ""} index${maybeIfNotExists} ${dialect.quoteIdentifier(ddl.name)} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} (${ddl.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")})`
+  return `create${ddl.unique ? " unique" : ""} index${maybeIfNotExists} ${dialect.quoteIdentifier(Casing.applyCategory(state.casing, "indexes", ddl.name))} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} (${ddl.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")})`
 }
 
 const renderDropIndexSql = (
@@ -197,11 +303,11 @@ const renderDropIndexSql = (
       ? (targetSource.source as Table.AnyTable)[Table.TypeId].schemaName
       : undefined
     const indexName = schemaName === undefined || schemaName === "public"
-      ? dialect.quoteIdentifier(ddl.name)
-      : `${dialect.quoteIdentifier(schemaName)}.${dialect.quoteIdentifier(ddl.name)}`
+      ? dialect.quoteIdentifier(Casing.applyCategory(state.casing, "indexes", ddl.name))
+      : `${dialect.quoteIdentifier(Casing.applyCategory(state.casing, "schemas", schemaName))}.${dialect.quoteIdentifier(Casing.applyCategory(state.casing, "indexes", ddl.name))}`
     return `drop index${ddl.ifExists ? " if exists" : ""} ${indexName}`
   }
-  return `drop index ${dialect.quoteIdentifier(ddl.name)} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)}`
+  return `drop index ${dialect.quoteIdentifier(Casing.applyCategory(state.casing, "indexes", ddl.name))} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)}`
 }
 
 const isExpression = (value: unknown): value is Expression.Any =>
@@ -818,11 +924,12 @@ const selectionProjections = (selection: Record<string, unknown>): readonly Proj
 const renderMutationAssignment = (
   entry: QueryAst.AssignmentClause,
   state: RenderState,
-  dialect: SqlDialect
+  dialect: SqlDialect,
+  targetTableName?: string
 ): string => {
   const column = entry.tableName && dialect.name === "mysql"
-    ? `${dialect.quoteIdentifier(entry.tableName)}.${dialect.quoteIdentifier(entry.columnName)}`
-    : dialect.quoteIdentifier(entry.columnName)
+    ? `${dialect.quoteIdentifier(casedTableReferenceName(entry.tableName, state))}.${quoteColumn(entry.columnName, state, dialect, entry.tableName)}`
+    : quoteColumn(entry.columnName, state, dialect, targetTableName)
   return `${column} = ${renderExpression(entry.value, state, dialect)}`
 }
 
@@ -943,9 +1050,11 @@ const renderSelectionList = (
 const nestedRenderState = (state: RenderState): RenderState => ({
   params: state.params,
   valueMappings: state.valueMappings,
+  casing: state.casing,
   ctes: [],
   cteNames: new Set(state.cteNames),
-  cteSources: new Map(state.cteSources)
+  cteSources: new Map(state.cteSources),
+  sourceNames: new Map(state.sourceNames)
 })
 
 const assertMatchingSetProjections = (
@@ -1040,6 +1149,7 @@ export const renderQueryAst = (
   dialect: SqlDialect,
   options: { readonly emitCtes?: boolean } = {}
 ): RenderedQueryAst => {
+  registerQuerySources(ast, state)
   let sql = ""
   let projections: readonly Projection[] = []
 
@@ -1139,13 +1249,13 @@ export const renderQueryAst = (
       const conflict = expectConflictClause(insertAst.conflict)
       sql = `insert into ${target}`
       if (insertSource?.kind === "values") {
-        const columns = insertSource.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")
+        const columns = insertSource.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")
         const rows = insertSource.rows.map((row) =>
           `(${row.values.map((entry) => renderExpression(entry.value, state, dialect)).join(", ")})`
         ).join(", ")
         sql += ` (${columns}) values ${rows}`
       } else if (insertSource?.kind === "query") {
-        const columns = insertSource.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")
+        const columns = insertSource.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")
         const renderedQuery = renderQueryAst(
           Query.getAst(insertSource.query as Query.Plan.Any) as QueryAst.Ast<
             Record<string, unknown>,
@@ -1157,7 +1267,7 @@ export const renderQueryAst = (
         )
         sql += ` (${columns}) ${renderedQuery.sql}`
       } else if (insertSource?.kind === "unnest") {
-        const columns = insertSource.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")
+        const columns = insertSource.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")
         if (dialect.name === "postgres") {
           const table = targetSource.source as Table.AnyTable
           const fields = table[Table.TypeId].fields
@@ -1179,7 +1289,7 @@ export const renderQueryAst = (
           sql += ` (${columns}) values ${rows}`
         }
       } else {
-        const columns = (insertAst.values ?? []).map((entry) => dialect.quoteIdentifier(entry.columnName)).join(", ")
+        const columns = (insertAst.values ?? []).map((entry) => quoteColumn(entry.columnName, state, dialect, targetSource.tableName)).join(", ")
         const values = (insertAst.values ?? []).map((entry) => renderExpression(entry.value, state, dialect)).join(", ")
         if ((insertAst.values ?? []).length > 0) {
           sql += ` (${columns}) values (${values})`
@@ -1192,13 +1302,13 @@ export const renderQueryAst = (
           throw new Error("conflict action predicates require update assignments")
         }
         const updateValues = (conflict.values ?? []).map((entry) =>
-          `${dialect.quoteIdentifier(entry.columnName)} = ${renderExpression(entry.value, state, dialect)}`
+          `${quoteColumn(entry.columnName, state, dialect, targetSource.tableName)} = ${renderExpression(entry.value, state, dialect)}`
         ).join(", ")
         if (dialect.name === "postgres") {
           const targetSql = conflict.target?.kind === "constraint"
             ? ` on conflict on constraint ${dialect.quoteIdentifier(conflict.target.name)}`
             : conflict.target?.kind === "columns"
-              ? ` on conflict (${conflict.target.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")})${conflict.target.where ? ` where ${renderExpression(conflict.target.where, state, dialect)}` : ""}`
+              ? ` on conflict (${conflict.target.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")})${conflict.target.where ? ` where ${renderExpression(conflict.target.where, state, dialect)}` : ""}`
               : " on conflict"
           sql += targetSql
           sql += conflict.action === "doNothing"
@@ -1243,7 +1353,7 @@ export const renderQueryAst = (
         throw new Error("update statements require at least one assignment")
       }
       const assignments = updateAst.set!.map((entry) =>
-        renderMutationAssignment(entry, state, dialect)).join(", ")
+        renderMutationAssignment(entry, state, dialect, targetSource.tableName)).join(", ")
       if (dialect.name === "mysql") {
         const modifiers = renderMysqlMutationLock(updateAst.lock, "update")
         const extraSources = renderFromSources(fromSources, state, dialect)
@@ -1396,7 +1506,7 @@ export const renderQueryAst = (
             throw new Error("merge update actions require at least one assignment")
           }
           sql += ` then update set ${merge.whenMatched.values.map((entry) =>
-            `${dialect.quoteIdentifier(entry.columnName)} = ${renderExpression(entry.value, state, dialect)}`
+            `${quoteColumn(entry.columnName, state, dialect, targetSource.tableName)} = ${renderExpression(entry.value, state, dialect)}`
           ).join(", ")}`
         }
       }
@@ -1409,7 +1519,7 @@ export const renderQueryAst = (
         if (merge.whenNotMatched.values.length === 0) {
           throw new Error("merge insert actions require at least one value")
         }
-        sql += ` then insert (${merge.whenNotMatched.values.map((entry) => dialect.quoteIdentifier(entry.columnName)).join(", ")}) values (${merge.whenNotMatched.values.map((entry) => renderExpression(entry.value, state, dialect)).join(", ")})`
+        sql += ` then insert (${merge.whenNotMatched.values.map((entry) => quoteColumn(entry.columnName, state, dialect, targetSource.tableName)).join(", ")}) values (${merge.whenNotMatched.values.map((entry) => renderExpression(entry.value, state, dialect)).join(", ")})`
       }
       break
     }
@@ -1577,9 +1687,21 @@ const renderSourceReference = (
     return `${tableFunction.functionName}(${tableFunction.args.map((arg) => renderExpression(arg, state, dialect)).join(", ")}) as ${dialect.quoteIdentifier(tableFunction.name)}(${columnNames.map((columnName) => dialect.quoteIdentifier(columnName)).join(", ")})`
   }
   const schemaName = typeof source === "object" && source !== null && Table.TypeId in source
-    ? (source as Table.AnyTable)[Table.TypeId].schemaName
+    ? casedSchemaName(source as Table.AnyTable, state)
     : undefined
-  return dialect.renderTableReference(tableName, baseTableName, schemaName)
+  if (typeof source === "object" && source !== null && Table.TypeId in source) {
+    const table = source as Table.AnyTable
+    const renderedBaseName = casedTableName(table, state)
+    const renderedTableName = table[Table.TypeId].kind === "alias"
+      ? tableName
+      : renderedBaseName
+    return dialect.renderTableReference(renderedTableName, renderedBaseName, schemaName)
+  }
+  return dialect.renderTableReference(
+    Casing.applyCategory(state.casing, "tables", tableName),
+    Casing.applyCategory(state.casing, "tables", baseTableName),
+    schemaName
+  )
 }
 
 const renderSubqueryExpressionPlan = (
@@ -1633,8 +1755,8 @@ export const renderExpression = (
     switch (ast.kind) {
     case "column":
       return state.rowLocalColumns || ast.tableName.length === 0
-        ? dialect.quoteIdentifier(ast.columnName)
-        : `${dialect.quoteIdentifier(ast.tableName)}.${dialect.quoteIdentifier(ast.columnName)}`
+        ? quoteColumn(ast.columnName, state, dialect, ast.tableName)
+        : `${dialect.quoteIdentifier(casedTableReferenceName(ast.tableName, state))}.${quoteColumn(ast.columnName, state, dialect, ast.tableName)}`
     case "literal":
       if (typeof ast.value === "number" && !Number.isFinite(ast.value)) {
         throw new Error("Expected a finite numeric value")
@@ -1642,8 +1764,8 @@ export const renderExpression = (
       return dialect.renderLiteral(ast.value, state, expression[Expression.TypeId])
     case "excluded":
       return dialect.name === "mysql"
-        ? `values(${dialect.quoteIdentifier(ast.columnName)})`
-        : `excluded.${dialect.quoteIdentifier(ast.columnName)}`
+        ? `values(${quoteColumn(ast.columnName, state, dialect)})`
+        : `excluded.${quoteColumn(ast.columnName, state, dialect)}`
     case "cast":
       return `cast(${renderExpression(ast.value, state, dialect)} as ${renderCastType(dialect, ast.target)})`
     case "collate":

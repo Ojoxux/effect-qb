@@ -3,6 +3,7 @@ import type * as Schema from "effect/Schema"
 import type * as QueryAst from "./query-ast.js"
 import type { Projection } from "./projections.js"
 import type * as Expression from "./scalar.js"
+import type * as Casing from "./casing.js"
 
 /**
  * Mutable rendering state shared while serializing SQL for a concrete dialect.
@@ -13,6 +14,7 @@ import type * as Expression from "./scalar.js"
 export interface RenderState {
   readonly params: unknown[]
   readonly valueMappings?: Expression.DriverValueMappings
+  readonly casing?: Casing.Options
   readonly ctes: {
     readonly name: string
     readonly sql: string
@@ -20,6 +22,10 @@ export interface RenderState {
   }[]
   readonly cteNames: Set<string>
   readonly cteSources: Map<string, unknown>
+  readonly sourceNames?: Map<string, {
+    readonly tableName: string
+    readonly columns: ReadonlyMap<string, string>
+  }>
   readonly rowLocalColumns?: boolean
 }
 

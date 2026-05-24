@@ -1,4 +1,5 @@
 import * as CoreRenderer from "../internal/renderer.js"
+import type * as Casing from "../internal/casing.js"
 import type * as Expression from "../internal/scalar.js"
 import type { MysqlDatatypeFamily, MysqlDatatypeKind } from "./datatypes/spec.js"
 import { renderMysqlPlan } from "./internal/renderer.js"
@@ -14,6 +15,7 @@ export type ValueMappings = Expression.DriverValueMappingsFor<MysqlDatatypeKind 
 
 export interface MakeOptions {
   readonly valueMappings?: ValueMappings
+  readonly casing?: Casing.Options
 }
 
 export { TypeId } from "../internal/renderer.js"

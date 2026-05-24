@@ -33,6 +33,7 @@ import {
   type TableSchemaVariant,
   type UpdateRow
 } from "./schema-derivation.js"
+import * as Casing from "./casing.js"
 
 /** Symbol used to attach table-definition metadata. */
 export const TypeId: unique symbol = Symbol.for("effect-qb/Table")
@@ -178,6 +179,7 @@ interface TableState<
   readonly fields: Fields
   readonly primaryKey: readonly PrimaryKeyColumns[]
   readonly kind: Kind
+  readonly casing?: Casing.Options
 }
 
 /** Namespace-scoped table builder. */
@@ -480,7 +482,8 @@ const makeTable = <
   baseName: string = name,
   kind: Kind = "schema" as Kind,
   schemaName?: SchemaName,
-  schemaMode: "default" | "explicit" = "default"
+  schemaMode: "default" | "explicit" = "default",
+  casing?: Casing.Options
 ): TableDefinition<Name, Fields, PrimaryKeyColumns, Kind, SchemaName> => {
   const resolvedSchemaName = schemaMode === "explicit"
     ? schemaName
@@ -497,7 +500,8 @@ const makeTable = <
     schemaName: resolvedSchemaName,
     fields,
     primaryKey: artifacts.primaryKey,
-    kind
+    kind,
+    casing
   }
   table[Plan.TypeId] = {
     selection: artifacts.columns,
@@ -595,7 +599,8 @@ const ensureClassArtifacts = <
       state.name,
       "schema",
       state.schemaName,
-      state.schemaName === undefined || state.schemaName === "public" ? "default" : "explicit"
+      state.schemaName === undefined || state.schemaName === "public" ? "default" : "explicit",
+      state.casing
     ) as TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", typeof state.schemaName>,
     classOptions
   )
@@ -629,7 +634,8 @@ const appendOption = <
     state.baseName,
     state.kind,
     state.schemaName,
-    "explicit"
+    "explicit",
+    state.casing
   ) as unknown as ApplyOption<Table, Spec>
 }
 
@@ -681,6 +687,25 @@ export function make<
     resolvedSchemaName,
     arguments.length >= 3 ? "explicit" : "default"
   )
+}
+
+export const withCasing = <
+  Table extends TableDefinition<any, any, any, any, any>
+>(
+  table: Table,
+  casing: Casing.Options
+): Table => {
+  const state = table[TypeId]
+  return makeTable(
+    state.name,
+    state.fields,
+    table[DeclaredOptionsSymbol],
+    state.baseName,
+    state.kind,
+    state.schemaName,
+    "explicit",
+    Casing.merge(state.casing, casing)
+  ) as Table
 }
 
 /**
@@ -754,7 +779,8 @@ export const alias = <
     schemaName: state.schemaName,
     fields: state.fields,
     primaryKey: state.primaryKey,
-    kind: "alias"
+    kind: "alias",
+    casing: state.casing
   }
   aliased[Plan.TypeId] = {
     selection: columns,
