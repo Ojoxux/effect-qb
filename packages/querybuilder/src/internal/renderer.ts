@@ -322,8 +322,13 @@ const visitInsertSource = (
   }
   switch (source.kind) {
     case "values":
-      return requiredClauseArray<QueryAst.InsertValuesRowClause>("insertSource.rows", source.rows).reduce(
-        (current, row) => visitAssignments("insertSource.values", row.values, current, context),
+      return requiredClauseArray<unknown>("insertSource.rows", source.rows).reduce<string | undefined>(
+        (current, row) => {
+          if (!isObject(row)) {
+            throw new Error("insert source rows require value arrays")
+          }
+          return visitAssignments("insertSource.values", row.values as readonly QueryAst.AssignmentClause[] | undefined, current, context)
+        },
         dialect
       )
     case "query":

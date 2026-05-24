@@ -23,6 +23,22 @@ type DslMutationRuntimeContext = {
   readonly sourceDetails: (source: any) => { readonly sourceName: string; readonly sourceBaseName: string }
 }
 
+const isKnownTargetColumn = (
+  columnName: unknown,
+  fields: Record<string, unknown> | undefined
+): columnName is string =>
+  typeof columnName === "string" && columnName.length > 0 && (fields === undefined || columnName in fields)
+
+const expectKnownTargetColumns = (
+  columns: readonly unknown[],
+  fields: Record<string, unknown> | undefined,
+  message: string
+): void => {
+  if (columns.length === 0 || columns.some((columnName) => !isKnownTargetColumn(columnName, fields))) {
+    throw new Error(message)
+  }
+}
+
 export const expectInsertSourceKind = <
   Source extends { readonly kind: string } | undefined
 >(
@@ -39,9 +55,15 @@ export const expectInsertSourceKind = <
   ) {
     throw new Error("Unsupported insert source kind")
   }
-  if (!Array.isArray((source as { readonly columns?: unknown }).columns)) {
+  const columns = (source as { readonly columns?: unknown }).columns
+  if (!Array.isArray(columns)) {
     throw new Error("insert sources require a column array")
   }
+  expectKnownTargetColumns(
+    columns,
+    fields,
+    "insert sources require known target columns"
+  )
   if (source.kind === "unnest") {
     const values = (source as { readonly values?: unknown }).values
     if (!Array.isArray(values)) {
@@ -60,6 +82,29 @@ export const expectInsertSourceKind = <
     }
   }
   return source
+}
+
+export const expectInsertValues = <
+  Values extends readonly { readonly columnName: string }[] | undefined
+>(
+  values: Values,
+  fields: Record<string, unknown>
+): Values => {
+  if (values === undefined) {
+    return values
+  }
+  if (!Array.isArray(values)) {
+    throw new Error("insert values require an assignment array")
+  }
+  if (values.length === 0) {
+    return values
+  }
+  expectKnownTargetColumns(
+    values.map((entry) => typeof entry === "object" && entry !== null ? entry.columnName : undefined),
+    fields,
+    "insert values require known target columns"
+  )
+  return values
 }
 
 export const expectConflictClause = <

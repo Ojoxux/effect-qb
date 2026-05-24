@@ -185,6 +185,58 @@ describe("postgres insert behavior", () => {
     expect(() => render(plan)).toThrow("insert sources require a column array")
   })
 
+  test("rejects insert source metadata with unknown target columns before rendering SQL", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      email: StdRoot.Column.text()
+    })
+    const seed = unsafeAny(Postgres.Query.as(Postgres.Query.values([
+      { id: Postgres.Query.literal(userId), email: "alice@example.com" }
+    ] as const), "seed"))
+    const valuesPlan = Postgres.Query.insert(users).pipe(Postgres.Query.from(seed))
+    ;(valuesPlan as any)[queryAst].insertSource.columns = ["missing"]
+    const sourcePlan = Postgres.Query.select({
+      id: users.id,
+      email: users.email
+    }).pipe(Postgres.Query.from(users))
+    const queryPlan = Postgres.Query.insert(users).pipe(Postgres.Query.from(sourcePlan))
+    ;(queryPlan as any)[queryAst].insertSource.columns = ["missing"]
+
+    expect(() => render(valuesPlan)).toThrow("insert sources require known target columns")
+    expect(() => render(queryPlan)).toThrow("insert sources require known target columns")
+  })
+
+  test("rejects insert value metadata with unknown target columns before rendering SQL", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      email: StdRoot.Column.text()
+    })
+    const plan = Postgres.Query.insert(users, {
+      id: userId,
+      email: "alice@example.com"
+    })
+    ;(plan as any)[queryAst].values[0].columnName = "missing"
+
+    expect(() => render(plan)).toThrow("insert values require known target columns")
+  })
+
+  test("rejects insert source metadata without row objects before rendering SQL", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      email: StdRoot.Column.text()
+    })
+    const seed = unsafeAny(Postgres.Query.as(Postgres.Query.values([
+      { id: Postgres.Query.literal(userId), email: "alice@example.com" }
+    ] as const), "seed"))
+    const plan = Postgres.Query.insert(users).pipe(Postgres.Query.from(seed))
+    ;(plan as any)[queryAst].insertSource.rows = [null]
+
+    expect(() => render(plan)).toThrow("insert source rows require value arrays")
+  })
+
   test("rejects unnest insert metadata without value arrays before rendering SQL", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
     const users = StdRoot.Table.make("users", {

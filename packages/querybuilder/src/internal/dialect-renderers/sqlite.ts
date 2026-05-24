@@ -7,7 +7,7 @@ import * as QueryAst from "../query-ast.js"
 import type { RenderState, RenderValueContext, SqlDialect } from "../dialect.js"
 import * as ExpressionAst from "../expression-ast.js"
 import * as JsonPath from "../json/path.js"
-import { expectConflictClause, expectInsertSourceKind } from "../dsl-mutation-runtime.js"
+import { expectConflictClause, expectInsertSourceKind, expectInsertValues } from "../dsl-mutation-runtime.js"
 import { expectDdlClauseKind } from "../dsl-transaction-ddl-runtime.js"
 import {
   renderJsonSelectSql,
@@ -1429,7 +1429,8 @@ export const renderQueryAst = (
       const targetSource = insertAst.into!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targetCasingState = stateWithTableCasing(state, targetSource.source)
-      const insertSource = expectInsertSourceKind(insertAst.insertSource, (targetSource.source as Table.AnyTable)[Table.TypeId].fields)
+      const targetFields = (targetSource.source as Table.AnyTable)[Table.TypeId].fields
+      const insertSource = expectInsertSourceKind(insertAst.insertSource, targetFields)
       const conflict = expectConflictClause(insertAst.conflict)
       sql = `insert into ${target}`
       if (insertSource?.kind === "values") {
@@ -1473,9 +1474,10 @@ export const renderQueryAst = (
           sql += ` (${columns}) values ${rows}`
         }
       } else {
-        const columns = (insertAst.values ?? []).map((entry) => quoteColumn(entry.columnName, state, dialect, targetSource.tableName)).join(", ")
-        const values = (insertAst.values ?? []).map((entry) => renderExpression(entry.value, targetCasingState, dialect)).join(", ")
-        if ((insertAst.values ?? []).length > 0) {
+        const insertValues = expectInsertValues(insertAst.values, targetFields) ?? []
+        const columns = insertValues.map((entry) => quoteColumn(entry.columnName, state, dialect, targetSource.tableName)).join(", ")
+        const values = insertValues.map((entry) => renderExpression(entry.value, targetCasingState, dialect)).join(", ")
+        if (insertValues.length > 0) {
           sql += ` (${columns}) values (${values})`
         } else {
           sql += " default values"
