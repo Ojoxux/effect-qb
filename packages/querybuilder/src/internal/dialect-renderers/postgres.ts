@@ -281,6 +281,9 @@ const renderColumnDefinition = (
     column.metadata.ddlType ?? renderDbType(dialect, column.metadata.dbType)
   ]
   if (column.metadata.identity) {
+    if (dialect.name !== "postgres") {
+      throw new Error(`Unsupported ${dialect.name} identity column options`)
+    }
     clauses.push(`generated ${column.metadata.identity.generation === "byDefault" ? "by default" : "always"} as identity`)
   } else if (column.metadata.generatedValue) {
     clauses.push(`generated always as (${renderDdlExpression(column.metadata.generatedValue, expressionState, dialect)}) stored`)
