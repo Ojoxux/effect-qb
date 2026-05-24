@@ -662,6 +662,9 @@ const renderFunctionCall = (
   if (name === "array") {
     return `ARRAY[${args.map((arg) => renderExpression(arg, state, dialect)).join(", ")}]`
   }
+  if (name === "current_date" && args.length > 0) {
+    throw new Error("current_date does not accept arguments")
+  }
   if (name === "extract" && args.length === 2) {
     const field = args[0]
     const source = args[1]

@@ -477,6 +477,28 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects current date function arguments before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const today = Standard.Function.currentDate()
+    ;(today as any)[expressionAst].args = [Standard.Query.literal(1)]
+    const plan = Standard.Query.select({
+      today
+    })
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "current_date does not accept arguments"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "current_date does not accept arguments"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "current_date does not accept arguments"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "current_date does not accept arguments"
+    )
+  })
+
   test("rejects malformed coalesce expressions before rendering SQL", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const users = Standard.Table.make("users", {
