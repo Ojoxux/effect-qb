@@ -638,6 +638,59 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects unary expressions without value operands before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const users = Standard.Table.make("users", {
+      email: Standard.Column.text()
+    })
+    const email = Standard.Function.lower(users.email)
+    ;(email as any)[expressionAst].value = undefined
+    const plan = Standard.Query.select({
+      email
+    }).pipe(Standard.Query.from(users))
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "lower(...) requires a value expression"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "lower(...) requires a value expression"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "lower(...) requires a value expression"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "lower(...) requires a value expression"
+    )
+  })
+
+  test("rejects grouped unary expressions without value operands before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const users = Standard.Table.make("users", {
+      email: Standard.Column.text()
+    })
+    const email = Standard.Function.lower(users.email)
+    const plan = Standard.Query.select({
+      email
+    }).pipe(
+      Standard.Query.from(users),
+      Standard.Query.groupBy(email)
+    )
+    ;(email as any)[expressionAst].value = undefined
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "lower(...) requires a value expression"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "lower(...) requires a value expression"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "lower(...) requires a value expression"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "lower(...) requires a value expression"
+    )
+  })
+
   test("rejects malformed coalesce expressions before rendering SQL", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const users = Standard.Table.make("users", {

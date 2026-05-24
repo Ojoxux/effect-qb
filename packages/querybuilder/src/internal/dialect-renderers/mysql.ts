@@ -381,6 +381,16 @@ const isJsonDbType = (dbType: Expression.DbType.Any): boolean => {
 const isJsonExpression = (value: unknown): value is Expression.Any =>
   isExpression(value) && isJsonDbType(value[Expression.TypeId].dbType)
 
+const expectValueExpression = (
+  functionName: string,
+  value: unknown
+): Expression.Any => {
+  if (!isExpression(value)) {
+    throw new Error(`${functionName}(...) requires a value expression`)
+  }
+  return value
+}
+
 const unsupportedJsonFeature = (
   dialect: SqlDialect,
   feature: string
@@ -2011,21 +2021,21 @@ export const renderExpression = (
       }
       throw new Error("Unsupported container operator for SQL rendering")
     case "isNull":
-      return `(${renderExpression(ast.value, state, dialect)} is null)`
+      return `(${renderExpression(expectValueExpression("isNull", ast.value), state, dialect)} is null)`
     case "isNotNull":
-      return `(${renderExpression(ast.value, state, dialect)} is not null)`
+      return `(${renderExpression(expectValueExpression("isNotNull", ast.value), state, dialect)} is not null)`
     case "not":
-      return `(not ${renderExpression(ast.value, state, dialect)})`
+      return `(not ${renderExpression(expectValueExpression("not", ast.value), state, dialect)})`
     case "upper":
-      return `upper(${renderExpression(ast.value, state, dialect)})`
+      return `upper(${renderExpression(expectValueExpression("upper", ast.value), state, dialect)})`
     case "lower":
-      return `lower(${renderExpression(ast.value, state, dialect)})`
+      return `lower(${renderExpression(expectValueExpression("lower", ast.value), state, dialect)})`
     case "count":
-      return `count(${renderExpression(ast.value, state, dialect)})`
+      return `count(${renderExpression(expectValueExpression("count", ast.value), state, dialect)})`
     case "max":
-      return `max(${renderExpression(ast.value, state, dialect)})`
+      return `max(${renderExpression(expectValueExpression("max", ast.value), state, dialect)})`
     case "min":
-      return `min(${renderExpression(ast.value, state, dialect)})`
+      return `min(${renderExpression(expectValueExpression("min", ast.value), state, dialect)})`
     case "and":
       if (!Array.isArray(ast.values) || ast.values.length === 0) {
         throw new Error("and(...) requires at least one predicate")

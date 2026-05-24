@@ -44,6 +44,16 @@ const isExpression = (value: unknown): value is Expression.Any =>
 const expressionGroupingKey = (value: unknown): string =>
   isExpression(value) ? groupingKeyOfExpression(value) : "missing"
 
+const requiredExpressionGroupingKey = (
+  functionName: string,
+  value: unknown
+): string => {
+  if (!isExpression(value)) {
+    throw new Error(`${functionName}(...) requires a value expression`)
+  }
+  return groupingKeyOfExpression(value)
+}
+
 const escapeGroupingText = (value: string): string =>
   value
     .replace(/\\/g, "\\\\")
@@ -131,7 +141,7 @@ export const groupingKeyOfExpression = (expression: Expression.Any): string => {
     case "count":
     case "max":
     case "min":
-      return `${ast.kind}(${groupingKeyOfExpression(ast.value)})`
+      return `${ast.kind}(${requiredExpressionGroupingKey(ast.kind, ast.value)})`
     case "eq":
     case "neq":
     case "lt":
