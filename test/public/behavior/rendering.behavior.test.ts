@@ -260,6 +260,36 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("standard renderer rejects lateral sources", () => {
+    const users = Standard.Table.make("users", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey),
+      email: Standard.Column.text()
+    })
+    const posts = Standard.Table.make("posts", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey),
+      userId: Standard.Column.uuid()
+    })
+    const lateralPosts = Standard.Query.select({
+      postId: posts.id,
+      userId: posts.userId
+    }).pipe(
+      Standard.Query.from(posts),
+      Standard.Query.where(Standard.Query.eq(posts.userId, users.id)),
+      Standard.Query.lateral("user_posts")
+    )
+    const plan = Standard.Query.select({
+      email: users.email,
+      postId: lateralPosts.postId
+    }).pipe(
+      Standard.Query.from(users),
+      Standard.Query.innerJoin(lateralPosts, Standard.Query.eq(lateralPosts.userId, users.id))
+    )
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "Unsupported standard lateral source"
+    )
+  })
+
   test("renderers reject excluded references outside insert conflict handlers", () => {
     const users = Standard.Table.make("users", {
       email: Standard.Column.text()

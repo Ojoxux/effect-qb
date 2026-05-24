@@ -1953,6 +1953,9 @@ const renderSourceReference = (
       readonly name: string
       readonly plan: Query.Plan.Any
     }
+    if (dialect.name === "standard") {
+      throw new Error("Unsupported standard lateral source")
+    }
     return `lateral (${renderQueryAst(Query.getAst(lateral.plan) as QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>, nestedRenderState(state), dialect).sql}) as ${dialect.quoteIdentifier(lateral.name)}`
   }
   if (typeof source === "object" && source !== null && (source as { readonly kind?: string }).kind === "values") {
