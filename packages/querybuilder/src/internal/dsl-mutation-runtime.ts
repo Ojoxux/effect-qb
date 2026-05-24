@@ -31,12 +31,7 @@ export const expectConflictClause = <
   } | undefined
 >(
   conflict: Conflict
-): Conflict => {
-  if (conflict?.target?.kind === "constraint" && conflict.target.name === "") {
-    throw new Error("conflict constraint targets require a non-empty string")
-  }
-  return conflict
-}
+): Conflict => conflict
 
 export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
   const insert = (target: any, values?: Record<string, unknown>) => {

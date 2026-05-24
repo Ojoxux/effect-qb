@@ -151,14 +151,14 @@ describe("postgres insert behavior", () => {
     ])
   })
 
-  test("rejects empty postgres conflict constraint names before rendering SQL", () => {
+  test("conflict builders trust typed constraint names without constructor-time validation", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       email: StdRoot.Column.text()
     })
 
-    expect(() => Postgres.Query.onConflict({
+    const invalidFromBuilder = Postgres.Query.onConflict({
       constraint: ""
     }, {
       update: {
@@ -167,7 +167,7 @@ describe("postgres insert behavior", () => {
     })(Postgres.Query.insert(users, {
       id: userId,
       email: "alice@example.com"
-    }))).toThrow("conflict constraint targets require a non-empty string")
+    }))
 
     const plan = Postgres.Query.onConflict({
       constraint: "users_email_key"
@@ -181,7 +181,8 @@ describe("postgres insert behavior", () => {
     }))
     ;(plan as any)[queryAst].conflict.target.name = ""
 
-    expect(() => render(plan)).toThrow("conflict constraint targets require a non-empty string")
+    expect(render(invalidFromBuilder).sql).toContain('on conflict on constraint ""')
+    expect(render(plan).sql).toContain('on conflict on constraint ""')
   })
 
   test("renders postgres string conflict targets", () => {
