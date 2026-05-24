@@ -59,7 +59,7 @@ const renderTableSource = (
 import * as Pg from "effect-qb/postgres"
 import { Column as C, Table } from "effect-qb/postgres"
 
-const db = Pg.schema(${JSON.stringify(schemaName)})
+const db = Pg.Schema.make(${JSON.stringify(schemaName)})
 
 const users = db.table("users", {
 ${tableFields}
@@ -383,7 +383,7 @@ test("postgres cli safe mode applies additive changes and skips destructive drif
 import * as Pg from "effect-qb/postgres"
 import { Column as C, Function as F, Query as Q, Table } from "effect-qb/postgres"
 
-const db = Pg.schema("__SCHEMA__")
+const db = Pg.Schema.make("__SCHEMA__")
 
 export const users = db.table("users", {
   id: C.int().pipe(C.identityByDefault),
@@ -410,7 +410,7 @@ export const users = db.table("users", {
 import * as Pg from "effect-qb/postgres"
 import { Column as C, Function as F, Query as Q, Table } from "effect-qb/postgres"
 
-const db = Pg.schema(${JSON.stringify(schemaName)})
+const db = Pg.Schema.make(${JSON.stringify(schemaName)})
 
 export const users = db.table("users", {
   id: C.int().pipe(C.identityByDefault),
@@ -774,8 +774,8 @@ import * as Schema from "effect/Schema"
 import * as Pg from "effect-qb/postgres"
 import { Column as C, Query as Q, Table } from "effect-qb/postgres"
 
-const db = Pg.schema("__SCHEMA__")
-const types = Pg.schema("__SCHEMA__")
+const db = Pg.Schema.make("__SCHEMA__")
+const types = Pg.Schema.make("__SCHEMA__")
 
 const status = types.enum("status", ["pending", "active"])
 
@@ -801,8 +801,8 @@ import * as Schema from "effect/Schema"
 import * as Pg from "effect-qb/postgres"
 import { Column as C, Query as Q, Table } from "effect-qb/postgres"
 
-const db = Pg.schema(${JSON.stringify(schemaName)})
-const types = Pg.schema(${JSON.stringify(schemaName)})
+const db = Pg.Schema.make(${JSON.stringify(schemaName)})
+const types = Pg.Schema.make(${JSON.stringify(schemaName)})
 
 const status = types.enum("status", ["pending"])
 
@@ -832,8 +832,8 @@ import * as Schema from "effect/Schema"
 import * as Pg from "effect-qb/postgres"
 import { Column as C, Query as Q, Table } from "effect-qb/postgres"
 
-const db = Pg.schema(${JSON.stringify(schemaName)})
-const types = Pg.schema(${JSON.stringify(schemaName)})
+const db = Pg.Schema.make(${JSON.stringify(schemaName)})
+const types = Pg.Schema.make(${JSON.stringify(schemaName)})
 
 const status = types.enum("status", ["active", "pending"])
 
@@ -898,7 +898,7 @@ test("postgres cli pull fails when filtered tables reference missing source targ
 import * as Pg from "effect-qb/postgres"
 import { Column as C, Table } from "effect-qb/postgres"
 
-const db = Pg.schema("__SCHEMA__")
+const db = Pg.Schema.make("__SCHEMA__")
 
 export const users = db.table("users", {
   id: C.uuid(),
@@ -1010,7 +1010,7 @@ test("postgres cli honors source include exclude and table filters across multip
 import * as Pg from "effect-qb/postgres"
 import { Column as C, Table } from "effect-qb/postgres"
 
-const db = Pg.schema("__SCHEMA__")
+const db = Pg.Schema.make("__SCHEMA__")
 
 export const users = db.table("users", {
   id: C.text(),
@@ -1023,7 +1023,7 @@ export const users = db.table("users", {
 import * as Pg from "effect-qb/postgres"
 import { Column as C, Table } from "effect-qb/postgres"
 
-const db = Pg.schema("__SCHEMA__")
+const db = Pg.Schema.make("__SCHEMA__")
 
 export const orgs = db.table("orgs", {
   id: C.text(),
@@ -1036,7 +1036,7 @@ export const orgs = db.table("orgs", {
 import * as Pg from "effect-qb/postgres"
 import { Column as C, Table } from "effect-qb/postgres"
 
-const db = Pg.schema("__SCHEMA__")
+const db = Pg.Schema.make("__SCHEMA__")
 
 export const audits = db.table("audits", {
   id: C.text()
@@ -1108,8 +1108,8 @@ import * as Schema from "effect/Schema"
 import * as Pg from "effect-qb/postgres"
 import { Column as C, Function as F, Query as Q, Table } from "effect-qb/postgres"
 
-const tables = Pg.schema("__SCHEMA__")
-const types = Pg.schema("__SCHEMA__")
+const tables = Pg.Schema.make("__SCHEMA__")
+const types = Pg.Schema.make("__SCHEMA__")
 
 const status = types.enum("status", ["pending", "active"])
 
@@ -1242,7 +1242,7 @@ test("postgres cli pulls supported checks and deferrable constraints into canoni
 import * as Pg from "effect-qb/postgres"
 import { Column as C, Table } from "effect-qb/postgres"
 
-const db = Pg.schema("__SCHEMA__")
+const db = Pg.Schema.make("__SCHEMA__")
 
 export const users = db.table("users", {
   id: C.int(),
@@ -1312,7 +1312,7 @@ test("postgres cli canonicalizes pulled enums, schemas, and sequences in new fil
     expect(pull.stdout).toContain(`create src/${schemaName}.schema.ts`)
 
     const pulled = await readFile(join(workspace, "src", `${schemaName}.schema.ts`), "utf8")
-    expect(pulled).toContain(`const ${schemaName} = Pg.schema("${schemaName}")`)
+    expect(pulled).toContain(`const ${schemaName} = Pg.Schema.make("${schemaName}")`)
     expect(pulled).toContain(`const status = ${schemaName}.enum("status", ["pending", "active"])`)
     expect(pulled).toContain(`status: status.column().pipe(`)
     expect(pulled).toContain(`Column.default(Pg.Query.literal("active").pipe(Pg.Cast.to(status.type())))`)
@@ -1387,7 +1387,7 @@ test("postgres cli pulls composite foreign keys into canonical source definition
 import * as Pg from "effect-qb/postgres"
 import { Column as C, Table } from "effect-qb/postgres"
 
-const db = Pg.schema("__SCHEMA__")
+const db = Pg.Schema.make("__SCHEMA__")
 
 const orgs = db.table("orgs", {
   tenantId: C.uuid(),
@@ -1452,7 +1452,7 @@ test("postgres cli pulls schema-builder table declarations into canonical source
 import * as Pg from "effect-qb/postgres"
 import { Column as C, Table } from "effect-qb/postgres"
 
-const db = Pg.schema("__SCHEMA__")
+const db = Pg.Schema.make("__SCHEMA__")
 
 export const audits = db.table("audits", {
   id: C.uuid().pipe(C.primaryKey),

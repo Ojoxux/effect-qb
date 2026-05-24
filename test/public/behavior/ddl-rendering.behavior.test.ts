@@ -246,7 +246,7 @@ describe("ddl rendering behavior", () => {
   })
 
   test("postgres drop index qualifies indexes for schema-scoped tables", () => {
-    const analytics = Postgres.schema("analytics")
+    const analytics = Postgres.Schema.make("analytics")
     const events = analytics.table("events", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       userId: StdRoot.Column.uuid()

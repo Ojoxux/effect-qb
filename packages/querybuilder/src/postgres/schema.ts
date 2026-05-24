@@ -113,5 +113,3 @@ export const make = <SchemaName extends string>(
     make(schemaName, { casing: Casing.merge(options.casing, override) })
   return namespace as SchemaNamespace<SchemaName>
 }
-
-export const schema = make

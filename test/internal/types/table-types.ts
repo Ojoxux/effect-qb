@@ -21,7 +21,7 @@ const users = Std.Table.make("users", {
   Std.Table.index(["email", "createdAt"])
 )
 
-const analytics = Postgres.schema("analytics")
+const analytics = Postgres.Schema.make("analytics")
 const events = analytics.table("events", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),
   userId: Std.Column.uuid()

@@ -215,7 +215,7 @@ const users = Table.make("users", {
 Schema-qualified tables are also typed:
 
 ```ts
-const analytics = Pg.schema("analytics")
+const analytics = Pg.Schema.make("analytics")
 
 const events = analytics.table("events", {
   id: C.uuid().pipe(C.primaryKey),

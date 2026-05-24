@@ -190,7 +190,7 @@ describe("postgres dialect behavior", () => {
   })
 
   test("renders nextval sequence definitions with quoted regclass names", () => {
-    const sequence = Postgres.schema("Audit\"Schema").sequence("User\"ID_seq")
+    const sequence = Postgres.Schema.make("Audit\"Schema").sequence("User\"ID_seq")
     const plan = Postgres.Query.select({
       id: Postgres.Function.nextVal(sequence)
     })
@@ -1456,7 +1456,7 @@ describe("postgres dialect behavior", () => {
   })
 
   test("renders schema-qualified postgres tables in queries and ddl", () => {
-    const analytics = Postgres.schema("analytics")
+    const analytics = Postgres.Schema.make("analytics")
     const users = analytics.table("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })

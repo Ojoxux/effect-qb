@@ -18,7 +18,7 @@ const users = Table.make("users", {
 
 {
   // README.md:217-224
-  const analytics = Pg.schema("analytics")
+  const analytics = Pg.Schema.make("analytics")
 
   const events = analytics.table("events", {
     id: C.uuid().pipe(C.primaryKey),

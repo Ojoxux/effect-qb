@@ -5,14 +5,15 @@
 The standard dialect is the portable authoring layer for `effect-qb`.
 
 Users should be able to define tables, columns, scalar expressions, and query
-plans with `effect-qb/standard` when they intend that SQL to run on the built-in
-engines. A standard plan is not a fourth database backend. It is a typed promise
-that the plan uses only portable SQL concepts, while each concrete renderer or
-executor still emits the SQL shape required by its engine.
+plans from the root `effect-qb` modules when they intend that SQL to run on the
+built-in engines. A standard plan is not a fourth database backend. It is a
+typed promise that the plan uses only portable SQL concepts, while each concrete
+renderer or executor still emits the SQL shape required by its engine.
 
 The end state is:
 
-- `effect-qb/standard` is the default namespace for database-agnostic query code.
+- `effect-qb` root modules are the default namespace for database-agnostic query
+  code.
 - Standard-only plans can be rendered or executed by Postgres, MySQL, and SQLite
   entrypoints.
 - Standard plans that use one concrete-dialect expression narrow to that
@@ -312,7 +313,7 @@ runtime guard unless untyped data can cross the public boundary.
 
 The standard dialect project is complete when:
 
-- `effect-qb/standard` is documented as the portable authoring namespace.
+- Root `effect-qb` modules are documented as the portable authoring namespace.
 - Standard tables, columns, datatypes, functions, and query builders cover the
   agreed portable SQL subset.
 - Standard-only plans render through all built-in concrete renderers.
@@ -322,7 +323,8 @@ The standard dialect project is complete when:
 - Type tests cover the dialect lattice and renderer compatibility rules.
 - Behavior tests cover standard rendering across Postgres, MySQL, SQLite, and
   the reference standard renderer.
-- Package exports expose `effect-qb/standard` with source types and built output.
+- Package exports expose root portable modules, plus the explicit
+  `effect-qb/standard` subpath, with source types and built output.
 - Validation passes with:
 
 ```sh

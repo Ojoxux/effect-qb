@@ -2056,6 +2056,9 @@ const renderTableForeignKeyUpdate = (
   )}`
 }
 
+const renderSchemaFactoryExpression = (schemaName: string): string =>
+  `${PG_ALIAS}.Schema.make(${renderStringLiteral(schemaName)})`
+
 const renderEnumDeclaration = (
   declaration: SourceDeclaration,
   enumType: EnumModel
@@ -2065,7 +2068,7 @@ const renderEnumDeclaration = (
     case "enumFactory":
       return enumType.schemaName === undefined || enumType.schemaName === "public"
         ? `const ${declaration.identifier} = ${PG_ALIAS}.enum(${renderStringLiteral(enumType.name)}, ${values})`
-        : `const ${declaration.identifier} = ${PG_ALIAS}.schema(${renderStringLiteral(enumType.schemaName)}).enum(${renderStringLiteral(enumType.name)}, ${values})`
+        : `const ${declaration.identifier} = ${renderSchemaFactoryExpression(enumType.schemaName)}.enum(${renderStringLiteral(enumType.name)}, ${values})`
     case "enumSchema":
       return `const ${declaration.identifier} = ${declaration.schemaBuilderIdentifier}.enum(${renderStringLiteral(enumType.name)}, ${values})`
     default:
@@ -2089,7 +2092,7 @@ const renderSequenceExpression = (
 ): string =>
   sequence.schemaName === undefined || sequence.schemaName === "public"
     ? `${PG_ALIAS}.sequence(${renderStringLiteral(sequence.name)})`
-    : `${schemaBuilderIdentifier ?? `${PG_ALIAS}.schema(${renderStringLiteral(sequence.schemaName)})`}.sequence(${renderStringLiteral(sequence.name)})`
+    : `${schemaBuilderIdentifier ?? renderSchemaFactoryExpression(sequence.schemaName)}.sequence(${renderStringLiteral(sequence.name)})`
 
 const renderSequenceDeclaration = (
   sequence: CanonicalSequence,
@@ -2352,7 +2355,7 @@ const renderInlineEnumExpression = (
   const values = renderStringTuple(enumType.values)
   return enumType.schemaName === undefined || enumType.schemaName === "public"
     ? `${PG_ALIAS}.enum(${renderStringLiteral(enumType.name)}, ${values})`
-    : `${schemaBuilderIdentifier ?? `${PG_ALIAS}.schema(${renderStringLiteral(enumType.schemaName)})`}.enum(${renderStringLiteral(enumType.name)}, ${values})`
+    : `${schemaBuilderIdentifier ?? renderSchemaFactoryExpression(enumType.schemaName)}.enum(${renderStringLiteral(enumType.name)}, ${values})`
 }
 
 const sequenceReferenceOfKey = (key: string): SequenceReference => {
@@ -2479,7 +2482,7 @@ const renderCanonicalNewModule = (
   ]
   const body: string[] = []
   if (schemaBuilderIdentifier !== undefined) {
-    body.push(`const ${schemaBuilderIdentifier} = ${PG_ALIAS}.schema(${renderStringLiteral(schemaName!)})`)
+    body.push(`const ${schemaBuilderIdentifier} = ${renderSchemaFactoryExpression(schemaName!)}`)
   }
   body.push(...hoistedSequences.map((sequence) => renderSequenceDeclaration(sequence, schemaBuilderIdentifier)))
   body.push(...hoistedEnumDeclarations)

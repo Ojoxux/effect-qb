@@ -10,8 +10,8 @@ const users = Std.Table.make("users", {
 })
 
 const status = Pg.enum("status", ["pending", "active"])
-const scopedStatus = Pg.schema("public").enum("status", ["pending", "active"])
-const quotedStatus = Pg.schema("audit\"schema").enum("status\"type", ["active"])
+const scopedStatus = Pg.Schema.make("public").enum("status", ["pending", "active"])
+const quotedStatus = Pg.Schema.make("audit\"schema").enum("status\"type", ["active"])
 type StatusValues = typeof status.values
 type ScopedStatusValues = typeof scopedStatus.values
 const statusValues: StatusValues = ["pending", "active"]
@@ -38,7 +38,7 @@ const builtinColumns = Std.Table.make("builtin_columns", {
 })
 
 const auditSeq = Pg.sequence("awsdms_ddl_audit_c_key_seq")
-const scopedAuditSeq = Pg.schema("audit").sequence("awsdms_ddl_audit_c_key_seq")
+const scopedAuditSeq = Pg.Schema.make("audit").sequence("awsdms_ddl_audit_c_key_seq")
 const sequenceDefaultColumn = PgColumn.int8().pipe(
   Std.Column.default(Pg.Function.nextVal(auditSeq))
 )

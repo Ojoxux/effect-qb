@@ -26,7 +26,7 @@ describe("postgres schema management", () => {
       Table.index("email")
     )
 
-    const status = Pg.schema("public").enum("status", ["pending", "active", "archived"] as const)
+    const status = Pg.Schema.make("public").enum("status", ["pending", "active", "archived"] as const)
 
     const source: SchemaModel = {
       dialect: "postgres",
@@ -36,7 +36,7 @@ describe("postgres schema management", () => {
 
     const database: SchemaModel = {
       dialect: "postgres",
-      enums: [toEnumModel(Pg.schema("public").enum("status", ["pending", "active"] as const) as unknown as Parameters<typeof toEnumModel>[0])],
+      enums: [toEnumModel(Pg.Schema.make("public").enum("status", ["pending", "active"] as const) as unknown as Parameters<typeof toEnumModel>[0])],
       tables: [{
         kind: "table",
         schemaName: "public",
@@ -82,19 +82,19 @@ describe("postgres schema management", () => {
   test("classifies enum shrink and reorder as manual destructive changes", () => {
     const database: SchemaModel = {
       dialect: "postgres",
-      enums: [toEnumModel(Pg.schema("public").enum("status", ["pending", "active"] as const) as unknown as Parameters<typeof toEnumModel>[0])],
+      enums: [toEnumModel(Pg.Schema.make("public").enum("status", ["pending", "active"] as const) as unknown as Parameters<typeof toEnumModel>[0])],
       tables: []
     }
 
     const shrink = planPostgresSchemaDiff({
       dialect: "postgres",
-      enums: [toEnumModel(Pg.schema("public").enum("status", ["pending"] as const) as unknown as Parameters<typeof toEnumModel>[0])],
+      enums: [toEnumModel(Pg.Schema.make("public").enum("status", ["pending"] as const) as unknown as Parameters<typeof toEnumModel>[0])],
       tables: []
     }, database)
 
     const reorder = planPostgresSchemaDiff({
       dialect: "postgres",
-      enums: [toEnumModel(Pg.schema("public").enum("status", ["active", "pending"] as const) as unknown as Parameters<typeof toEnumModel>[0])],
+      enums: [toEnumModel(Pg.Schema.make("public").enum("status", ["active", "pending"] as const) as unknown as Parameters<typeof toEnumModel>[0])],
       tables: []
     }, database)
 
@@ -174,7 +174,7 @@ describe("postgres schema management", () => {
   })
 
   test("renders schema enum column types with quoted qualified identifiers", () => {
-    const status = Pg.schema("audit\"schema").enum("status\"type", ["active"] as const)
+    const status = Pg.Schema.make("audit\"schema").enum("status\"type", ["active"] as const)
     const users = StdRoot.Table.make("users", {
       status: status.column()
     })
@@ -298,8 +298,8 @@ describe("postgres schema management", () => {
   })
 
   test("does not collapse discovered enum identities that contain dots", () => {
-    const tenantAStatus = Pg.schema("tenant.a").enum("status", ["active"] as const)
-    const tenantDottedStatus = Pg.schema("tenant").enum("a.status", ["pending"] as const)
+    const tenantAStatus = Pg.Schema.make("tenant.a").enum("status", ["active"] as const)
+    const tenantDottedStatus = Pg.Schema.make("tenant").enum("a.status", ["pending"] as const)
 
     const model = fromDiscoveredValues([tenantAStatus, tenantDottedStatus])
 
@@ -1024,13 +1024,13 @@ const users = Table.make("users", {
         }
       } as const
 
-      const connections = Pg.schema("payment").table("connections", {
+      const connections = Pg.Schema.make("payment").table("connections", {
         id: StdRoot.Column.uuid()
       }).pipe(
         Table.primaryKey("id")
       )
 
-      const accountMappings = Pg.schema("payment").table("account_mappings", {
+      const accountMappings = Pg.Schema.make("payment").table("account_mappings", {
         id: StdRoot.Column.uuid(),
         connection_id: StdRoot.Column.uuid()
       }).pipe(
@@ -1099,7 +1099,7 @@ const users = Table.make("users", {
 
       expect(plan.updates).toHaveLength(1)
       const after = plan.updates[0]?.after ?? ""
-      expect(after).toContain(`const Audit_Schema = Pg.schema("Audit\\"Schema")`)
+      expect(after).toContain(`const Audit_Schema = Pg.Schema.make("Audit\\"Schema")`)
       expect(after).toContain(`Column.default(Pg.Function.nextVal(Audit_Schema.sequence("User\\"ID_seq")))`)
       expect(after).not.toContain("SchemaExpression.fromSql")
     } finally {
@@ -1143,9 +1143,9 @@ const users = Table.make("users", {
 
       expect(plan.updates).toHaveLength(1)
       const after = plan.updates[0]?.after ?? ""
-      expect(after).toContain(`const tenant_a = Pg.schema("tenant.a")`)
+      expect(after).toContain(`const tenant_a = Pg.Schema.make("tenant.a")`)
       expect(after).toContain(`Column.default(Pg.Function.nextVal(tenant_a.sequence("users_id_seq")))`)
-      expect(after).not.toContain(`Pg.schema("tenant").sequence("a.users_id_seq")`)
+      expect(after).not.toContain(`Pg.Schema.make("tenant").sequence("a.users_id_seq")`)
     } finally {
       await rm(tempDir, { recursive: true, force: true })
     }
@@ -1241,7 +1241,7 @@ export const users = Table.make("users", {
 import * as Pg from "#postgres"
 import { Column as Col } from "effect-qb"
 
-const admin = Pg.schema("admin")
+const admin = Pg.Schema.make("admin")
 
 export const audits = admin.table("audits", {
   id: Col.uuid()

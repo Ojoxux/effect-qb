@@ -9,7 +9,7 @@ import * as StdRoot from "#standard"
 
 describe("postgres source filter", () => {
   test("keeps table-referenced enums with quoted qualified ddl types", () => {
-    const status = Pg.schema("audit\"schema").enum("status\"type", ["active"] as const)
+    const status = Pg.Schema.make("audit\"schema").enum("status\"type", ["active"] as const)
     const users = StdRoot.Table.make("users", {
       status: C.custom(Schema.String, status.type()).pipe(
         C.ddlType("\"audit\"\"schema\".\"status\"\"type\"")
