@@ -68,6 +68,22 @@ Pg.Table.foreignKey({ columns: "orgId", target: () => orgs, referencedColumns: "
 Pg.Table.check("", Q.eq(memberships.role, "admin"))
 // @ts-expect-error postgres rich check constraint names must be non-empty
 Pg.Table.check({ name: "", predicate: Q.eq(memberships.role, "admin") })
+// @ts-expect-error inline unique constraint names must be non-empty
+Std.Column.text().pipe(Std.Column.unique.options({ name: "" }))
+// @ts-expect-error postgres inline unique constraint names must be non-empty
+Std.Column.text().pipe(Pg.Column.unique.options({ name: "" }))
+// @ts-expect-error postgres inline index names must be non-empty
+Std.Column.text().pipe(Pg.Column.index({ name: "" }))
+// @ts-expect-error postgres inline index methods must be non-empty
+Std.Column.text().pipe(Pg.Column.index({ method: "" }))
+// @ts-expect-error postgres inline index included columns must be non-empty
+Std.Column.text().pipe(Pg.Column.index({ include: [""] as const }))
+// @ts-expect-error postgres inline index operator classes must be non-empty
+Std.Column.text().pipe(Pg.Column.index({ operatorClass: "" }))
+// @ts-expect-error postgres inline index collations must be non-empty
+Std.Column.text().pipe(Pg.Column.index({ collation: "" }))
+// @ts-expect-error postgres inline foreign key names must be non-empty
+Std.Column.uuid().pipe(Pg.Column.foreignKey({ target: () => orgs.id, name: "" }))
 
 type CreateTableStatement = Q.StatementOfPlan<typeof createTablePlan>
 type DropTableStatement = Q.StatementOfPlan<typeof dropTablePlan>

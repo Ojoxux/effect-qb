@@ -42,6 +42,7 @@ import {
   type SelectType,
   type UpdateType
 } from "./column-state.js"
+import type { NonEmptyStringInput } from "./table-options.js"
 
 type ReferentialAction = "noAction" | "restrict" | "cascade" | "setNull" | "setDefault"
 
@@ -222,6 +223,36 @@ type ForeignKeyOptions<Target extends AnyBoundColumn> = {
   readonly deferrable?: boolean
   readonly initiallyDeferred?: boolean
 }
+
+type NonEmptyOptionNameInput<Options> = Options extends { readonly name: infer Name extends string }
+  ? NonEmptyStringInput<Name> extends never ? never : unknown
+  : unknown
+
+type NonEmptyStringArrayInput<Values extends readonly string[]> =
+  [Extract<Values[number], "">] extends [never] ? unknown : never
+
+type NonEmptyIndexMethodInput<Options> = Options extends { readonly method: infer Method extends string }
+  ? NonEmptyStringInput<Method> extends never ? never : unknown
+  : unknown
+
+type NonEmptyIndexIncludeInput<Options> = Options extends { readonly include: infer Include extends readonly string[] }
+  ? NonEmptyStringArrayInput<Include>
+  : unknown
+
+type NonEmptyIndexOperatorClassInput<Options> = Options extends { readonly operatorClass: infer OperatorClass extends string }
+  ? NonEmptyStringInput<OperatorClass> extends never ? never : unknown
+  : unknown
+
+type NonEmptyIndexCollationInput<Options> = Options extends { readonly collation: infer Collation extends string }
+  ? NonEmptyStringInput<Collation> extends never ? never : unknown
+  : unknown
+
+type NonEmptyIndexMetadataInput<Options> =
+  & NonEmptyOptionNameInput<Options>
+  & NonEmptyIndexMethodInput<Options>
+  & NonEmptyIndexIncludeInput<Options>
+  & NonEmptyIndexOperatorClassInput<Options>
+  & NonEmptyIndexCollationInput<Options>
 
 type SchemaCompatibleColumn<
   Column extends AnyColumnDefinition,
@@ -500,7 +531,7 @@ export const primaryKey = <Column extends AnyColumnDefinition>(
 type UniqueModifier = {
   <Column extends AnyColumnDefinition>(column: Column): UniqueColumn<Column>
   readonly options: <const Options extends ColumnUniqueOptions>(
-    options: Options
+    options: Options & NonEmptyOptionNameInput<Options>
   ) => <Column extends AnyColumnDefinition>(column: Column) => UniqueColumn<Column>
 }
 
@@ -596,7 +627,7 @@ export function index<Column extends AnyColumnDefinition>(
   column: Column
 ): IndexedColumn<Column>
 export function index<const Options extends ColumnIndexOptions>(
-  options: Options
+  options: Options & NonEmptyIndexMetadataInput<Options>
 ): <Column extends AnyColumnDefinition>(column: Column) => IndexedColumn<Column>
 export function index(arg: AnyColumnDefinition | ColumnIndexOptions): IndexedColumn<AnyColumnDefinition> | IndexPipe {
   if (isColumnDefinitionValue(arg)) {
@@ -660,7 +691,7 @@ export function foreignKey<Target extends AnyBoundColumn>(
   column: CompatibleReference<Column, Target>
 ) => ReferencingColumn<Column, Target>
 export function foreignKey<const Options extends ForeignKeyOptions<AnyBoundColumn>>(
-  options: Options
+  options: Options & NonEmptyOptionNameInput<Options>
 ): <Column extends AnyColumnDefinition>(
   column: CompatibleReference<Column, ReturnType<Options["target"]>>
 ) => ReferencingColumn<Column, ReturnType<Options["target"]>>

@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema"
 import * as BaseColumn from "../internal/column.js"
 import { makeColumnDefinition, type AnyColumnDefinition, type ColumnDefinition } from "../internal/column-state.js"
 import type * as Expression from "../internal/scalar.js"
+import type { NonEmptyStringInput } from "../internal/table-options.js"
 import { enrichDbType } from "../internal/datatypes/enrich.js"
 import {
   BigIntStringSchema,
@@ -139,10 +140,14 @@ type StandardUniqueOptions = {
   readonly initiallyDeferred?: never
 }
 
+type NonEmptyOptionNameInput<Options> = Options extends { readonly name: infer Name extends string }
+  ? NonEmptyStringInput<Name> extends never ? never : unknown
+  : unknown
+
 type UniqueModifier = {
   <Column extends AnyColumnDefinition>(column: Column): UniqueColumn<Column>
   readonly options: <const Options extends StandardUniqueOptions>(
-    options: Options
+    options: Options & NonEmptyOptionNameInput<Options>
   ) => <Column extends AnyColumnDefinition>(column: Column) => UniqueColumn<Column>
 }
 
