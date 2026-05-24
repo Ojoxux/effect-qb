@@ -313,6 +313,33 @@ describe("rendering behavior", () => {
     }
   })
 
+  test("standard renderer rejects non-union set operator all variants", () => {
+    const users = Standard.Table.make("users", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey),
+      email: Standard.Column.text()
+    })
+    const archivedUsers = Standard.Table.make("archived_users", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey),
+      email: Standard.Column.text()
+    })
+    const active = Standard.Query.select({
+      email: users.email
+    }).pipe(Standard.Query.from(users))
+    const archived = Standard.Query.select({
+      email: archivedUsers.email
+    }).pipe(Standard.Query.from(archivedUsers))
+    const plans = [
+      Standard.Query.intersectAll(active, archived),
+      Standard.Query.exceptAll(active, archived)
+    ]
+
+    for (const plan of plans) {
+      expect(() => Standard.Renderer.make().render(plan)).toThrow(
+        "Unsupported standard set operator all variant"
+      )
+    }
+  })
+
   test("renderers reject excluded references outside insert conflict handlers", () => {
     const users = Standard.Table.make("users", {
       email: Standard.Column.text()

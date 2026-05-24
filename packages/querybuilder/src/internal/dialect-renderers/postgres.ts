@@ -1505,6 +1505,9 @@ export const renderQueryAst = (
             dialect
           )
           assertMatchingSetProjections(projections, rendered.projections)
+          if (dialect.name === "standard" && entry.all && entry.kind !== "union") {
+            throw new Error("Unsupported standard set operator all variant")
+          }
           return `${entry.kind}${entry.all ? " all" : ""} (${rendered.sql})`
         })
       ].join(" ")
