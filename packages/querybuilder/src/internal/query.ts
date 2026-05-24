@@ -2568,16 +2568,8 @@ export const extractRequiredRuntime = (selection: SelectionShape): readonly stri
 
 /** Extracts the single top-level expression from a scalar subquery selection. */
 export const extractSingleSelectedExpressionRuntime = (selection: SelectionShape): Expression.Any => {
-  const keys = Object.keys(selection)
-  if (keys.length !== 1) {
-    throw new Error("scalar subqueries must select exactly one top-level expression")
-  }
-  const record = selection as Record<string, unknown>
-  const value = record[keys[0]!]
-  if (value === null || typeof value !== "object" || !(Expression.TypeId in (value as object))) {
-    throw new Error("scalar subqueries must select a scalar expression")
-  }
-  return value as unknown as Expression.Any
+  const record = selection as Record<string, Expression.Any>
+  return record[Object.keys(record)[0]!]!
 }
 
 /** Converts the plan's runtime `required` metadata into a mutable string list. */

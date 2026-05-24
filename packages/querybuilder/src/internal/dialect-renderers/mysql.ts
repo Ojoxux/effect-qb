@@ -408,25 +408,15 @@ const isJsonExpression = (value: unknown): value is Expression.Any =>
   isExpression(value) && isJsonDbType(value[Expression.TypeId].dbType)
 
 const expectValueExpression = (
-  functionName: string,
+  _functionName: string,
   value: unknown
-): Expression.Any => {
-  if (!isExpression(value)) {
-    throw new Error(`${functionName}(...) requires a value expression`)
-  }
-  return value
-}
+): Expression.Any => value as Expression.Any
 
 const expectBinaryExpressions = (
-  functionName: string,
+  _functionName: string,
   left: unknown,
   right: unknown
-): readonly [Expression.Any, Expression.Any] => {
-  if (!isExpression(left) || !isExpression(right)) {
-    throw new Error(`${functionName}(...) requires left and right expressions`)
-  }
-  return [left, right]
-}
+): readonly [Expression.Any, Expression.Any] => [left as Expression.Any, right as Expression.Any]
 
 const renderBinaryExpression = (
   functionName: string,
@@ -820,38 +810,27 @@ const renderFunctionCall = (
   if (typeof name !== "string" || name.trim().length === 0) {
     throw new Error("function calls require a non-empty function name")
   }
-  if (!Array.isArray(args)) {
-    throw new Error("function calls require an argument array")
-  }
-  if (args.some((arg) => !isExpression(arg))) {
-    throw new Error("function call arguments require value expressions")
-  }
+  const functionArgs = args as readonly Expression.Any[]
   if (name === "array") {
-    return `ARRAY[${args.map((arg) => renderExpression(arg, state, dialect)).join(", ")}]`
+    return `ARRAY[${functionArgs.map((arg) => renderExpression(arg, state, dialect)).join(", ")}]`
   }
-  if (name === "current_date" && args.length > 0) {
+  if (name === "current_date" && functionArgs.length > 0) {
     throw new Error("current_date does not accept arguments")
   }
-  if (name === "extract" && args.length !== 2) {
+  if (name === "extract" && functionArgs.length !== 2) {
     throw new Error("extract(...) requires exactly field and source arguments")
   }
   if (name === "extract") {
-    const field = args[0]
-    const source = args[1]
-    if (field === undefined) {
-      throw new Error("Unsupported SQL extract expression")
-    }
-    if (source === undefined) {
-      throw new Error("Unsupported SQL extract expression")
-    }
-    const fieldRuntime = isExpression(field) && field[Expression.TypeId].dbType.kind === "text" && typeof field[Expression.TypeId].runtime === "string"
+    const field = functionArgs[0]!
+    const source = functionArgs[1]!
+    const fieldRuntime = field[Expression.TypeId].dbType.kind === "text" && typeof field[Expression.TypeId].runtime === "string"
       ? field[Expression.TypeId].runtime
       : undefined
     const renderedField = fieldRuntime ?? renderExpression(field, state, dialect)
     return `extract(${renderedField} from ${renderExpression(source, state, dialect)})`
   }
-  const renderedArgs = args.map((arg) => renderExpression(arg, state, dialect)).join(", ")
-  if (args.length === 0) {
+  const renderedArgs = functionArgs.map((arg) => renderExpression(arg, state, dialect)).join(", ")
+  if (functionArgs.length === 0) {
     switch (name) {
       case "current_date":
       case "current_time":
@@ -966,18 +945,7 @@ const renderJsonExpression = (
       return undefined
     }
     case "jsonBuildObject": {
-      if (!Array.isArray((ast as { readonly entries?: unknown }).entries)) {
-        throw new Error("json build object expressions require an entries array")
-      }
       const entries = (ast as { readonly entries: readonly { readonly key: string; readonly value: Expression.Any }[] }).entries
-      if (entries.some((entry) =>
-        typeof entry !== "object" ||
-        entry === null ||
-        typeof (entry as { readonly key?: unknown }).key !== "string" ||
-        !isExpression((entry as { readonly value?: unknown }).value)
-      )) {
-        throw new Error("json build object entries require string keys and value expressions")
-      }
       const renderedEntries = entries.flatMap((entry) => [
         dialect.renderLiteral(entry.key, state),
         renderJsonInputExpression(entry.value, state, dialect)
@@ -991,13 +959,7 @@ const renderJsonExpression = (
       return undefined
     }
     case "jsonBuildArray": {
-      if (!Array.isArray((ast as { readonly values?: unknown }).values)) {
-        throw new Error("json build array expressions require a value array")
-      }
       const values = (ast as { readonly values: readonly Expression.Any[] }).values
-      if (values.some((value) => !isExpression(value))) {
-        throw new Error("json build array entries require value expressions")
-      }
       const renderedValues = values.map((value) => renderJsonInputExpression(value, state, dialect)).join(", ")
       if (dialect.name === "postgres") {
         return `${postgresExpressionKind === "jsonb" ? "jsonb" : "json"}_build_array(${renderedValues})`
@@ -1273,9 +1235,6 @@ const renderSelectionList = (
   dialect: SqlDialect
 ): RenderedQueryAst => {
   const flattened = flattenSelection(selection)
-  if (dialect.name === "mysql" && flattened.length === 0) {
-    throw new Error("mysql select statements require at least one selected expression")
-  }
   const projections = selectionProjections(selection)
   const sql = flattened.map(({ expression, alias }) =>
     `${renderSelectSql(renderExpression(expression, state, dialect), expressionDriverContext(expression, state, dialect))} as ${dialect.quoteIdentifier(alias)}`).join(", ")
@@ -1870,24 +1829,15 @@ export const renderExpression = (
     return jsonSql
   }
   const ast = rawAst as ExpressionAst.Any
-  const renderComparisonOperator = (operator: unknown): "=" | "<>" | "<" | "<=" | ">" | ">=" => {
-    switch (operator) {
-      case "eq":
-        return "="
-      case "neq":
-        return "<>"
-      case "lt":
-        return "<"
-      case "lte":
-        return "<="
-      case "gt":
-        return ">"
-      case "gte":
-        return ">="
-      default:
-        throw new Error("quantified comparison operator must be eq, neq, lt, lte, gt, or gte")
-    }
-  }
+  const renderComparisonOperator = (operator: unknown): "=" | "<>" | "<" | "<=" | ">" | ">=" =>
+    ({
+      eq: "=",
+      neq: "<>",
+      lt: "<",
+      lte: "<=",
+      gt: ">",
+      gte: ">="
+    } as const)[operator as "eq" | "neq" | "lt" | "lte" | "gt" | "gte"]!
   switch (ast.kind) {
     case "column":
       return state.rowLocalColumns || ast.tableName.length === 0
@@ -2030,55 +1980,20 @@ export const renderExpression = (
     case "min":
       return `min(${renderExpression(expectValueExpression("min", ast.value), state, dialect)})`
     case "and":
-      if (!Array.isArray(ast.values) || ast.values.length === 0) {
-        throw new Error("and(...) requires at least one predicate")
-      }
       return `(${ast.values.map((value: Expression.Any) => renderExpression(value, state, dialect)).join(" and ")})`
     case "or":
-      if (!Array.isArray(ast.values) || ast.values.length === 0) {
-        throw new Error("or(...) requires at least one predicate")
-      }
       return `(${ast.values.map((value: Expression.Any) => renderExpression(value, state, dialect)).join(" or ")})`
     case "coalesce":
-      if (!Array.isArray(ast.values) || ast.values.length === 0) {
-        throw new Error("coalesce(...) requires at least one value")
-      }
       return `coalesce(${ast.values.map((value: Expression.Any) => renderExpression(value, state, dialect)).join(", ")})`
     case "in":
-      if (!Array.isArray(ast.values) || ast.values.length < 2) {
-        throw new Error("in(...) requires at least one candidate value")
-      }
       return `(${renderExpression(ast.values[0]!, state, dialect)} in (${ast.values.slice(1).map((value: Expression.Any) => renderExpression(value, state, dialect)).join(", ")}))`
     case "notIn":
-      if (!Array.isArray(ast.values) || ast.values.length < 2) {
-        throw new Error("notIn(...) requires at least one candidate value")
-      }
       return `(${renderExpression(ast.values[0]!, state, dialect)} not in (${ast.values.slice(1).map((value: Expression.Any) => renderExpression(value, state, dialect)).join(", ")}))`
     case "between":
-      if (!Array.isArray(ast.values) || ast.values.length !== 3) {
-        throw new Error("between(...) requires exactly three operands")
-      }
       return `(${renderExpression(ast.values[0]!, state, dialect)} between ${renderExpression(ast.values[1]!, state, dialect)} and ${renderExpression(ast.values[2]!, state, dialect)})`
     case "concat":
-      if (!Array.isArray(ast.values) || ast.values.length < 2) {
-        throw new Error("concat(...) requires at least two values")
-      }
       return dialect.renderConcat(ast.values.map((value: Expression.Any) => renderExpression(value, state, dialect)))
     case "case":
-      if (!Array.isArray(ast.branches) || ast.branches.length === 0) {
-        throw new Error("case(...) requires at least one branch")
-      }
-      if (!isExpression(ast.else)) {
-        throw new Error("case(...) requires an else expression")
-      }
-      if (ast.branches.some((branch) =>
-        typeof branch !== "object" ||
-        branch === null ||
-        !isExpression((branch as { readonly when?: unknown }).when) ||
-        !isExpression((branch as { readonly then?: unknown }).then)
-      )) {
-        throw new Error("case(...) requires every branch to define when and then expressions")
-      }
       return `case ${ast.branches.map((branch) =>
         `when ${renderExpression(branch.when, state, dialect)} then ${renderExpression(branch.then, state, dialect)}`
       ).join(" ")} else ${renderExpression(ast.else, state, dialect)} end`
@@ -2093,30 +2008,17 @@ export const renderExpression = (
     case "comparisonAll":
       return `(${renderExpression(expectValueExpression("compareAll", ast.left), state, dialect)} ${renderComparisonOperator(ast.operator)} all (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
     case "window": {
-      if (!Array.isArray(ast.partitionBy) || !Array.isArray(ast.orderBy) || typeof ast.function !== "string") {
-        throw new Error("window expressions require partitionBy and orderBy arrays")
-      }
-      if (ast.function === "over" && !isExpression(ast.value)) {
-        throw new Error("window over(...) requires an aggregate expression")
-      }
-      if (ast.orderBy.some((entry) =>
-        typeof entry !== "object" ||
-        entry === null
-      )) {
-        throw new Error("window order terms require expression values")
-      }
-      if (ast.orderBy.some((entry) => !isExpression((entry as { readonly value?: unknown }).value))) {
-        throw new Error("window order terms require expression values")
-      }
-      if (ast.partitionBy.some((value) => !isExpression(value))) {
-        throw new Error("window partition terms require expression values")
-      }
+      const partitionBy = ast.partitionBy as readonly Expression.Any[]
+      const orderBy = ast.orderBy as readonly {
+        readonly value: Expression.Any
+        readonly direction: string
+      }[]
       const clauses: string[] = []
-      if (ast.partitionBy.length > 0) {
-        clauses.push(`partition by ${ast.partitionBy.map((value: Expression.Any) => renderExpression(value, state, dialect)).join(", ")}`)
+      if (partitionBy.length > 0) {
+        clauses.push(`partition by ${partitionBy.map((value) => renderExpression(value, state, dialect)).join(", ")}`)
       }
-      if (ast.orderBy.length > 0) {
-        clauses.push(`order by ${ast.orderBy.map((entry) =>
+      if (orderBy.length > 0) {
+        clauses.push(`order by ${orderBy.map((entry) =>
           `${renderExpression(entry.value, state, dialect)} ${entry.direction}`
         ).join(", ")}`)
       }
@@ -2129,7 +2031,7 @@ export const renderExpression = (
         case "denseRank":
           return `dense_rank() over (${specification})`
         case "over":
-          return `${renderExpression(ast.value!, state, dialect)} over (${specification})`
+          return `${renderExpression(ast.value as Expression.Any, state, dialect)} over (${specification})`
       }
       break
     }

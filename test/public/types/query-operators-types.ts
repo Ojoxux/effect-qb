@@ -45,6 +45,27 @@ Postgres.Query.distinctOn()
 // @ts-expect-error groupBy(...) requires at least one expression
 Q.groupBy()
 
+// @ts-expect-error and(...) requires at least one predicate
+Q.and()
+
+// @ts-expect-error or(...) requires at least one predicate
+Q.or()
+
+// @ts-expect-error all(...) requires at least one predicate
+Q.all()
+
+// @ts-expect-error any(...) requires at least one predicate
+Q.any()
+
+// @ts-expect-error in(...) requires at least one candidate value
+Q.in(users.email)
+
+// @ts-expect-error notIn(...) requires at least one candidate value
+Q.notIn(users.email)
+
+// @ts-expect-error concat(...) requires at least two values
+Q.concat(users.email)
+
 // @ts-expect-error orderBy(...) direction must be asc or desc
 Q.orderBy(users.email, "sideways")
 

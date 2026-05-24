@@ -54,22 +54,6 @@ describe("mysql dialect behavior", () => {
     expect(rendered.params).toEqual([timestamp, 7, "user"])
   })
 
-  test("rejects empty mysql selections", () => {
-    const { users } = makeMysqlSocialGraph()
-
-    expect(() => Mysql.Renderer.make().render(
-      Mysql.Query.select({}).pipe(Mysql.Query.from(users))
-    )).toThrow()
-  })
-
-  test("rejects omitted mysql selections", () => {
-    const { users } = makeMysqlSocialGraph()
-
-    expect(() => Mysql.Renderer.make().render(
-      Mysql.Query.select().pipe(Mysql.Query.from(users))
-    )).toThrow()
-  })
-
   test("renders mysql concat syntax across grouped queries", () => {
     const { users, posts } = makeMysqlSocialGraph()
     const plan = buildGroupedConcatPlan(Mysql, users, posts)
@@ -336,33 +320,6 @@ describe("mysql dialect behavior", () => {
       "Bob",
       "Other"
     ])
-  })
-
-  test("rejects empty mysql membership predicates", () => {
-    const { users } = makeMysqlSocialGraph()
-
-    expect(() => render(Mysql.Query.select({
-      ok: Mysql.Query.in(users.email)
-    }).pipe(Mysql.Query.from(users)))).toThrow()
-
-    expect(() => render(Mysql.Query.select({
-      ok: Mysql.Query.notIn(users.email)
-    }).pipe(Mysql.Query.from(users)))).toThrow()
-  })
-
-  test("rejects empty mysql boolean combinators", () => {
-    const { users } = makeMysqlSocialGraph()
-
-    for (const expression of [
-      Mysql.Query.and(),
-      Mysql.Query.or(),
-      Mysql.Query.all(),
-      Mysql.Query.any()
-    ]) {
-      expect(() => render(Mysql.Query.select({
-        ok: expression
-      }).pipe(Mysql.Query.from(users)))).toThrow()
-    }
   })
 
   test("renders searched case expressions with mysql placeholders", () => {

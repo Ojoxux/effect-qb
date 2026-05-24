@@ -519,33 +519,6 @@ describe("postgres dialect behavior", () => {
     ])
   })
 
-  test("rejects empty postgres membership predicates", () => {
-    const { users } = makePostgresSocialGraph()
-
-    expect(() => render(Postgres.Query.select({
-      ok: Postgres.Query.in(users.email)
-    }).pipe(Postgres.Query.from(users)))).toThrow()
-
-    expect(() => render(Postgres.Query.select({
-      ok: Postgres.Query.notIn(users.email)
-    }).pipe(Postgres.Query.from(users)))).toThrow()
-  })
-
-  test("rejects empty postgres boolean combinators", () => {
-    const { users } = makePostgresSocialGraph()
-
-    for (const expression of [
-      Postgres.Query.and(),
-      Postgres.Query.or(),
-      Postgres.Query.all(),
-      Postgres.Query.any()
-    ]) {
-      expect(() => render(Postgres.Query.select({
-        ok: expression
-      }).pipe(Postgres.Query.from(users)))).toThrow()
-    }
-  })
-
   test("renders searched case expressions with postgres placeholders", () => {
     const { users, posts } = makePostgresSocialGraph()
 

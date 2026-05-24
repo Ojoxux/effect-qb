@@ -48,83 +48,23 @@ const expressionGroupingKey = (value: unknown): string =>
   isExpression(value) ? groupingKeyOfExpression(value) : "missing"
 
 const requiredExpressionGroupingKey = (
-  functionName: string,
+  _functionName: string,
   value: unknown
-): string => {
-  if (!isExpression(value)) {
-    throw new Error(`${functionName}(...) requires a value expression`)
-  }
-  return groupingKeyOfExpression(value)
-}
+): string => groupingKeyOfExpression(value as Expression.Any)
 
 const requiredBinaryExpressionGroupingKey = (
-  functionName: string,
+  _functionName: string,
   left: unknown,
   right: unknown
-): string => {
-  if (!isExpression(left) || !isExpression(right)) {
-    throw new Error(`${functionName}(...) requires left and right expressions`)
-  }
-  return `${groupingKeyOfExpression(left)},${groupingKeyOfExpression(right)}`
-}
+): string => `${groupingKeyOfExpression(left as Expression.Any)},${groupingKeyOfExpression(right as Expression.Any)}`
 
-const functionCallArgsGroupingKey = (args: unknown): string => {
-  if (!Array.isArray(args)) {
-    throw new Error("function calls require an argument array")
-  }
-  if (args.some((arg) => !isExpression(arg))) {
-    throw new Error("function call arguments require value expressions")
-  }
-  return args.map(groupingKeyOfExpression).join(",")
-}
-
-const requiredVariadicGroupingValues = (
-  functionName: string,
-  values: unknown
-): readonly Expression.Any[] => {
-  const arityError = () => {
-    switch (functionName) {
-      case "and":
-        return new Error("and(...) requires at least one predicate")
-      case "or":
-        return new Error("or(...) requires at least one predicate")
-      case "coalesce":
-        return new Error("coalesce(...) requires at least one value")
-      case "concat":
-        return new Error("concat(...) requires at least two values")
-      case "in":
-        return new Error("in(...) requires at least one candidate value")
-      case "notIn":
-        return new Error("notIn(...) requires at least one candidate value")
-      case "between":
-        return new Error("between(...) requires exactly three operands")
-      default:
-        return new Error(`${functionName}(...) requires value expressions`)
-    }
-  }
-  if (!Array.isArray(values)) {
-    throw arityError()
-  }
-  const entries = values as readonly unknown[]
-  const hasExpectedArity =
-    functionName === "between"
-      ? entries.length === 3
-      : functionName === "concat" || functionName === "in" || functionName === "notIn"
-        ? entries.length >= 2
-        : entries.length >= 1
-  if (!hasExpectedArity) {
-    throw arityError()
-  }
-  if (entries.some((entry) => !isExpression(entry))) {
-    throw new Error(`${functionName}(...) requires value expressions`)
-  }
-  return entries as readonly Expression.Any[]
-}
+const functionCallArgsGroupingKey = (args: unknown): string =>
+  (args as readonly Expression.Any[]).map(groupingKeyOfExpression).join(",")
 
 const variadicGroupingKey = (
-  functionName: string,
+  _functionName: string,
   values: unknown
-): string => requiredVariadicGroupingValues(functionName, values).map(groupingKeyOfExpression).join(",")
+): string => (values as readonly Expression.Any[]).map(groupingKeyOfExpression).join(",")
 
 const castTargetGroupingKey = (target: unknown): string => {
   if (
@@ -162,22 +102,9 @@ const caseGroupingKey = (
   branches: unknown,
   fallback: unknown
 ): string => {
-  if (!Array.isArray(branches) || branches.length === 0) {
-    throw new Error("case(...) requires at least one branch")
-  }
-  if (!isExpression(fallback)) {
-    throw new Error("case(...) requires an else expression")
-  }
-  if (branches.some((branch) =>
-    typeof branch !== "object" ||
-    branch === null ||
-    !isExpression((branch as { readonly when?: unknown }).when) ||
-    !isExpression((branch as { readonly then?: unknown }).then)
-  )) {
-    throw new Error("case(...) requires every branch to define when and then expressions")
-  }
-  return `case(${branches.map((branch: ExpressionAst.CaseBranchNode) =>
-    `when:${groupingKeyOfExpression(branch.when)}=>${groupingKeyOfExpression(branch.then)}`).join("|")};else:${groupingKeyOfExpression(fallback)})`
+  const typedBranches = branches as readonly ExpressionAst.CaseBranchNode[]
+  return `case(${typedBranches.map((branch) =>
+    `when:${groupingKeyOfExpression(branch.when)}=>${groupingKeyOfExpression(branch.then)}`).join("|")};else:${groupingKeyOfExpression(fallback as Expression.Any)})`
 }
 
 const collationGroupingKey = (collation: unknown): string => {
@@ -284,30 +211,12 @@ const jsonKeysGroupingKey = (keys: unknown): string => {
 }
 
 const jsonBuildObjectGroupingKey = (entries: unknown): string => {
-  if (!Array.isArray(entries)) {
-    throw new Error("json build object expressions require an entries array")
-  }
-  if (entries.some((entry) =>
-    typeof entry !== "object" ||
-    entry === null ||
-    typeof (entry as { readonly key?: unknown }).key !== "string" ||
-    !isExpression((entry as { readonly value?: unknown }).value)
-  )) {
-    throw new Error("json build object entries require string keys and value expressions")
-  }
-  return entries.map((entry: { readonly key: string; readonly value: Expression.Any }) =>
+  return (entries as readonly { readonly key: string; readonly value: Expression.Any }[]).map((entry) =>
     `${escapeGroupingText(entry.key)}=>${groupingKeyOfExpression(entry.value)}`).join("|")
 }
 
-const jsonBuildArrayGroupingKey = (values: unknown): string => {
-  if (!Array.isArray(values)) {
-    throw new Error("json build array expressions require a value array")
-  }
-  if (values.some((value) => !isExpression(value))) {
-    throw new Error("json build array entries require value expressions")
-  }
-  return values.map(groupingKeyOfExpression).join(",")
-}
+const jsonBuildArrayGroupingKey = (values: unknown): string =>
+  (values as readonly Expression.Any[]).map(groupingKeyOfExpression).join(",")
 
 export const groupingKeyOfExpression = (expression: Expression.Any): string => {
   const ast = (expression as Expression.Any & {

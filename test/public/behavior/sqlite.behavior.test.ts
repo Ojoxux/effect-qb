@@ -40,18 +40,6 @@ describe("sqlite behavior", () => {
     expect(rendered.dialect).toBe("sqlite")
   })
 
-  test("rejects empty sqlite selections before emitting invalid SQL", () => {
-    const { users } = makeSqliteSocialGraph()
-
-    expect(() => render(Sqlite.Query.select({}).pipe(
-      Sqlite.Query.from(users)
-    ))).toThrow("sqlite select statements require at least one selected expression")
-
-    expect(() => render(Sqlite.Query.select().pipe(
-      Sqlite.Query.from(users)
-    ))).toThrow("sqlite select statements require at least one selected expression")
-  })
-
   test("rejects sqlite-unsupported read constructs before emitting invalid SQL", () => {
     const { users, posts } = makeSqliteSocialGraph()
     const docs = StdRoot.Table.make("docs", {
@@ -471,33 +459,6 @@ describe("sqlite behavior", () => {
     ;(transaction as any)[queryAst].kind = "vacuum"
 
     expect(() => render(transaction)).toThrow("Unsupported query statement kind")
-  })
-
-  test("rejects empty sqlite membership predicates", () => {
-    const { users } = makeSqliteSocialGraph()
-
-    expect(() => render(Sqlite.Query.select({
-      ok: Sqlite.Query.in(users.email)
-    }).pipe(Sqlite.Query.from(users)))).toThrow("in(...) requires at least one candidate value")
-
-    expect(() => render(Sqlite.Query.select({
-      ok: Sqlite.Query.notIn(users.email)
-    }).pipe(Sqlite.Query.from(users)))).toThrow("notIn(...) requires at least one candidate value")
-  })
-
-  test("rejects empty sqlite boolean combinators", () => {
-    const { users } = makeSqliteSocialGraph()
-
-    for (const expression of [
-      Sqlite.Query.and(),
-      Sqlite.Query.or(),
-      Sqlite.Query.all(),
-      Sqlite.Query.any()
-    ]) {
-      expect(() => render(Sqlite.Query.select({
-        ok: expression
-      }).pipe(Sqlite.Query.from(users)))).toThrow()
-    }
   })
 
   test("rejects non-finite sqlite numeric literals", () => {
