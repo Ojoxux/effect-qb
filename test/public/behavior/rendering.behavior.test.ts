@@ -519,6 +519,26 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects function calls without a function name before rendering SQL", () => {
+    const value = Standard.Function.call("", Standard.Query.literal(1))
+    const plan = Standard.Query.select({
+      value
+    })
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "function calls require a non-empty function name"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "function calls require a non-empty function name"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "function calls require a non-empty function name"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "function calls require a non-empty function name"
+    )
+  })
+
   test("rejects malformed coalesce expressions before rendering SQL", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const users = Standard.Table.make("users", {

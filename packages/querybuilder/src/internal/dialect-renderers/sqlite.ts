@@ -659,6 +659,9 @@ const renderFunctionCall = (
   state: RenderState,
   dialect: SqlDialect
 ): string => {
+  if (typeof name !== "string" || name.trim().length === 0) {
+    throw new Error("function calls require a non-empty function name")
+  }
   if (name === "array") {
     return `ARRAY[${args.map((arg) => renderExpression(arg, state, dialect)).join(", ")}]`
   }
