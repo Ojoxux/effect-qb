@@ -28,13 +28,18 @@ export const expectInsertSourceKind = <
 >(
   source: Source
 ): Source => {
+  if (source === undefined) {
+    return source
+  }
   if (
-    source !== undefined &&
     source.kind !== "values" &&
     source.kind !== "query" &&
     source.kind !== "unnest"
   ) {
     throw new Error("Unsupported insert source kind")
+  }
+  if (!Array.isArray((source as { readonly columns?: unknown }).columns)) {
+    throw new Error("insert sources require a column array")
   }
   return source
 }
@@ -43,7 +48,7 @@ export const expectConflictClause = <
   Conflict extends {
     readonly kind: string
     readonly action: string
-    readonly target?: { readonly kind: string }
+    readonly target?: { readonly kind: string; readonly columns?: unknown }
   } | undefined
 >(
   conflict: Conflict
@@ -63,6 +68,9 @@ export const expectConflictClause = <
     conflict.target.kind !== "constraint"
   ) {
     throw new Error("Unsupported conflict target kind")
+  }
+  if (conflict.target?.kind === "columns" && !Array.isArray(conflict.target.columns)) {
+    throw new Error("conflict column targets require a column array")
   }
   return conflict
 }

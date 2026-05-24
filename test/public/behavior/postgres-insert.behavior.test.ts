@@ -170,6 +170,21 @@ describe("postgres insert behavior", () => {
     expect(() => render(plan)).toThrow("Unsupported insert source kind")
   })
 
+  test("rejects insert source metadata without column arrays before rendering SQL", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      email: StdRoot.Column.text()
+    })
+    const seed = unsafeAny(Postgres.Query.as(Postgres.Query.values([
+      { id: Postgres.Query.literal(userId), email: "alice@example.com" }
+    ] as const), "seed"))
+    const plan = Postgres.Query.insert(users).pipe(Postgres.Query.from(seed))
+    ;(plan as any)[queryAst].insertSource.columns = {}
+
+    expect(() => render(plan)).toThrow("insert sources require a column array")
+  })
+
   test("renders postgres default-only inserts and rich conflict clauses", () => {
     const auditLogs = StdRoot.Table.make("audit_logs", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey, StdRoot.Column.default(Postgres.Query.literal("audit-log-id"))),
@@ -288,6 +303,25 @@ describe("postgres insert behavior", () => {
     }))
     ;(invalidTargetPlan as any)[queryAst].conflict.target.kind = "index"
     expect(() => render(invalidTargetPlan)).toThrow("Unsupported conflict target kind")
+  })
+
+  test("rejects conflict column targets without column arrays before rendering SQL", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      email: StdRoot.Column.text()
+    })
+    const plan = Postgres.Query.onConflict(["email"] as const, {
+      update: {
+        email: Postgres.Query.excluded(users.email)
+      }
+    })(Postgres.Query.insert(users, {
+      id: userId,
+      email: "alice@example.com"
+    }))
+    ;(plan as any)[queryAst].conflict.target.columns = {}
+
+    expect(() => render(plan)).toThrow("conflict column targets require a column array")
   })
 
   test("renders postgres string conflict targets", () => {
