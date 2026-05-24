@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema"
 
 import * as Expression from "./scalar.js"
 import * as ExpressionAst from "./expression-ast.js"
+import type * as Casing from "./casing.js"
 import type * as SchemaExpression from "./schema-expression.js"
 
 /** Symbol used to attach column-definition metadata. */
@@ -183,6 +184,7 @@ export interface BoundColumn<
     readonly columnName: ColumnName
     readonly baseTableName: BaseTableName
     readonly schemaName?: string
+    readonly casing?: Casing.Options
   }
   readonly [Expression.TypeId]: Expression.State<
     Select,
@@ -418,6 +420,7 @@ export const remapColumnDefinition = <
         readonly columnName: string
         readonly baseTableName: string
         readonly schemaName?: string
+        readonly casing?: Casing.Options
       }
     })[BoundColumnTypeId]
   }
@@ -436,7 +439,8 @@ export const bindColumn = <
   columnName: ColumnName,
   column: Column,
   baseTableName: BaseTableName,
-  schemaName?: SchemaName
+  schemaName?: SchemaName,
+  casing?: Casing.Options
 ): BoundColumnFrom<Column, TableName, ColumnName, BaseTableName> => {
   const brandName = `${tableName}.${columnName}`
   const schema = column.metadata.brand === true
@@ -467,7 +471,8 @@ export const bindColumn = <
     tableName,
     columnName,
     baseTableName,
-    schemaName
+    schemaName,
+    casing
   }
   return bound
 }

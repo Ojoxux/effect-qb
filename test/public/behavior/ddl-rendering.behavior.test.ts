@@ -6,6 +6,7 @@ import * as Postgres from "#postgres"
 import * as Sqlite from "#sqlite"
 import * as Standard from "#standard"
 import * as StdRoot from "#standard"
+import * as Casing from "../../../packages/querybuilder/src/casing.ts"
 
 describe("ddl rendering behavior", () => {
   test("standard table DDL uses each renderer's portable type spelling", () => {
@@ -150,6 +151,41 @@ describe("ddl rendering behavior", () => {
     expect(() =>
       Sqlite.Renderer.make().render(Sqlite.Query.createTable(sqliteMemberships))
     ).toThrow("Foreign key action must be noAction, restrict, cascade, setNull, or setDefault")
+  })
+
+  test("foreign keys render referenced table casing metadata", () => {
+    const organizations = StdRoot.Table.make("OrganizationAccounts", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      accountSlug: StdRoot.Column.text().pipe(StdRoot.Column.unique)
+    }).pipe(
+      Casing.withCasing({
+        tables: "snake_case",
+        columns: "snake_case"
+      })
+    )
+
+    const memberships = StdRoot.Table.make("MembershipRecords", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      organizationId: StdRoot.Column.uuid().pipe(
+        StdRoot.Column.references(() => organizations.id)
+      ),
+      organizationSlug: StdRoot.Column.text()
+    }).pipe(
+      Casing.withCasing({
+        tables: "snake_case",
+        columns: "snake_case"
+      }),
+      StdRoot.Table.foreignKey("organizationSlug", () => organizations, "accountSlug")
+    )
+
+    const rendered = Postgres.Renderer.make().render(Postgres.Query.createTable(memberships))
+
+    expect(rendered.sql).toContain(
+      'foreign key ("organization_id") references "organization_accounts" ("id")'
+    )
+    expect(rendered.sql).toContain(
+      'foreign key ("organization_slug") references "organization_accounts" ("account_slug")'
+    )
   })
 
   test("rejects unknown table option kinds at render time", () => {

@@ -109,6 +109,37 @@ const quoteColumn = (
   tableName?: string
 ): string => dialect.quoteIdentifier(casedColumnName(columnName, state, tableName))
 
+const referenceCasing = (
+  reference: { readonly casing?: Casing.Options },
+  state: RenderState
+): Casing.Options | undefined =>
+  Casing.merge(state.casing, reference.casing)
+
+const renderReferenceTable = (
+  reference: {
+    readonly tableName: string
+    readonly schemaName?: string
+    readonly casing?: Casing.Options
+  },
+  state: RenderState,
+  dialect: SqlDialect
+): string => {
+  const casing = referenceCasing(reference, state)
+  const tableName = Casing.applyCategory(casing, "tables", reference.tableName)
+  const schemaName = reference.schemaName === undefined
+    ? undefined
+    : Casing.applyCategory(casing, "schemas", reference.schemaName)
+  return dialect.renderTableReference(tableName, tableName, schemaName)
+}
+
+const quoteReferenceColumn = (
+  columnName: string,
+  reference: { readonly casing?: Casing.Options },
+  state: RenderState,
+  dialect: SqlDialect
+): string =>
+  dialect.quoteIdentifier(Casing.applyCategory(referenceCasing(reference, state), "columns", columnName))
+
 const registerSourceReference = (
   source: unknown,
   tableName: string,
@@ -262,7 +293,7 @@ const renderCreateTableSql = (
       case "foreignKey": {
         const reference = option.references()
         definitions.push(
-          `${option.name ? `constraint ${dialect.quoteIdentifier(Casing.applyCategory(state.casing, "constraints", option.name))} ` : ""}foreign key (${option.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")}) references ${dialect.renderTableReference(Casing.applyCategory(state.casing, "tables", reference.tableName), Casing.applyCategory(state.casing, "tables", reference.tableName), reference.schemaName === undefined ? undefined : Casing.applyCategory(state.casing, "schemas", reference.schemaName))} (${reference.columns.map((column) => quoteColumn(column, state, dialect)).join(", ")})${option.onDelete !== undefined ? ` on delete ${renderReferentialAction(option.onDelete)}` : ""}${option.onUpdate !== undefined ? ` on update ${renderReferentialAction(option.onUpdate)}` : ""}${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`
+          `${option.name ? `constraint ${dialect.quoteIdentifier(Casing.applyCategory(state.casing, "constraints", option.name))} ` : ""}foreign key (${option.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")}) references ${renderReferenceTable(reference, state, dialect)} (${reference.columns.map((column) => quoteReferenceColumn(column, reference, state, dialect)).join(", ")})${option.onDelete !== undefined ? ` on delete ${renderReferentialAction(option.onDelete)}` : ""}${option.onUpdate !== undefined ? ` on update ${renderReferentialAction(option.onUpdate)}` : ""}${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`
         )
         break
       }

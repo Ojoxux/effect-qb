@@ -4,6 +4,7 @@ import {
   type AnyColumnDefinition,
   type IsNullable
 } from "./column-state.js"
+import type * as Casing from "./casing.js"
 import type { Any as AnyExpression } from "./scalar.js"
 import type { Any as AnySchemaExpression } from "./schema-expression.js"
 import type { TableFieldMap } from "./schema-derivation.js"
@@ -91,6 +92,7 @@ export type TableOptionSpec =
       readonly references: () => {
         readonly tableName: string
         readonly schemaName?: string
+        readonly casing?: Casing.Options
         readonly columns: ColumnList
         readonly knownColumns?: readonly string[]
       }
@@ -248,6 +250,7 @@ export const collectInlineOptions = <Fields extends TableFieldMap>(
           return {
             tableName: bound.baseTableName,
             schemaName: bound.schemaName,
+            casing: bound.casing,
             columns: [bound.columnName]
           }
         },

@@ -321,14 +321,15 @@ const buildArtifacts = <
   name: Name,
   fields: Fields,
   declaredOptions: readonly TableOptionSpec[],
-  schemaName: SchemaName
+  schemaName: SchemaName,
+  casing?: Casing.Options
 ): BuildArtifacts<Name, Fields, keyof Fields & string> => {
   const normalizedOptions = [...collectInlineOptions(fields), ...declaredOptions]
   validateFieldDialects(name, fields)
   validateOptions(name, fields, declaredOptions)
   const primaryKey = resolvePrimaryKeyColumns(fields, declaredOptions) as readonly (keyof Fields & string)[]
   const columns = Object.fromEntries(
-    Object.entries(fields).map(([key, column]) => [key, bindColumn(name, key, column, name, schemaName)])
+    Object.entries(fields).map(([key, column]) => [key, bindColumn(name, key, column, name, schemaName, casing)])
   ) as BoundColumns<Name, Fields>
   return {
     columns,
@@ -492,7 +493,7 @@ const makeTable = <
   const resolvedSchemaName = schemaMode === "explicit"
     ? schemaName
     : ("public" as SchemaName)
-  const artifacts = buildArtifacts(name, fields, declaredOptions, resolvedSchemaName)
+  const artifacts = buildArtifacts(name, fields, declaredOptions, resolvedSchemaName, casing)
   const dialect = resolveFieldDialect(fields)
   const table = attachPipe(Object.create(TableProto))
   table.name = name
@@ -806,7 +807,7 @@ export const alias = <
 > => {
   const state = table[TypeId]
   const columns = Object.fromEntries(
-    Object.entries(state.fields).map(([key, column]) => [key, bindColumn(aliasName, key, column as AnyColumnDefinition, state.baseName, state.schemaName)])
+    Object.entries(state.fields).map(([key, column]) => [key, bindColumn(aliasName, key, column as AnyColumnDefinition, state.baseName, state.schemaName, state.casing)])
   ) as BoundColumns<AliasName, Fields>
   const aliased = attachPipe(Object.create(TableProto))
   aliased.name = aliasName
@@ -990,6 +991,7 @@ export const foreignKey = <
   references: () => ({
     tableName: target()[TypeId].baseName,
     schemaName: target()[TypeId].schemaName,
+    casing: target()[TypeId].casing,
     columns: normalizeColumnList(referencedColumns) as NormalizeColumns<TargetColumns>,
     knownColumns: Object.keys(target()[TypeId].fields) as unknown as readonly ColumnNamesOfAnyTable<TargetTable>[]
   })
