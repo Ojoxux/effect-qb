@@ -222,6 +222,38 @@ describe("postgres schema management", () => {
     })
   })
 
+  test("source table models preserve malformed non-index option columns with casing", () => {
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
+    }).pipe(
+      Casing.withCasing({
+        columns: "snake_case"
+      })
+    )
+    ;(users as any)[StdRoot.Table.OptionsSymbol] = [
+      {
+        kind: "primaryKey",
+        columns: "id"
+      },
+      {
+        kind: "unique",
+        columns: "id"
+      }
+    ]
+
+    const model = toTableModel(users as unknown as Parameters<typeof toTableModel>[0])
+    const primaryKey = model.options.find((option) => option.kind === "primaryKey")
+    const unique = model.options.find((option) => option.kind === "unique")
+    expect(primaryKey).toMatchObject({
+      kind: "primaryKey",
+      columns: "id"
+    })
+    expect(unique).toMatchObject({
+      kind: "unique",
+      columns: "id"
+    })
+  })
+
   test("source table models preserve malformed index key metadata without runtime validation", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)

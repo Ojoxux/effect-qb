@@ -456,6 +456,29 @@ describe("table definitions", () => {
     )
   })
 
+  test("table definitions trust malformed non-index option column metadata without runtime validation", () => {
+    const users = StdRoot.Table.make("malformed_non_index_option_users", {
+      id: StdRoot.Column.uuid(),
+      orgId: StdRoot.Column.uuid()
+    }).pipe(
+      StdRoot.Table.option(unsafeAny({
+        kind: "primaryKey",
+        columns: "id"
+      })),
+      StdRoot.Table.option(unsafeAny({
+        kind: "unique",
+        columns: "id"
+      }))
+    )
+
+    expect(users[StdRoot.Table.OptionsSymbol]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "primaryKey", columns: "id" }),
+        expect.objectContaining({ kind: "unique", columns: "id" })
+      ])
+    )
+  })
+
   test("table definitions trust unknown option columns without runtime validation", () => {
     const users = StdRoot.Table.make("unknown_option_column_users", {
       id: StdRoot.Column.uuid(),
