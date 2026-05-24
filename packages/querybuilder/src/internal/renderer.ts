@@ -1,6 +1,8 @@
 import * as Query from "./query.js"
-import type * as Expression from "./scalar.js"
+import * as Expression from "./scalar.js"
+import * as ExpressionAst from "./expression-ast.js"
 import { flattenSelection, type Projection, validateProjections } from "./projections.js"
+import * as QueryAst from "./query-ast.js"
 import * as Plan from "./row-set.js"
 
 /** Symbol used to attach rendered-query phantom row metadata. */
@@ -61,6 +63,317 @@ const projectionPathKey = (path: readonly string[]): string => JSON.stringify(pa
 
 const formatProjectionPath = (path: readonly string[]): string => path.join(".")
 
+const DialectConflict = "__effect_qb_dialect_conflict__"
+
+const isObject = (value: unknown): value is Record<PropertyKey, unknown> =>
+  typeof value === "object" && value !== null
+
+const isExpression = (value: unknown): value is Expression.Any =>
+  isObject(value) && Expression.TypeId in value
+
+const isPlan = (value: unknown): value is Query.Plan.Any =>
+  isObject(value) && Plan.TypeId in value
+
+const mergeRuntimeDialect = (
+  left: string | undefined,
+  right: string | undefined
+): string | undefined => {
+  if (left === DialectConflict || right === DialectConflict) {
+    return DialectConflict
+  }
+  if (right === undefined || right === "standard") {
+    return left ?? right
+  }
+  if (left === undefined || left === "standard") {
+    return right
+  }
+  return left === right ? left : DialectConflict
+}
+
+type RuntimeDialectContext = {
+  readonly plans: WeakSet<object>
+  readonly expressions: WeakSet<object>
+}
+
+const visitExpressionList = (
+  values: readonly unknown[],
+  dialect: string | undefined,
+  context: RuntimeDialectContext
+): string | undefined =>
+  values.reduce<string | undefined>(
+    (current, child) => visitExpression(child, current, context),
+    dialect
+  )
+
+const visitExpression = (
+  value: unknown,
+  dialect: string | undefined,
+  context: RuntimeDialectContext
+): string | undefined => {
+  if (!isExpression(value)) {
+    return dialect
+  }
+  let next = mergeRuntimeDialect(dialect, value[Expression.TypeId].dialect)
+  if (context.expressions.has(value)) {
+    return next
+  }
+  context.expressions.add(value)
+  const ast = (value as { readonly [ExpressionAst.TypeId]?: ExpressionAst.Any })[ExpressionAst.TypeId]
+  if (ast === undefined) {
+    return next
+  }
+  switch (ast.kind) {
+    case "cast":
+      next = mergeRuntimeDialect(next, ast.target.dialect)
+      return visitExpression(ast.value, next, context)
+    case "collate":
+    case "upper":
+    case "lower":
+    case "count":
+    case "max":
+    case "min":
+    case "isNull":
+    case "isNotNull":
+    case "not":
+    case "jsonToJson":
+    case "jsonToJsonb":
+    case "jsonTypeOf":
+    case "jsonLength":
+    case "jsonKeys":
+    case "jsonStripNulls":
+      return visitExpression(ast.value, next, context)
+    case "function":
+    case "and":
+    case "or":
+    case "coalesce":
+    case "concat":
+    case "in":
+    case "notIn":
+    case "between":
+    case "jsonBuildArray":
+      return visitExpressionList(
+        (ast as { readonly values?: readonly unknown[]; readonly args?: readonly unknown[] }).values ??
+          (ast as { readonly args?: readonly unknown[] }).args ??
+          [],
+        next,
+        context
+      )
+    case "eq":
+    case "neq":
+    case "lt":
+    case "lte":
+    case "gt":
+    case "gte":
+    case "like":
+    case "ilike":
+    case "regexMatch":
+    case "regexIMatch":
+    case "regexNotMatch":
+    case "regexNotIMatch":
+    case "isDistinctFrom":
+    case "isNotDistinctFrom":
+    case "contains":
+    case "containedBy":
+    case "overlaps":
+    case "jsonConcat":
+    case "jsonMerge":
+      return visitExpression(ast.right, visitExpression(ast.left, next, context), context)
+    case "case": {
+      const withBranches = ast.branches.reduce(
+        (current, branch) => visitExpression(branch.then, visitExpression(branch.when, current, context), context),
+        next
+      )
+      return visitExpression(ast.else, withBranches, context)
+    }
+    case "exists":
+    case "scalarSubquery":
+      return visitPlan(ast.plan, next, context)
+    case "inSubquery":
+    case "comparisonAny":
+    case "comparisonAll":
+      return visitPlan(ast.plan, visitExpression(ast.left, next, context), context)
+    case "window": {
+      const withValue = visitExpression(ast.value, next, context)
+      const withPartitions = ast.partitionBy.reduce((current, child) => visitExpression(child, current, context), withValue)
+      return ast.orderBy.reduce((current, order) => visitExpression(order.value, current, context), withPartitions)
+    }
+    case "jsonGet":
+    case "jsonPath":
+    case "jsonAccess":
+    case "jsonTraverse":
+    case "jsonGetText":
+    case "jsonPathText":
+    case "jsonAccessText":
+    case "jsonTraverseText":
+    case "jsonDelete":
+    case "jsonDeletePath":
+    case "jsonRemove":
+      return visitExpression(ast.base, next, context)
+    case "jsonHasKey":
+    case "jsonKeyExists":
+    case "jsonHasAnyKeys":
+    case "jsonHasAllKeys":
+      return visitExpression(ast.base, next, context)
+    case "jsonSet":
+      return visitExpression(ast.newValue, visitExpression(ast.base, next, context), context)
+    case "jsonInsert":
+      return visitExpression(ast.insert, visitExpression(ast.base, next, context), context)
+    case "jsonPathExists":
+    case "jsonPathMatch":
+      return visitExpression(ast.query, visitExpression(ast.base, next, context), context)
+    case "jsonBuildObject":
+      return ((ast as { readonly entries?: readonly { readonly value: unknown }[] }).entries ?? []).reduce<string | undefined>(
+        (current, entry) => visitExpression(entry.value, current, context),
+        next
+      )
+    case "column":
+    case "literal":
+    case "excluded":
+      return next
+  }
+  return next
+}
+
+const visitSelection = (
+  value: unknown,
+  dialect: string | undefined,
+  context: RuntimeDialectContext
+): string | undefined => {
+  if (isExpression(value)) {
+    return visitExpression(value, dialect, context)
+  }
+  if (!isObject(value)) {
+    return dialect
+  }
+  return Object.values(value).reduce<string | undefined>(
+    (current, child) => visitSelection(child, current, context),
+    dialect
+  )
+}
+
+const visitSource = (
+  value: unknown,
+  dialect: string | undefined,
+  context: RuntimeDialectContext
+): string | undefined => {
+  if (!isObject(value)) {
+    return dialect
+  }
+  let next = isPlan(value)
+    ? mergeRuntimeDialect(dialect, value[Plan.TypeId].dialect)
+    : dialect
+  const sourceDialect = value.dialect
+  if (typeof sourceDialect === "string") {
+    next = mergeRuntimeDialect(next, sourceDialect)
+  }
+  if ("plan" in value) {
+    next = visitPlan(value.plan, next, context)
+  } else if (QueryAst.TypeId in value) {
+    next = visitPlan(value, next, context)
+  }
+  return next
+}
+
+const visitSourceClause = (
+  clause: QueryAst.FromClause | QueryAst.JoinClause | undefined,
+  dialect: string | undefined,
+  context: RuntimeDialectContext
+): string | undefined => clause === undefined ? dialect : visitSource(clause.source, dialect, context)
+
+const visitAssignment = (
+  assignment: QueryAst.AssignmentClause,
+  dialect: string | undefined,
+  context: RuntimeDialectContext
+): string | undefined => visitExpression(assignment.value, dialect, context)
+
+const visitAssignments = (
+  assignments: readonly QueryAst.AssignmentClause[] | undefined,
+  dialect: string | undefined,
+  context: RuntimeDialectContext
+): string | undefined =>
+  assignments?.reduce((current, assignment) => visitAssignment(assignment, current, context), dialect) ?? dialect
+
+const visitInsertSource = (
+  source: QueryAst.InsertSourceClause | undefined,
+  dialect: string | undefined,
+  context: RuntimeDialectContext
+): string | undefined => {
+  if (source === undefined) {
+    return dialect
+  }
+  switch (source.kind) {
+    case "values":
+      return source.rows.reduce(
+        (current, row) => visitAssignments(row.values, current, context),
+        dialect
+      )
+    case "query":
+      return visitPlan(source.query, dialect, context)
+    case "unnest":
+      return dialect
+  }
+}
+
+const visitPlan = (
+  value: unknown,
+  dialect: string | undefined,
+  context: RuntimeDialectContext
+): string | undefined => {
+  if (!isPlan(value)) {
+    return dialect
+  }
+  let next = mergeRuntimeDialect(dialect, value[Plan.TypeId].dialect)
+  if (context.plans.has(value)) {
+    return next
+  }
+  context.plans.add(value)
+  if (!(QueryAst.TypeId in value)) {
+    return next
+  }
+  const ast = Query.getAst(value)
+  next = visitSelection(ast.select, next, context)
+  next = visitSelection(ast.distinctOn, next, context)
+  next = visitSourceClause(ast.from, next, context)
+  next = ast.fromSources?.reduce((current, source) => visitSourceClause(source, current, context), next) ?? next
+  next = visitSourceClause(ast.into, next, context)
+  next = visitSourceClause(ast.target, next, context)
+  next = ast.targets?.reduce((current, source) => visitSourceClause(source, current, context), next) ?? next
+  next = visitSourceClause(ast.using, next, context)
+  next = ast.where.reduce((current, clause) => visitExpression(clause.predicate, current, context), next)
+  next = ast.having.reduce((current, clause) => visitExpression(clause.predicate, current, context), next)
+  next = ast.joins.reduce(
+    (current, join) => visitExpression(join.on, visitSourceClause(join, current, context), context),
+    next
+  )
+  next = ast.groupBy.reduce((current, expression) => visitExpression(expression, current, context), next)
+  next = ast.orderBy.reduce((current, order) => visitExpression(order.value, current, context), next)
+  next = visitExpression(ast.limit, next, context)
+  next = visitExpression(ast.offset, next, context)
+  next = ast.setOperations?.reduce((current, operation) => visitPlan(operation.query, current, context), next) ?? next
+  next = visitAssignments(ast.values, next, context)
+  next = visitInsertSource(ast.insertSource, next, context)
+  next = visitAssignments(ast.set, next, context)
+  if (ast.conflict !== undefined) {
+    next = visitExpression(ast.conflict.target?.kind === "columns" ? ast.conflict.target.where : undefined, next, context)
+    next = visitAssignments(ast.conflict.values, next, context)
+    next = visitExpression(ast.conflict.where, next, context)
+  }
+  if (ast.merge !== undefined) {
+    next = visitExpression(ast.merge.on, next, context)
+    next = visitExpression(ast.merge.whenMatched?.predicate, next, context)
+    next = visitAssignments(ast.merge.whenMatched?.kind === "update" ? ast.merge.whenMatched.values : undefined, next, context)
+    next = visitExpression(ast.merge.whenNotMatched?.predicate, next, context)
+    next = visitAssignments(ast.merge.whenNotMatched?.values, next, context)
+  }
+  return next
+}
+
+const runtimePlanDialect = (plan: Query.Plan.Any): string | undefined =>
+  visitPlan(plan, undefined, {
+    plans: new WeakSet<object>(),
+    expressions: new WeakSet<object>()
+  })
+
 const validateProjectionPathsMatchSelection = (
   plan: Query.Plan.Any,
   projections: readonly Projection[]
@@ -101,8 +414,8 @@ export function make<Dialect extends string>(
       if (required.length > 0) {
         throw new Error(`query references sources that are not yet in scope: ${required.join(", ")}`)
       }
-      const planDialect = plan[Plan.TypeId].dialect
-      if (planDialect !== dialect && planDialect !== "standard") {
+      const planDialect = runtimePlanDialect(plan as Query.Plan.Any) ?? plan[Plan.TypeId].dialect
+      if (planDialect === DialectConflict || (planDialect !== dialect && planDialect !== "standard")) {
         throw new Error("effect-qb: plan dialect is not compatible with the target renderer or executor")
       }
       const rendered = render(plan)

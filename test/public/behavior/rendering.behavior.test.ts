@@ -27,6 +27,24 @@ describe("rendering behavior", () => {
     expect(Sqlite.Renderer.make().render(plan).sql).toBe('select (lower("users"."email") || ?) as "label" from "users" where ("users"."email" = ?)')
   })
 
+  test("rejects untyped standard plans that mix concrete dialects at render time", () => {
+    const users = Standard.Table.make("users", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey)
+    })
+
+    const conflict = Standard.Query.select({
+      id: users.id
+    }).pipe(
+      Standard.Query.from(users),
+      Standard.Query.orderBy(Q.literal(1) as any),
+      Standard.Query.where(Mysql.Query.literal(true) as any)
+    )
+
+    expect(() => Renderer.make().render(conflict as any)).toThrow(
+      "effect-qb: plan dialect is not compatible with the target renderer or executor"
+    )
+  })
+
   test("postgres renders clause combinations with stable parameter ordering", () => {
     const { users, posts } = makeRootSocialGraph()
 
