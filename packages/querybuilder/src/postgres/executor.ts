@@ -6,6 +6,7 @@ import * as CoreExecutor from "../internal/executor.js"
 import * as CoreQuery from "../internal/query.js"
 import * as CoreRenderer from "../internal/renderer.js"
 import type * as Expression from "../internal/scalar.js"
+import type { PostgresDatatypeFamily, PostgresDatatypeKind } from "./datatypes/spec.js"
 import { renderPostgresPlan } from "./internal/renderer.js"
 import {
   narrowPostgresDriverErrorForReadQuery,
@@ -24,12 +25,13 @@ export type Driver<Error = never, Context = never> = CoreExecutor.Driver<"postgr
 export type Executor<Error = never, Context = never> = CoreExecutor.Executor<"postgres", Error, Context>
 /** Postgres-specialized renderer contract. */
 export type Renderer = CoreRenderer.Renderer<"postgres">
+export type ValueMappings = Expression.DriverValueMappingsFor<PostgresDatatypeKind, PostgresDatatypeFamily>
 /** Optional renderer / driver overrides for the standard Postgres executor pipeline. */
 export interface MakeOptions<Error = never, Context = never> {
   readonly renderer?: Renderer
   readonly driver?: Driver<Error, Context>
   readonly driverMode?: CoreExecutor.DriverMode
-  readonly valueMappings?: Expression.DriverValueMappings
+  readonly valueMappings?: ValueMappings
 }
 /** Standard composed error shape for Postgres executors. */
 export type PostgresExecutorError = PostgresDriverError | RowDecodeError
@@ -181,7 +183,7 @@ export function make(
   options: {
     readonly renderer?: Renderer
     readonly driverMode?: CoreExecutor.DriverMode
-    readonly valueMappings?: Expression.DriverValueMappings
+    readonly valueMappings?: ValueMappings
   }
 ): QueryExecutor<SqlClient.SqlClient>
 export function make<Error = never, Context = never>(
@@ -189,7 +191,7 @@ export function make<Error = never, Context = never>(
     readonly renderer?: Renderer
     readonly driver: Driver<Error, Context>
     readonly driverMode?: CoreExecutor.DriverMode
-    readonly valueMappings?: Expression.DriverValueMappings
+    readonly valueMappings?: ValueMappings
   }
 ): QueryExecutor<Context>
 export function make<Error = never, Context = never>(

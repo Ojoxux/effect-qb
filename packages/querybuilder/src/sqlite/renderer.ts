@@ -1,5 +1,6 @@
 import * as CoreRenderer from "../internal/renderer.js"
 import type * as Expression from "../internal/scalar.js"
+import type { SqliteDatatypeFamily, SqliteDatatypeKind } from "./datatypes/spec.js"
 import { renderSqlitePlan } from "./internal/renderer.js"
 
 /** SQLite-specialized rendered query shape. */
@@ -9,8 +10,10 @@ export type RowOf<Value extends RenderedQuery<any>> = CoreRenderer.RowOf<Value>
 /** SQLite-specialized renderer contract. */
 export type Renderer = CoreRenderer.Renderer<"sqlite">
 
+export type ValueMappings = Expression.DriverValueMappingsFor<SqliteDatatypeKind | "uuid", SqliteDatatypeFamily | "uuid">
+
 export interface MakeOptions {
-  readonly valueMappings?: Expression.DriverValueMappings
+  readonly valueMappings?: ValueMappings
 }
 
 export { TypeId } from "../internal/renderer.js"

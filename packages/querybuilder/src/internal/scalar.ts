@@ -143,7 +143,12 @@ export interface DriverValueMapping {
   readonly jsonSelectSql?: (sql: string, dbType: DbType.Any) => string
 }
 
-export type DriverValueMappings = Readonly<Record<string, DriverValueMapping | undefined>>
+export type DriverValueMappings = Readonly<Partial<Record<string, DriverValueMapping>>>
+
+export type DriverValueMappingsFor<
+  Kind extends string,
+  Family extends string
+> = Readonly<Partial<Record<Kind | Family | RuntimeTag, DriverValueMapping>>>
 
 /** Canonical static metadata stored on an expression. */
 export interface State<

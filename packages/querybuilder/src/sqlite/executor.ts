@@ -6,6 +6,7 @@ import * as CoreExecutor from "../internal/executor.js"
 import * as CoreQuery from "../internal/query.js"
 import * as CoreRenderer from "../internal/renderer.js"
 import type * as Expression from "../internal/scalar.js"
+import type { SqliteDatatypeFamily, SqliteDatatypeKind } from "./datatypes/spec.js"
 import { renderSqlitePlan } from "./internal/renderer.js"
 import {
   narrowSqliteDriverErrorForReadQuery,
@@ -24,12 +25,13 @@ export type Driver<Error = never, Context = never> = CoreExecutor.Driver<"sqlite
 export type Executor<Error = never, Context = never> = CoreExecutor.Executor<"sqlite", Error, Context>
 /** SQLite-specialized renderer contract. */
 export type Renderer = CoreRenderer.Renderer<"sqlite">
+export type ValueMappings = Expression.DriverValueMappingsFor<SqliteDatatypeKind | "uuid", SqliteDatatypeFamily | "uuid">
 /** Optional renderer / driver overrides for the standard SQLite executor pipeline. */
 export interface MakeOptions<Error = never, Context = never> {
   readonly renderer?: Renderer
   readonly driver?: Driver<Error, Context>
   readonly driverMode?: CoreExecutor.DriverMode
-  readonly valueMappings?: Expression.DriverValueMappings
+  readonly valueMappings?: ValueMappings
 }
 /** Standard composed error shape for SQLite executors. */
 export type SqliteExecutorError = SqliteDriverError | RowDecodeError
@@ -186,14 +188,14 @@ export function make(): QueryExecutor<SqlClient.SqlClient>
 export function make(options: {
   readonly renderer?: Renderer
   readonly driverMode?: CoreExecutor.DriverMode
-  readonly valueMappings?: Expression.DriverValueMappings
+  readonly valueMappings?: ValueMappings
 }): QueryExecutor<SqlClient.SqlClient>
 export function make<Error = never, Context = never>(
   options: {
     readonly renderer?: Renderer
     readonly driver: Driver<Error, Context>
     readonly driverMode?: CoreExecutor.DriverMode
-    readonly valueMappings?: Expression.DriverValueMappings
+    readonly valueMappings?: ValueMappings
   }
 ): QueryExecutor<Context>
 export function make<Error = never, Context = never>(

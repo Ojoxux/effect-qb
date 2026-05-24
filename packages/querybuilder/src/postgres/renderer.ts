@@ -1,5 +1,6 @@
 import * as CoreRenderer from "../internal/renderer.js"
 import type * as Expression from "../internal/scalar.js"
+import type { PostgresDatatypeFamily, PostgresDatatypeKind } from "./datatypes/spec.js"
 import { renderPostgresPlan } from "./internal/renderer.js"
 
 /** Postgres-specialized rendered query shape. */
@@ -9,8 +10,10 @@ export type RowOf<Value extends RenderedQuery<any>> = CoreRenderer.RowOf<Value>
 /** Postgres-specialized renderer contract. */
 export type Renderer = CoreRenderer.Renderer<"postgres">
 
+export type ValueMappings = Expression.DriverValueMappingsFor<PostgresDatatypeKind, PostgresDatatypeFamily>
+
 export interface MakeOptions {
-  readonly valueMappings?: Expression.DriverValueMappings
+  readonly valueMappings?: ValueMappings
 }
 
 export { TypeId } from "../internal/renderer.js"

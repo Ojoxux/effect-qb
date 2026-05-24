@@ -82,13 +82,33 @@ Pg.Query.insert(pgEvents, {
 Pg.Renderer.make({
   valueMappings: {
     text: pgMapping,
+    timestamptz: pgMapping,
+    timestamp: pgMapping,
+    instant: pgMapping,
     string: pgMapping
+  }
+})
+
+Pg.Renderer.make({
+  valueMappings: {
+    // @ts-expect-error value mapping keys must be known postgres type, family, or runtime keys
+    timestamptzz: pgMapping
   }
 })
 
 Pg.Executor.make({
   valueMappings: {
-    text: pgMapping
+    text: pgMapping,
+    jsonb: pgMapping,
+    json: pgMapping
+  },
+  driver: Pg.Executor.driver(() => Effect.succeed([]))
+})
+
+Pg.Executor.make({
+  valueMappings: {
+    // @ts-expect-error value mapping keys must be known postgres type, family, or runtime keys
+    timestamptzz: pgMapping
   },
   driver: Pg.Executor.driver(() => Effect.succeed([]))
 })

@@ -6,6 +6,7 @@ import * as CoreExecutor from "../internal/executor.js"
 import * as CoreQuery from "../internal/query.js"
 import * as CoreRenderer from "../internal/renderer.js"
 import type * as Expression from "../internal/scalar.js"
+import type { MysqlDatatypeFamily, MysqlDatatypeKind } from "./datatypes/spec.js"
 import { renderMysqlPlan } from "./internal/renderer.js"
 import {
   narrowMysqlDriverErrorForReadQuery,
@@ -24,12 +25,13 @@ export type Driver<Error = never, Context = never> = CoreExecutor.Driver<"mysql"
 export type Executor<Error = never, Context = never> = CoreExecutor.Executor<"mysql", Error, Context>
 /** MySQL-specialized renderer contract. */
 export type Renderer = CoreRenderer.Renderer<"mysql">
+export type ValueMappings = Expression.DriverValueMappingsFor<MysqlDatatypeKind | "uuid", MysqlDatatypeFamily | "uuid">
 /** Optional renderer / driver overrides for the standard MySQL executor pipeline. */
 export interface MakeOptions<Error = never, Context = never> {
   readonly renderer?: Renderer
   readonly driver?: Driver<Error, Context>
   readonly driverMode?: CoreExecutor.DriverMode
-  readonly valueMappings?: Expression.DriverValueMappings
+  readonly valueMappings?: ValueMappings
 }
 /** Standard composed error shape for MySQL executors. */
 export type MysqlExecutorError = MysqlDriverError | RowDecodeError
@@ -172,7 +174,7 @@ export function make(
   options: {
     readonly renderer?: Renderer
     readonly driverMode?: CoreExecutor.DriverMode
-    readonly valueMappings?: Expression.DriverValueMappings
+    readonly valueMappings?: ValueMappings
   }
 ): QueryExecutor<SqlClient.SqlClient>
 export function make<Error = never, Context = never>(
@@ -180,7 +182,7 @@ export function make<Error = never, Context = never>(
     readonly renderer?: Renderer
     readonly driver: Driver<Error, Context>
     readonly driverMode?: CoreExecutor.DriverMode
-    readonly valueMappings?: Expression.DriverValueMappings
+    readonly valueMappings?: ValueMappings
   }
 ): QueryExecutor<Context>
 export function make<Error = never, Context = never>(
