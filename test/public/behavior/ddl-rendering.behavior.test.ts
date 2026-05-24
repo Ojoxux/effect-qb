@@ -366,6 +366,33 @@ describe("ddl rendering behavior", () => {
     ).toThrow("Option 'primaryKey' on table 'users' requires a column array")
   })
 
+  test("rejects malformed table option entries before rendering DDL", () => {
+    const postgresUsers = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
+    })
+    ;(postgresUsers as any)[StdRoot.Table.OptionsSymbol] = [null]
+
+    const mysqlUsers = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
+    })
+    ;(mysqlUsers as any)[StdRoot.Table.OptionsSymbol] = [null]
+
+    const sqliteUsers = StdRoot.Table.make("users", {
+      id: StdRoot.Column.text().pipe(StdRoot.Column.primaryKey)
+    })
+    ;(sqliteUsers as any)[StdRoot.Table.OptionsSymbol] = [null]
+
+    expect(() =>
+      Postgres.Renderer.make().render(Postgres.Query.createTable(postgresUsers))
+    ).toThrow("Table 'users' options require option metadata objects")
+    expect(() =>
+      Mysql.Renderer.make().render(Mysql.Query.createTable(mysqlUsers))
+    ).toThrow("Table 'users' options require option metadata objects")
+    expect(() =>
+      Sqlite.Renderer.make().render(Sqlite.Query.createTable(sqliteUsers))
+    ).toThrow("Table 'users' options require option metadata objects")
+  })
+
   test("rejects malformed foreign key reference columns before rendering DDL", () => {
     const orgs = StdRoot.Table.make("orgs", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)

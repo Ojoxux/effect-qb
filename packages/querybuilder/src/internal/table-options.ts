@@ -335,6 +335,9 @@ export const validateOptions = <Fields extends TableFieldMap>(
 ): void => {
   const knownColumns = new Set(Object.keys(fields))
   for (const option of options) {
+    if (typeof option !== "object" || option === null || !("kind" in option)) {
+      throw new Error(`Table '${tableName}' options require option metadata objects`)
+    }
     switch (option.kind) {
       case "index":
       case "primaryKey":
