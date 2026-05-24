@@ -440,7 +440,7 @@ const isKnownTableOption = (option: unknown): option is TableOptionSpec => {
       }
     }
     case "check":
-      return hasValidName && typeof (option as { readonly predicate?: unknown }).predicate === "object"
+      return hasValidName && normalizedPredicateSql((option as { readonly predicate?: unknown }).predicate) !== null
     default:
       return false
   }

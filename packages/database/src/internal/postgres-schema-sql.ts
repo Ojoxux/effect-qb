@@ -198,7 +198,7 @@ const isKnownConstraintOption = (
       }
     }
     case "check":
-      return hasValidName && typeof (option as { readonly predicate?: unknown }).predicate === "object"
+      return hasValidName && isRenderableDdlExpression((option as { readonly predicate?: unknown }).predicate)
     default:
       return false
   }
@@ -250,6 +250,15 @@ const renderIndexNulls = (nulls: unknown): string => {
     throw new Error("Postgres index key nulls must be first or last")
   }
   return ` nulls ${nulls}`
+}
+
+const isRenderableDdlExpression = (value: unknown): boolean => {
+  try {
+    SchemaExpression.renderDdlExpressionSql(value as never)
+    return true
+  } catch {
+    return false
+  }
 }
 
 const renderOptionalIndexPredicate = (predicate: unknown): string => {
