@@ -872,19 +872,34 @@ export const alias = <
  * The returned base class can be extended and configured with
  * `static readonly [Table.options]`.
  */
+export function Class<Self = never>(
+  name: "",
+  schemaName?: string | undefined
+): never
 export function Class<
   Self = never,
-  SchemaName extends string | undefined = DefaultSchemaName
+  SchemaName extends string | undefined = DefaultSchemaName,
+  Name extends string = string
+>(
+  name: NonEmptyStringInput<Name>,
+  schemaName?: SchemaName
+): <Fields extends TableFieldMap>(fields: Fields & NonEmptyFieldMap<Fields>) => [Self] extends [never]
+  ? MissingSelfGeneric
+  : TableClassStatic<Name, Fields, InlinePrimaryKeyKeys<Fields>, SchemaName>
+export function Class<
+  Self = never,
+  SchemaName extends string | undefined = DefaultSchemaName,
+  Name extends string = string
 >(
   name: string,
   schemaName?: SchemaName
-) {
+): any {
   const resolvedSchemaName = arguments.length >= 2
     ? schemaName
     : ("public" as SchemaName)
   return <Fields extends TableFieldMap>(fields: Fields & NonEmptyFieldMap<Fields>): [Self] extends [never]
     ? MissingSelfGeneric
-    : TableClassStatic<typeof name, Fields, InlinePrimaryKeyKeys<Fields>, SchemaName> => {
+    : TableClassStatic<Name, Fields, InlinePrimaryKeyKeys<Fields>, SchemaName> => {
       abstract class TableClassBase {
         static readonly tableName = name
 
@@ -893,12 +908,12 @@ export function Class<
         }
 
         static get schemas() {
-          validateClassOptions(extractDeclaredOptions((this as unknown as TableClassStatic<typeof name, Fields>)[options]))
+          validateClassOptions(extractDeclaredOptions((this as unknown as TableClassStatic<Name, Fields>)[options]))
           return schemasFor(this as any)
         }
 
         static get [TypeId]() {
-          const declaredOptions = extractDeclaredOptions((this as unknown as TableClassStatic<typeof name, Fields>)[options])
+          const declaredOptions = extractDeclaredOptions((this as unknown as TableClassStatic<Name, Fields>)[options])
           validateClassOptions(declaredOptions)
           return {
             name,

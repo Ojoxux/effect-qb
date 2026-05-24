@@ -130,17 +130,28 @@ export const alias = <
     SchemaNameOfTable<Table>
   >
 
-export const Class = <Self = never, SchemaName extends string | undefined = undefined>(
-  name: string,
-  schemaName: SchemaName = undefined as SchemaName
-) => {
-  const base = BaseTable.Class<Self, SchemaName>(name, schemaName)
-  return base as <
+type ClassApi = {
+  <Self = never>(
+    name: "",
+    schemaName?: string | undefined
+  ): never
+  <Self = never, SchemaName extends string | undefined = undefined, Name extends string = string>(
+    name: BaseTable.NonEmptyStringInput<Name>,
+    schemaName?: SchemaName
+  ): <
     Fields extends DialectFieldMap
   >(fields: Fields & BaseTable.NonEmptyFieldMap<Fields>) => [Self] extends [never]
     ? BaseTable.MissingSelfGeneric
-    : TableClassStatic<typeof name, Fields, InlinePrimaryKeyKeys<Fields>, SchemaName>
+    : TableClassStatic<Name, Fields, InlinePrimaryKeyKeys<Fields>, SchemaName>
 }
+
+export const Class: ClassApi = ((
+  name: string,
+  schemaName: string | undefined = undefined
+) => {
+  const base = BaseTable.Class(name as never, schemaName)
+  return base
+}) as ClassApi
 
 export const primaryKey = BaseTable.primaryKey
 export const unique = BaseTable.unique

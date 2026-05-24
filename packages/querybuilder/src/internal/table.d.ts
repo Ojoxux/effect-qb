@@ -129,7 +129,8 @@ export declare function updateSchema<Name extends string, Fields extends TableFi
  * The returned base class can be extended and configured with
  * `static readonly [Table.options]`.
  */
-export declare function Class<Self = never, SchemaName extends string | undefined = DefaultSchemaName>(name: string, schemaName?: SchemaName): <Fields extends TableFieldMap>(fields: Fields) => [Self] extends [never] ? "Missing `Self` generic - use `class Self extends Table.Class<Self>(...) {}`" : TableClassStatic<string, Fields, Extract<{ [K in keyof Fields]: Fields[K]["metadata"]["primaryKey"] extends true ? K : never; }[keyof Fields], string>, SchemaName>;
+export declare function Class<Self = never>(name: "", schemaName?: string | undefined): never;
+export declare function Class<Self = never, SchemaName extends string | undefined = DefaultSchemaName, Name extends string = string>(name: NonEmptyStringInput<Name>, schemaName?: SchemaName): <Fields extends TableFieldMap>(fields: Fields) => [Self] extends [never] ? "Missing `Self` generic - use `class Self extends Table.Class<Self>(...) {}`" : TableClassStatic<Name, Fields, Extract<{ [K in keyof Fields]: Fields[K]["metadata"]["primaryKey"] extends true ? K : never; }[keyof Fields], string>, SchemaName>;
 /** Declares a table-level primary key. */
 export declare const primaryKey: <const Columns extends string | readonly string[]>(columns: Columns) => TableOption<{
     readonly kind: "primaryKey";
