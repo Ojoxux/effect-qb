@@ -292,18 +292,37 @@ describe("postgres schema management", () => {
         kind: "foreignKey",
         columns: ["orgId"],
         references: () => ({ tableName: "orgs", schemaName: 0, columns: ["id"] })
+      },
+      {
+        kind: "foreignKey",
+        columns: ["orgId"],
+        references: () => ({
+          tableName: 0,
+          schemaName: 0,
+          columns: ["id"],
+          knownColumns: [0],
+          casing: {
+            tables: "snake_case",
+            schemas: "snake_case",
+            columns: "snake_case"
+          }
+        })
       }
     ]
 
     const model = toTableModel(users as unknown as Parameters<typeof toTableModel>[0])
     const firstForeignKey = model.options[0]
     const secondForeignKey = model.options[1]
+    const thirdForeignKey = model.options[2]
 
     if (firstForeignKey?.kind !== "foreignKey") {
       throw new Error("expected first foreign key option")
     }
     if (secondForeignKey?.kind !== "foreignKey") {
       throw new Error("expected second foreign key option")
+    }
+    if (thirdForeignKey?.kind !== "foreignKey") {
+      throw new Error("expected third foreign key option")
     }
 
     expect(firstForeignKey.references()).toMatchObject({
@@ -314,6 +333,12 @@ describe("postgres schema management", () => {
       tableName: "orgs",
       schemaName: 0,
       columns: ["id"]
+    })
+    expect(thirdForeignKey.references()).toMatchObject({
+      tableName: 0,
+      schemaName: 0,
+      columns: ["id"],
+      knownColumns: [0]
     })
   })
 

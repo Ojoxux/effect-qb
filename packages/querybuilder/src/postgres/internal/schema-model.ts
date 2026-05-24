@@ -70,9 +70,9 @@ const mapColumnList = (
   columns.length === 0
     ? columns as unknown as ColumnList
     : [
-        applyCasing(casing, "columns", columns[0]),
-        ...columns.slice(1).map((column) => applyCasing(casing, "columns", column))
-      ]
+        mapCasedValue(columns[0], casing, "columns"),
+        ...columns.slice(1).map((column) => mapCasedValue(column, casing, "columns"))
+      ] as unknown as ColumnList
 
 const expressionStateForTable = (
   state: Table.AnyTable[typeof Table.TypeId],
@@ -102,6 +102,15 @@ const mapOptionName = (
   typeof name === "string"
     ? applyCasing(casing, category, name)
     : name
+
+const mapCasedValue = (
+  value: unknown,
+  casing: Casing.Options | undefined,
+  category: Casing.Category
+): unknown =>
+  typeof value === "string"
+    ? applyCasing(casing, category, value)
+    : value
 
 const isDdlExpressionLike = (value: unknown): value is DdlExpressionLike =>
   typeof value === "object" &&
@@ -146,7 +155,7 @@ const mapOption = (
         ...option,
         columns: option.columns === undefined ? undefined : mapColumnList(option.columns, casing),
         name: option.name === undefined ? undefined : mapOptionName(option.name, casing, "indexes"),
-        include: option.include?.map((column) => applyCasing(casing, "columns", column)),
+        include: option.include?.map((column) => mapCasedValue(column, casing, "columns")) as unknown as readonly string[] | undefined,
         predicate: option.predicate === undefined ? undefined : mapDdlExpression(option.predicate, expressionState),
         keys: option.keys === undefined
           ? undefined
@@ -181,13 +190,13 @@ const mapOption = (
           const referenceCasing = reference.casing
           return {
             ...reference,
-            tableName: applyCasing(referenceCasing, "tables", reference.tableName),
+            tableName: mapCasedValue(reference.tableName, referenceCasing, "tables"),
             schemaName: reference.schemaName === undefined
               ? undefined
-              : applyCasing(referenceCasing, "schemas", reference.schemaName),
+              : mapCasedValue(reference.schemaName, referenceCasing, "schemas"),
             columns: mapColumnList(reference.columns, referenceCasing),
             knownColumns: reference.knownColumns?.map((column) =>
-              applyCasing(referenceCasing, "columns", column))
+              mapCasedValue(column, referenceCasing, "columns")) as unknown as readonly string[] | undefined
           }
         }
       }
