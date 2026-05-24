@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 import * as Plan from "./row-set.js";
 import type { TrueFormula } from "./predicate/formula.js";
 import type { BoundColumnFrom } from "./column-state.js";
-import { type DdlExpressionLike, type NormalizeColumns, type TableOptionSpec, type ValidateKnownColumns, type ValidatePrimaryKeyColumns } from "./table-options.js";
+import { type DdlExpressionLike, type NonEmptyStringInput, type NormalizeColumns, type TableOptionSpec, type ValidateKnownColumns, type ValidatePrimaryKeyColumns } from "./table-options.js";
 import { type InsertRow, type SelectRow, type TableFieldMap, type UpdateRow } from "./schema-derivation.js";
 /** Symbol used to attach table-definition metadata. */
 export declare const TypeId: unique symbol;
@@ -66,6 +66,7 @@ export interface TableSchemaNamespace<SchemaName extends string> {
 }
 export type DeclaredTableOptions = readonly TableOptionBuilderLike[];
 export type { DdlExpressionLike, IndexKeySpec, NormalizeColumns, ReferentialAction } from "./table-options.js";
+export type NonEmptySchemaNameInput<Value extends string | undefined> = Value extends string ? NonEmptyStringInput<Value> : Value;
 export type TableDefinition<Name extends string, Fields extends TableFieldMap, PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>, Kind extends TableKind = "schema", SchemaName extends string | undefined = DefaultSchemaName> = Pipeable & {
     readonly name: Name;
     readonly columns: BoundColumns<Name, Fields>;
@@ -104,7 +105,7 @@ export type TableOption<Spec extends TableOptionSpec = TableOptionSpec> = {
 export declare const option: <Spec extends TableOptionSpec>(spec: Spec) => TableOption<Spec>;
 export declare const optionFromTable: <Spec extends TableOptionSpec>(spec: Spec, resolve: (table: TableDefinition<any, any, any, "schema", any>) => Spec) => TableOption<Spec>;
 /** Creates a table definition from a name and field map. */
-export declare function make<Name extends string, Fields extends TableFieldMap, SchemaName extends string | undefined = DefaultSchemaName>(name: Name, fields: Fields, schemaName?: SchemaName): TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName>;
+export declare function make<Name extends string, Fields extends TableFieldMap, const SchemaName extends string | undefined = DefaultSchemaName>(name: NonEmptyStringInput<Name>, fields: Fields, schemaName?: NonEmptySchemaNameInput<SchemaName>): TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName>;
 /**
  * Creates a namespace-scoped builder for a concrete SQL schema/database.
  */
@@ -130,7 +131,8 @@ export declare function updateSchema<Name extends string, Fields extends TableFi
  * `static readonly [Table.options]`.
  */
 export declare function Class<Self = never>(name: "", schemaName?: string | undefined): never;
-export declare function Class<Self = never, SchemaName extends string | undefined = DefaultSchemaName, Name extends string = string>(name: NonEmptyStringInput<Name>, schemaName?: SchemaName): <Fields extends TableFieldMap>(fields: Fields) => [Self] extends [never] ? "Missing `Self` generic - use `class Self extends Table.Class<Self>(...) {}`" : TableClassStatic<Name, Fields, Extract<{ [K in keyof Fields]: Fields[K]["metadata"]["primaryKey"] extends true ? K : never; }[keyof Fields], string>, SchemaName>;
+export declare function Class<Self = never>(name: string, schemaName: ""): never;
+export declare function Class<Self = never, const SchemaName extends string | undefined = DefaultSchemaName, const Name extends string = string>(name: NonEmptyStringInput<Name>, schemaName?: NonEmptySchemaNameInput<SchemaName>): <Fields extends TableFieldMap>(fields: Fields) => [Self] extends [never] ? "Missing `Self` generic - use `class Self extends Table.Class<Self>(...) {}`" : TableClassStatic<Name, Fields, Extract<{ [K in keyof Fields]: Fields[K]["metadata"]["primaryKey"] extends true ? K : never; }[keyof Fields], string>, SchemaName>;
 /** Declares a table-level primary key. */
 export declare const primaryKey: <const Columns extends string | readonly string[]>(columns: Columns) => TableOption<{
     readonly kind: "primaryKey";

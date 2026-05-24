@@ -22,6 +22,8 @@ const postgresUsers = Std.Table.make("users", {
 Std.Table.make("", {
   id: Std.Column.uuid()
 })
+// @ts-expect-error direct table schema names must be non-empty
+Std.Table.make("empty_schema_table", { id: Std.Column.uuid() }, "")
 // @ts-expect-error table field names must be non-empty
 Std.Table.make("empty_field", {
   "": Std.Column.uuid()
@@ -32,6 +34,10 @@ class EmptyFieldClass extends Std.Table.Class<EmptyFieldClass>("empty_field_clas
 ) {}
 // @ts-expect-error class table names must be non-empty
 class EmptyNamedClass extends Std.Table.Class<EmptyNamedClass>("")({
+  id: Std.Column.uuid()
+}) {}
+// @ts-expect-error direct class table schema names must be non-empty
+class EmptySchemaClass extends Std.Table.Class<EmptySchemaClass>("empty_schema_class", "")({
   id: Std.Column.uuid()
 }) {}
 const publicSchema = Postgres.Schema.make("public")

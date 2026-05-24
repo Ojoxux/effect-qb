@@ -207,6 +207,8 @@ export interface TableSchemaNamespace<SchemaName extends string> {
 export type DeclaredTableOptions = readonly TableOptionBuilderLike[]
 export type { DdlExpressionLike, IndexKeySpec, MatchingColumnArityInput, NonEmptyColumnInput, NonEmptyStringInput, NormalizeColumns, ReferentialAction } from "./table-options.js"
 export type { NonEmptyFieldMap }
+export type NonEmptySchemaNameInput<Value extends string | undefined> =
+  Value extends string ? NonEmptyStringInput<Value> : Value
 
 export type TableDefinition<
   Name extends string,
@@ -697,11 +699,11 @@ export const optionFromTable = <Spec extends TableOptionSpec>(
 export function make<
   Name extends string,
   Fields extends TableFieldMap,
-  SchemaName extends string | undefined = DefaultSchemaName
+  const SchemaName extends string | undefined = DefaultSchemaName
 >(
   name: NonEmptyStringInput<Name>,
   fields: Fields & NonEmptyFieldMap<Fields>,
-  schemaName?: SchemaName
+  schemaName?: NonEmptySchemaNameInput<SchemaName>
 ): TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName> {
   const resolvedSchemaName = arguments.length >= 3
     ? schemaName
@@ -876,13 +878,17 @@ export function Class<Self = never>(
   name: "",
   schemaName?: string | undefined
 ): never
+export function Class<Self = never>(
+  name: string,
+  schemaName: ""
+): never
 export function Class<
   Self = never,
-  SchemaName extends string | undefined = DefaultSchemaName,
-  Name extends string = string
+  const SchemaName extends string | undefined = DefaultSchemaName,
+  const Name extends string = string
 >(
   name: NonEmptyStringInput<Name>,
-  schemaName?: SchemaName
+  schemaName?: NonEmptySchemaNameInput<SchemaName>
 ): <Fields extends TableFieldMap>(fields: Fields & NonEmptyFieldMap<Fields>) => [Self] extends [never]
   ? MissingSelfGeneric
   : TableClassStatic<Name, Fields, InlinePrimaryKeyKeys<Fields>, SchemaName>

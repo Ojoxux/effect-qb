@@ -73,13 +73,13 @@ export const option = BaseTable.option
 export const make = <
   Name extends string,
   Fields extends DialectFieldMap,
-  SchemaName extends string | undefined = undefined
+  const SchemaName extends string | undefined = undefined
 >(
   name: BaseTable.NonEmptyStringInput<Name>,
   fields: Fields & BaseTable.NonEmptyFieldMap<Fields>,
-  schemaName: SchemaName = undefined as SchemaName
-): TableDefinition<Name, Fields> =>
-  BaseTable.make<Name, Fields, SchemaName>(name, fields, schemaName) as TableDefinition<Name, Fields>
+  schemaName: BaseTable.NonEmptySchemaNameInput<SchemaName> = undefined as BaseTable.NonEmptySchemaNameInput<SchemaName>
+): TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName> =>
+  BaseTable.make<Name, Fields, SchemaName>(name, fields, schemaName) as TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName>
 
 export const schema = <SchemaName extends string>(
   schemaName: BaseTable.NonEmptyStringInput<SchemaName>
@@ -135,9 +135,13 @@ type ClassApi = {
     name: "",
     schemaName?: string | undefined
   ): never
-  <Self = never, SchemaName extends string | undefined = undefined, Name extends string = string>(
+  <Self = never>(
+    name: string,
+    schemaName: ""
+  ): never
+  <Self = never, const SchemaName extends string | undefined = undefined, const Name extends string = string>(
     name: BaseTable.NonEmptyStringInput<Name>,
-    schemaName?: SchemaName
+    schemaName?: BaseTable.NonEmptySchemaNameInput<SchemaName>
   ): <
     Fields extends DialectFieldMap
   >(fields: Fields & BaseTable.NonEmptyFieldMap<Fields>) => [Self] extends [never]
