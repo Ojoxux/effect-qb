@@ -357,8 +357,6 @@ export const collectInlineOptions = <Fields extends TableFieldMap>(
       })
     }
     if (column.metadata.references) {
-      validateReferentialAction(column.metadata.references.onUpdate)
-      validateReferentialAction(column.metadata.references.onDelete)
       const local = [columnName] as ColumnList
       options.push({
         kind: "foreignKey",
@@ -485,8 +483,6 @@ export const validateOptions = <Fields extends TableFieldMap>(
           }
         }
         if (option.kind === "foreignKey") {
-          validateReferentialAction(option.onUpdate)
-          validateReferentialAction(option.onDelete)
           const reference = typeof option.references === "function"
             ? option.references()
             : option.references

@@ -237,14 +237,15 @@ describe("ddl rendering behavior", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
 
+    const postgresMemberships = StdRoot.Table.make("memberships", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      orgId: StdRoot.Column.uuid().pipe(Postgres.Column.foreignKey({
+        target: () => postgresOrgs.id,
+        onDelete: "cascade; drop table orgs"
+      } as never))
+    })
     expect(() =>
-      StdRoot.Table.make("memberships", {
-        id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-        orgId: StdRoot.Column.uuid().pipe(Postgres.Column.foreignKey({
-          target: () => postgresOrgs.id,
-          onDelete: "cascade; drop table orgs"
-        } as never))
-      })
+      Postgres.Renderer.make().render(Postgres.Query.createTable(postgresMemberships))
     ).toThrow("Foreign key action must be noAction, restrict, cascade, setNull, or setDefault")
 
     const mysqlMemberships = StdRoot.Table.make("memberships", {
