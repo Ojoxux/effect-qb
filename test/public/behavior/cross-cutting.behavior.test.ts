@@ -99,26 +99,30 @@ describe("cross-cutting statement behavior", () => {
     expect(() => Mysql.Renderer.make().render(mergePlan)).toThrow("Unsupported merge statement for mysql")
   })
 
-  test("rejects malformed statement identifiers before rendering SQL", () => {
+  test("statement builders trust typed identifiers and defer malformed any values to rendering", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
 
+    const invalidSavepointPlan = Postgres.Query.savepoint(123 as any)
     expect(() =>
-      Postgres.Query.savepoint(123 as any)
+      Postgres.Renderer.make().render(invalidSavepointPlan)
     ).toThrow("savepoint(...) name must be a non-empty string")
 
+    const invalidRollbackToPlan = Postgres.Query.rollbackTo("" as any)
     expect(() =>
-      Postgres.Query.rollbackTo("" as any)
+      Postgres.Renderer.make().render(invalidRollbackToPlan)
     ).toThrow("rollbackTo(...) name must be a non-empty string")
 
+    const invalidCreateIndexPlan = Postgres.Query.createIndex(users, "id", { name: 123 } as any)
     expect(() =>
-      Postgres.Query.createIndex(users, "id", { name: 123 } as any)
+      Postgres.Renderer.make().render(invalidCreateIndexPlan)
     ).toThrow("createIndex(...) option 'name' must be a non-empty string")
 
+    const invalidDropIndexPlan = Postgres.Query.dropIndex(users, "id", { name: "" } as any)
     expect(() =>
-      Postgres.Query.dropIndex(users, "id", { name: "" } as any)
+      Postgres.Renderer.make().render(invalidDropIndexPlan)
     ).toThrow("dropIndex(...) option 'name' must be a non-empty string")
 
     const savepointPlan = Postgres.Query.savepoint("before_merge")
