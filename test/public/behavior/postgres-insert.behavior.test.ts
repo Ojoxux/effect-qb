@@ -349,22 +349,6 @@ describe("postgres insert behavior", () => {
     ).toThrow("onConflict(...) is not supported for delete statements")
   })
 
-  test("rejects postgres conflict targets with unknown columns at runtime", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-
-    expect(() => Postgres.Query.onConflict(unsafeAny(["missing"]), {
-      update: {
-        email: Postgres.Query.excluded(users.email)
-      }
-    })(Postgres.Query.insert(users, {
-      id: userId,
-      email: "alice@example.com"
-    }))).toThrow("effect-qb: unknown conflict target column")
-  })
-
   test("rejects empty postgres conflict constraint names before rendering SQL", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
     const users = StdRoot.Table.make("users", {

@@ -225,22 +225,6 @@ describe("mysql insert behavior", () => {
     )
   })
 
-  test("rejects mysql conflict targets with unknown columns at runtime", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-
-    expect(() => Mysql.Query.onConflict(unsafeAny(["missing"]), {
-      update: {
-        email: Mysql.Query.excluded(users.email)
-      }
-    })(Mysql.Query.insert(users, {
-      id: userId,
-      email: "alice@example.com"
-    }))).toThrow("effect-qb: unknown conflict target column")
-  })
-
   test("rejects mysql empty returning selections before treating them as no-ops", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),

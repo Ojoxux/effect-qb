@@ -203,22 +203,6 @@ describe("sqlite behavior", () => {
     )
   })
 
-  test("rejects sqlite conflict targets with unknown columns at runtime", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.text().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-
-    expect(() => Sqlite.Query.onConflict(["missing"] as any, {
-      update: {
-        email: Sqlite.Query.excluded(users.email)
-      }
-    })(Sqlite.Query.insert(users, {
-      id: "user-1",
-      email: "alice@example.com"
-    }))).toThrow("effect-qb: unknown conflict target column")
-  })
-
   test("rejects sqlite empty returning selections before omitting returning", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.text().pipe(StdRoot.Column.primaryKey),

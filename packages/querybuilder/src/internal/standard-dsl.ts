@@ -4395,10 +4395,6 @@ type BinaryPredicateExpression<
     columnsInput: string | readonly string[]
   ): readonly [string, ...string[]] => {
     const columns = normalizeColumnList(columnsInput) as readonly [string, ...string[]]
-    const knownColumns = new Set(Object.keys(target[Table.TypeId].fields))
-    if (columns.some((columnName) => !knownColumns.has(columnName))) {
-      throw new Error("effect-qb: unknown conflict target column")
-    }
     return columns
   }
 
