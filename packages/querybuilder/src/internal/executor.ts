@@ -406,6 +406,16 @@ export const decodeRows = (
   return rows.map((row) => decodeRow(row))
 }
 
+const assertDialectCompatible = (
+  plan: Query.Plan.Any,
+  dialect: string
+): void => {
+  const planDialect = Renderer.runtimePlanDialect(plan) ?? plan[Plan.TypeId].dialect
+  if (planDialect === Renderer.DialectConflict || (planDialect !== dialect && planDialect !== "standard")) {
+    throw new Error("effect-qb: plan dialect is not compatible with the target renderer or executor")
+  }
+}
+
 /**
  * Constructs an executor from a dialect and implementation callback.
  */
@@ -421,9 +431,11 @@ export const make = <
 ): Executor<Dialect, Error, Context> => ({
   dialect,
   execute(plan) {
+    assertDialectCompatible(plan as Query.Plan.Any, dialect)
     return (execute as any)(plan)
   },
   stream(plan) {
+    assertDialectCompatible(plan as Query.Plan.Any, dialect)
     return Stream.unwrap(Effect.map((execute as any)(plan), (rows: ReadonlyArray<any>) => Stream.fromIterable(rows)))
   }
 }) as Executor<Dialect, Error, Context>

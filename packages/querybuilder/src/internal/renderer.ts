@@ -63,7 +63,7 @@ const projectionPathKey = (path: readonly string[]): string => JSON.stringify(pa
 
 const formatProjectionPath = (path: readonly string[]): string => path.join(".")
 
-const DialectConflict = "__effect_qb_dialect_conflict__"
+export const DialectConflict = "__effect_qb_dialect_conflict__"
 
 const isObject = (value: unknown): value is Record<PropertyKey, unknown> =>
   typeof value === "object" && value !== null
@@ -368,7 +368,7 @@ const visitPlan = (
   return next
 }
 
-const runtimePlanDialect = (plan: Query.Plan.Any): string | undefined =>
+export const runtimePlanDialect = (plan: Query.Plan.Any): string | undefined =>
   visitPlan(plan, undefined, {
     plans: new WeakSet<object>(),
     expressions: new WeakSet<object>()
