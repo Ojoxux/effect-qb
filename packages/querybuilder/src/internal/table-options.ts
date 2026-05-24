@@ -391,7 +391,7 @@ export const resolvePrimaryKeyColumns = <Fields extends TableFieldMap>(
     if (typeof option !== "object" || option === null || !("kind" in option) || option.kind !== "primaryKey") {
       return []
     }
-    return [option.columns]
+    return Array.isArray(option.columns) ? [option.columns] : []
   })
   if (explicit.length > 1) {
     throw new Error("Only one primary key declaration is allowed")

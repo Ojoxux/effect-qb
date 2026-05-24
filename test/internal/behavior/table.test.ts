@@ -491,6 +491,28 @@ describe("table definitions", () => {
         expect.objectContaining({ kind: "unique", columns: "id" })
       ])
     )
+
+    const usersWithObjectColumns = StdRoot.Table.make("malformed_non_index_object_option_users", {
+      id: StdRoot.Column.uuid(),
+      orgId: StdRoot.Column.uuid()
+    }).pipe(
+      StdRoot.Table.option(unsafeAny({
+        kind: "primaryKey",
+        columns: {}
+      })),
+      StdRoot.Table.option(unsafeAny({
+        kind: "unique",
+        columns: {}
+      }))
+    )
+
+    expect(usersWithObjectColumns[StdRoot.Table.OptionsSymbol]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "primaryKey", columns: {} }),
+        expect.objectContaining({ kind: "unique", columns: {} })
+      ])
+    )
+    expect(usersWithObjectColumns[StdRoot.Table.TypeId].primaryKey).toEqual([])
   })
 
   test("table definitions trust unknown option columns without runtime validation", () => {
