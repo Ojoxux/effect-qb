@@ -266,6 +266,24 @@ describe("table definitions", () => {
       columns: "id"
     })
 
+    const brokenLocalColumnsMemberships = StdRoot.Table.make("broken_local_columns_memberships", {
+      orgId: StdRoot.Column.uuid()
+    }).pipe(
+      StdRoot.Table.option(unsafeAny({
+        kind: "foreignKey",
+        columns: "orgId",
+        references: {
+          tableName: "orgs",
+          columns: ["id"]
+        }
+      }))
+    )
+    const brokenLocalColumnsForeignKey = brokenLocalColumnsMemberships[StdRoot.Table.OptionsSymbol].find((option: { kind: string }) => option.kind === "foreignKey")
+    if (!brokenLocalColumnsForeignKey || brokenLocalColumnsForeignKey.kind !== "foreignKey") {
+      throw new Error("expected a foreign key option")
+    }
+    expect(brokenLocalColumnsForeignKey.columns).toBe("orgId")
+
     const brokenMembershipsArity = StdRoot.Table.make("broken_memberships_arity", {
       orgId: StdRoot.Column.uuid(),
       slug: StdRoot.Column.text()

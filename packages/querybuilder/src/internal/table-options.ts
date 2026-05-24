@@ -428,15 +428,17 @@ export const validateOptions = <Fields extends TableFieldMap>(
       case "primaryKey":
       case "unique":
       case "foreignKey": {
-        const columns = option.kind === "index"
-          ? requireOptionalColumnArray(
+        if (option.kind === "index") {
+          requireOptionalColumnArray(
             option.columns,
             `Option '${option.kind}' on table '${tableName}' requires a column array`
           )
-          : requireColumnArray(
+        } else if (option.kind !== "foreignKey") {
+          requireColumnArray(
             option.columns,
             `Option '${option.kind}' on table '${tableName}' requires a column array`
           )
+        }
         if (option.kind === "index") {
           const keys = option.keys ?? []
           for (const key of keys) {

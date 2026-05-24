@@ -354,6 +354,14 @@ describe("postgres schema management", () => {
           columns: "id",
           knownColumns: "id"
         })
+      },
+      {
+        kind: "foreignKey",
+        columns: "orgId",
+        references: () => ({
+          tableName: "orgs",
+          columns: ["id"]
+        })
       }
     ]
 
@@ -363,6 +371,7 @@ describe("postgres schema management", () => {
     const thirdForeignKey = model.options[2]
     const fourthForeignKey = model.options[3]
     const fifthForeignKey = model.options[4]
+    const sixthForeignKey = model.options[5]
 
     if (firstForeignKey?.kind !== "foreignKey") {
       throw new Error("expected first foreign key option")
@@ -378,6 +387,9 @@ describe("postgres schema management", () => {
     }
     if (fifthForeignKey?.kind !== "foreignKey") {
       throw new Error("expected fifth foreign key option")
+    }
+    if (sixthForeignKey?.kind !== "foreignKey") {
+      throw new Error("expected sixth foreign key option")
     }
 
     expect(firstForeignKey.references()).toMatchObject({
@@ -400,6 +412,11 @@ describe("postgres schema management", () => {
       tableName: "orgs",
       columns: "id",
       knownColumns: "id"
+    })
+    expect(sixthForeignKey.columns).toBe("orgId")
+    expect(sixthForeignKey.references()).toMatchObject({
+      tableName: "orgs",
+      columns: ["id"]
     })
   })
 
