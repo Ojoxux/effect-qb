@@ -414,8 +414,21 @@ export const validateOptions = <Fields extends TableFieldMap>(
             if (typeof key !== "object" || key === null || !("kind" in key)) {
               throw new Error(`Index on table '${tableName}' requires key metadata objects`)
             }
-            if (key.kind === "column" && !knownColumns.has(key.column)) {
-              throw new Error(`Unknown index key column '${key.column}' on table '${tableName}'`)
+            const kind = (key as { readonly kind?: unknown }).kind
+            if (kind === "column") {
+              const column = (key as { readonly column?: unknown }).column
+              if (typeof column !== "string" || column.length === 0) {
+                throw new Error(`Index on table '${tableName}' requires column key columns`)
+              }
+              if (!knownColumns.has(column)) {
+                throw new Error(`Unknown index key column '${column}' on table '${tableName}'`)
+              }
+            } else if (kind === "expression") {
+              if (!isDdlExpressionLike((key as { readonly expression?: unknown }).expression)) {
+                throw new Error(`Index on table '${tableName}' requires expression key expressions`)
+              }
+            } else {
+              throw new Error(`Index on table '${tableName}' requires key kind to be column or expression`)
             }
           }
           if (columns.length === 0 && keys.length === 0) {

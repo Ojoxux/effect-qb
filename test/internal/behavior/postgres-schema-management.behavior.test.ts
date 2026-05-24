@@ -105,6 +105,23 @@ describe("postgres schema management", () => {
     )
   })
 
+  test("source table models reject malformed index key metadata before mapping metadata", () => {
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
+    })
+    ;(users as any)[StdRoot.Table.OptionsSymbol] = [{ kind: "index", keys: [{ kind: "partition" }] }]
+
+    expect(() => toTableModel(users as unknown as Parameters<typeof toTableModel>[0])).toThrow(
+      "Index on table 'users' requires key kind to be column or expression"
+    )
+
+    ;(users as any)[StdRoot.Table.OptionsSymbol] = [{ kind: "index", keys: [{ kind: "expression" }] }]
+
+    expect(() => toTableModel(users as unknown as Parameters<typeof toTableModel>[0])).toThrow(
+      "Index on table 'users' requires expression key expressions"
+    )
+  })
+
   test("classifies safe and destructive schema changes", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid(),
