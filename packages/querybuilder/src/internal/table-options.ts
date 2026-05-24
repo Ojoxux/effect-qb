@@ -179,6 +179,9 @@ type TupleFromColumns<Columns> = Columns extends readonly [infer Head extends st
 export type NonEmptyColumnInput<Columns extends string | readonly string[]> =
   TupleFromColumns<Columns> extends never ? never : Columns
 
+export type NonEmptyStringInput<Value extends string> =
+  string extends Value ? Value : Value extends "" ? never : Value
+
 export type MatchingColumnArityInput<
   Left extends string | readonly string[],
   Right extends string | readonly string[]

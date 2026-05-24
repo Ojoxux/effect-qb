@@ -18,6 +18,15 @@ const postgresUsers = Std.Table.make("users", {
   email: Std.Column.text(),
   bio: Std.Column.text().pipe(Std.Column.nullable)
 })
+// @ts-expect-error table names must be non-empty
+Std.Table.make("", {
+  id: Std.Column.uuid()
+})
+const publicSchema = Postgres.Schema.make("public")
+// @ts-expect-error schema-scoped table names must be non-empty
+publicSchema.table("", {
+  id: Std.Column.uuid()
+})
 const postgresSelectSchema = Std.Table.selectSchema(postgresUsers)
 const postgresInsertSchema = Std.Table.insertSchema(postgresUsers)
 const postgresUpdateSchema = Std.Table.updateSchema(postgresUsers)

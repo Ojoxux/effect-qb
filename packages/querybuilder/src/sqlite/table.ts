@@ -62,7 +62,7 @@ export type TableSchemaNamespace<SchemaName extends string> = {
     const Options extends BaseTable.DeclaredTableOptions,
     PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>
   >(
-    name: Name,
+    name: BaseTable.NonEmptyStringInput<Name>,
     fields: Fields,
     ...options: Options & BaseTable.ValidateDeclaredOptions<BaseTable.TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
   ) => ApplySchemaTableOptions<Name, Fields, PrimaryKeyColumns, SchemaName, Options>
@@ -79,7 +79,7 @@ export const make = <
   Fields extends DialectFieldMap,
   SchemaName extends string | undefined = undefined
 >(
-  name: Name,
+  name: BaseTable.NonEmptyStringInput<Name>,
   fields: Fields,
   schemaName: SchemaName = undefined as SchemaName
 ): TableDefinition<Name, Fields> =>
@@ -94,12 +94,12 @@ export const schema = <SchemaName extends string>(
     const Options extends BaseTable.DeclaredTableOptions,
     PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>
   >(
-    name: Name,
+    name: BaseTable.NonEmptyStringInput<Name>,
     fields: Fields,
     ...declaredOptions: Options & BaseTable.ValidateDeclaredOptions<BaseTable.TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
   ) =>
     (BaseTable.schema(schemaName).table as (
-      name: Name,
+      name: BaseTable.NonEmptyStringInput<Name>,
       fields: Fields,
       ...options: BaseTable.DeclaredTableOptions
     ) => BaseTable.TableDefinition<any, any, any, "schema", any>)(

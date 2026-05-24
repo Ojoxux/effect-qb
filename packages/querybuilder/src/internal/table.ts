@@ -14,6 +14,7 @@ import {
   type IndexKeySpec,
   type MatchingColumnArityInput,
   type NonEmptyColumnInput,
+  type NonEmptyStringInput,
   type NormalizeColumns,
   type ReferentialAction,
   type TableOptionSpec,
@@ -195,14 +196,14 @@ export interface TableSchemaNamespace<SchemaName extends string> {
     const Options extends DeclaredTableOptions,
     PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>
   >(
-    name: Name,
+    name: NonEmptyStringInput<Name>,
     fields: Fields,
     ...options: Options & ValidateDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
   ) => ApplyDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
 }
 
 export type DeclaredTableOptions = readonly TableOptionBuilderLike[]
-export type { DdlExpressionLike, IndexKeySpec, MatchingColumnArityInput, NonEmptyColumnInput, NormalizeColumns, ReferentialAction } from "./table-options.js"
+export type { DdlExpressionLike, IndexKeySpec, MatchingColumnArityInput, NonEmptyColumnInput, NonEmptyStringInput, NormalizeColumns, ReferentialAction } from "./table-options.js"
 
 export type TableDefinition<
   Name extends string,
@@ -678,7 +679,7 @@ export function make<
   Fields extends TableFieldMap,
   SchemaName extends string | undefined = DefaultSchemaName
 >(
-  name: Name,
+  name: NonEmptyStringInput<Name>,
   fields: Fields,
   schemaName?: SchemaName
 ): TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName> {
@@ -686,7 +687,7 @@ export function make<
     ? schemaName
     : ("public" as SchemaName)
   return makeTable(
-    name,
+    name as Name,
     fields,
     [],
     name,
@@ -760,13 +761,13 @@ export const schema = <SchemaName extends string>(
     const Options extends DeclaredTableOptions,
     PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>
   >(
-    name: Name,
+    name: NonEmptyStringInput<Name>,
     fields: Fields,
     ...options: Options & ValidateDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
   ): ApplyDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options> =>
     applyDeclaredOptions(
       makeTable(
-        name,
+        name as Name,
         fields,
         [],
         name,

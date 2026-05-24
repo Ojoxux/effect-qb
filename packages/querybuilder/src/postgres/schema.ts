@@ -45,7 +45,7 @@ export type SchemaNamespace<SchemaName extends string> = Pipeable & {
     const Options extends BaseTable.DeclaredTableOptions,
     PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>
   >(
-    name: Name,
+    name: BaseTable.NonEmptyStringInput<Name>,
     fields: Fields & ValidatePostgresSchemaFields<Fields>,
     ...options: Options & BaseTable.ValidateDeclaredOptions<BaseTable.TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
   ) => ApplySchemaTableOptions<Name, Fields, PrimaryKeyColumns, SchemaName, Options>
