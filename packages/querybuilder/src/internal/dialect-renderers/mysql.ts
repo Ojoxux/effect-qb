@@ -2029,6 +2029,9 @@ export const renderExpression = (
       )) {
         throw new Error("window order direction must be asc or desc")
       }
+      if (ast.orderBy.some((entry) => !isExpression((entry as { readonly value?: unknown }).value))) {
+        throw new Error("window order terms require expression values")
+      }
       const clauses: string[] = []
       if (ast.partitionBy.length > 0) {
         clauses.push(`partition by ${ast.partitionBy.map((value: Expression.Any) => renderExpression(value, state, dialect)).join(", ")}`)
