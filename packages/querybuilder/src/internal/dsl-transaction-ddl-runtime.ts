@@ -62,6 +62,17 @@ export const normalizeStatementFlag = (
   return value ?? false
 }
 
+export const normalizeStatementIdentifier = (
+  apiName: string,
+  identifierName: string,
+  value: unknown
+): string => {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`${apiName}(...) ${identifierName} must be a non-empty string`)
+  }
+  return value
+}
+
 export const makeDslTransactionDdlRuntime = (ctx: DslTransactionDdlRuntimeContext) => {
   const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
     typeof value === "object" && value !== null
@@ -148,8 +159,9 @@ export const makeDslTransactionDdlRuntime = (ctx: DslTransactionDdlRuntimeContex
       orderBy: []
     }, undefined, "transaction", "rollback")
 
-  const savepoint = (name: string) =>
-    ctx.makePlan({
+  const savepoint = (name: string) => {
+    const normalizedName = normalizeStatementIdentifier("savepoint", "name", name)
+    return ctx.makePlan({
       selection: {},
       required: [],
       available: {},
@@ -159,7 +171,7 @@ export const makeDslTransactionDdlRuntime = (ctx: DslTransactionDdlRuntimeContex
       select: {},
       transaction: {
         kind: "savepoint",
-        name
+        name: normalizedName
       },
       where: [],
       having: [],
@@ -167,9 +179,11 @@ export const makeDslTransactionDdlRuntime = (ctx: DslTransactionDdlRuntimeContex
       groupBy: [],
       orderBy: []
     }, undefined, "transaction", "savepoint")
+  }
 
-  const rollbackTo = (name: string) =>
-    ctx.makePlan({
+  const rollbackTo = (name: string) => {
+    const normalizedName = normalizeStatementIdentifier("rollbackTo", "name", name)
+    return ctx.makePlan({
       selection: {},
       required: [],
       available: {},
@@ -179,7 +193,7 @@ export const makeDslTransactionDdlRuntime = (ctx: DslTransactionDdlRuntimeContex
       select: {},
       transaction: {
         kind: "rollbackTo",
-        name
+        name: normalizedName
       },
       where: [],
       having: [],
@@ -187,9 +201,11 @@ export const makeDslTransactionDdlRuntime = (ctx: DslTransactionDdlRuntimeContex
       groupBy: [],
       orderBy: []
     }, undefined, "transaction", "rollbackTo")
+  }
 
-  const releaseSavepoint = (name: string) =>
-    ctx.makePlan({
+  const releaseSavepoint = (name: string) => {
+    const normalizedName = normalizeStatementIdentifier("releaseSavepoint", "name", name)
+    return ctx.makePlan({
       selection: {},
       required: [],
       available: {},
@@ -199,7 +215,7 @@ export const makeDslTransactionDdlRuntime = (ctx: DslTransactionDdlRuntimeContex
       select: {},
       transaction: {
         kind: "releaseSavepoint",
-        name
+        name: normalizedName
       },
       where: [],
       having: [],
@@ -207,6 +223,7 @@ export const makeDslTransactionDdlRuntime = (ctx: DslTransactionDdlRuntimeContex
       groupBy: [],
       orderBy: []
     }, undefined, "transaction", "releaseSavepoint")
+  }
 
   const createTable = (target: any, options: { readonly ifNotExists?: boolean } = {}) => {
     assertTableTarget(target, "createTable")
@@ -273,6 +290,9 @@ export const makeDslTransactionDdlRuntime = (ctx: DslTransactionDdlRuntimeContex
     const normalizedColumns = ctx.normalizeColumnList(columns)
     const unique = normalizeStatementFlag("createIndex", "unique", options.unique)
     const ifNotExists = normalizeStatementFlag("createIndex", "ifNotExists", options.ifNotExists)
+    const name = options.name === undefined
+      ? undefined
+      : normalizeStatementIdentifier("createIndex", "option 'name'", options.name)
     validateIndexColumns(target, normalizedColumns)
     const { sourceName, sourceBaseName } = ctx.targetSourceDetails(target)
     return ctx.makePlan({
@@ -291,7 +311,7 @@ export const makeDslTransactionDdlRuntime = (ctx: DslTransactionDdlRuntimeContex
       },
       ddl: {
         kind: "createIndex",
-        name: options.name ?? ctx.defaultIndexName(sourceBaseName, normalizedColumns, unique),
+        name: name ?? ctx.defaultIndexName(sourceBaseName, normalizedColumns, unique),
         columns: normalizedColumns,
         unique,
         ifNotExists
@@ -308,6 +328,9 @@ export const makeDslTransactionDdlRuntime = (ctx: DslTransactionDdlRuntimeContex
     assertTableTarget(target, "dropIndex")
     const normalizedColumns = ctx.normalizeColumnList(columns)
     const ifExists = normalizeStatementFlag("dropIndex", "ifExists", options.ifExists)
+    const name = options.name === undefined
+      ? undefined
+      : normalizeStatementIdentifier("dropIndex", "option 'name'", options.name)
     validateIndexColumns(target, normalizedColumns)
     const { sourceName, sourceBaseName } = ctx.targetSourceDetails(target)
     return ctx.makePlan({
@@ -326,7 +349,7 @@ export const makeDslTransactionDdlRuntime = (ctx: DslTransactionDdlRuntimeContex
       },
       ddl: {
         kind: "dropIndex",
-        name: options.name ?? ctx.defaultIndexName(sourceBaseName, normalizedColumns, false),
+        name: name ?? ctx.defaultIndexName(sourceBaseName, normalizedColumns, false),
         ifExists
       },
       where: [],

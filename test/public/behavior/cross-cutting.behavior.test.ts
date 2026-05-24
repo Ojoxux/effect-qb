@@ -186,6 +186,43 @@ describe("cross-cutting statement behavior", () => {
     ).toThrow("truncate(...) option 'cascade' must be boolean")
   })
 
+  test("rejects malformed statement identifiers before rendering SQL", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
+    })
+
+    expect(() =>
+      Postgres.Query.savepoint(123 as any)
+    ).toThrow("savepoint(...) name must be a non-empty string")
+
+    expect(() =>
+      Postgres.Query.rollbackTo("" as any)
+    ).toThrow("rollbackTo(...) name must be a non-empty string")
+
+    expect(() =>
+      Postgres.Query.createIndex(users, "id", { name: 123 } as any)
+    ).toThrow("createIndex(...) option 'name' must be a non-empty string")
+
+    expect(() =>
+      Postgres.Query.dropIndex(users, "id", { name: "" } as any)
+    ).toThrow("dropIndex(...) option 'name' must be a non-empty string")
+
+    const savepointPlan = Postgres.Query.savepoint("before_merge")
+    ;(savepointPlan as any)[queryAst].transaction.name = 123
+
+    expect(() =>
+      Postgres.Renderer.make().render(savepointPlan)
+    ).toThrow("savepoint(...) name must be a non-empty string")
+
+    const createIndexPlan = Postgres.Query.createIndex(users, "id")
+    ;(createIndexPlan as any)[queryAst].ddl.name = 123
+
+    expect(() =>
+      Postgres.Renderer.make().render(createIndexPlan)
+    ).toThrow("createIndex(...) option 'name' must be a non-empty string")
+  })
+
   test("rejects invalid rendered transaction kinds", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
 

@@ -8,7 +8,7 @@ import type { RenderState, RenderValueContext, SqlDialect } from "../dialect.js"
 import * as ExpressionAst from "../expression-ast.js"
 import * as JsonPath from "../json/path.js"
 import { expectConflictClause, expectInsertSourceKind, expectInsertValues } from "../dsl-mutation-runtime.js"
-import { expectDdlClauseKind, normalizeStatementFlag } from "../dsl-transaction-ddl-runtime.js"
+import { expectDdlClauseKind, normalizeStatementFlag, normalizeStatementIdentifier } from "../dsl-transaction-ddl-runtime.js"
 import {
   renderJsonSelectSql,
   renderSelectSql,
@@ -351,10 +351,11 @@ const renderCreateIndexSql = (
 ): string => {
   const unique = normalizeStatementFlag("createIndex", "unique", ddl.unique)
   const ifNotExists = normalizeStatementFlag("createIndex", "ifNotExists", ddl.ifNotExists)
+  const name = normalizeStatementIdentifier("createIndex", "option 'name'", ddl.name)
   const maybeIfNotExists = (dialect.name === "postgres" || dialect.name === "sqlite") && ifNotExists ? " if not exists" : ""
   const table = targetSource.source as Table.AnyTable
   const tableCasing = casingForTable(table, state)
-  return `create${unique ? " unique" : ""} index${maybeIfNotExists} ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} (${ddl.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")})`
+  return `create${unique ? " unique" : ""} index${maybeIfNotExists} ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", name))} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} (${ddl.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")})`
 }
 
 const renderDropIndexSql = (
@@ -364,11 +365,12 @@ const renderDropIndexSql = (
   dialect: SqlDialect
 ): string => {
   const ifExists = normalizeStatementFlag("dropIndex", "ifExists", ddl.ifExists)
+  const name = normalizeStatementIdentifier("dropIndex", "option 'name'", ddl.name)
   const table = targetSource.source as Table.AnyTable
   const tableCasing = casingForTable(table, state)
   return dialect.name === "postgres" || dialect.name === "sqlite"
-    ? `drop index${ifExists ? " if exists" : ""} ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))}`
-    : `drop index ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)}`
+    ? `drop index${ifExists ? " if exists" : ""} ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", name))}`
+    : `drop index ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", name))} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)}`
 }
 
 const isExpression = (value: unknown): value is Expression.Any =>
@@ -1197,11 +1199,11 @@ const renderTransactionClause = (
     case "rollback":
       return "rollback"
     case "savepoint":
-      return `savepoint ${dialect.quoteIdentifier(clause.name)}`
+      return `savepoint ${dialect.quoteIdentifier(normalizeStatementIdentifier("savepoint", "name", clause.name))}`
     case "rollbackTo":
-      return `rollback to savepoint ${dialect.quoteIdentifier(clause.name)}`
+      return `rollback to savepoint ${dialect.quoteIdentifier(normalizeStatementIdentifier("rollbackTo", "name", clause.name))}`
     case "releaseSavepoint":
-      return `release savepoint ${dialect.quoteIdentifier(clause.name)}`
+      return `release savepoint ${dialect.quoteIdentifier(normalizeStatementIdentifier("releaseSavepoint", "name", clause.name))}`
   }
   throw new Error("Unsupported transaction statement kind")
 }
