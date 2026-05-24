@@ -184,6 +184,28 @@ describe("rendering behavior", () => {
     }
   })
 
+  test("renderers reject excluded references outside insert conflict handlers", () => {
+    const users = Standard.Table.make("users", {
+      email: Standard.Column.text()
+    })
+    const plan = Standard.Query.select({
+      email: Standard.Query.excluded(users.email)
+    })
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "excluded(...) is only supported inside insert conflict handlers"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "excluded(...) is only supported inside insert conflict handlers"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "excluded(...) is only supported inside insert conflict handlers"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "excluded(...) is only supported inside insert conflict handlers"
+    )
+  })
+
   test("standard renderer rejects regular-expression predicates", () => {
     const users = Standard.Table.make("users", {
       email: Standard.Column.text()

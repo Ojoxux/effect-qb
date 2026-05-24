@@ -1549,8 +1549,9 @@ export const renderQueryAst = (
         }
       }
       if (conflict) {
+        const conflictValueState = { ...targetCasingState, allowExcluded: true }
         const updateValues = (conflict.values ?? []).map((entry) =>
-          `${quoteColumn(entry.columnName, state, dialect, targetSource.tableName)} = ${renderExpression(entry.value, targetCasingState, dialect)}`
+          `${quoteColumn(entry.columnName, state, dialect, targetSource.tableName)} = ${renderExpression(entry.value, conflictValueState, dialect)}`
         ).join(", ")
         if (dialect.name === "postgres") {
           const targetSql = conflict.target?.kind === "constraint"
@@ -1561,7 +1562,7 @@ export const renderQueryAst = (
           sql += targetSql
           sql += conflict.action === "doNothing"
             ? " do nothing"
-            : ` do update set ${updateValues}${conflict.where ? ` where ${renderExpression(conflict.where, targetCasingState, dialect)}` : ""}`
+            : ` do update set ${updateValues}${conflict.where ? ` where ${renderExpression(conflict.where, conflictValueState, dialect)}` : ""}`
         } else if (conflict.action === "doNothing") {
           sql = sql.replace(/^insert/, "insert ignore")
         } else {
@@ -2030,6 +2031,9 @@ export const renderExpression = (
       }
       return dialect.renderLiteral(ast.value, state, expression[Expression.TypeId])
     case "excluded":
+      if (state.allowExcluded !== true) {
+        throw new Error("excluded(...) is only supported inside insert conflict handlers")
+      }
       return dialect.name === "mysql"
         ? `values(${quoteColumn(ast.columnName, state, dialect)})`
         : `excluded.${quoteColumn(ast.columnName, state, dialect)}`

@@ -27,6 +27,7 @@ export interface RenderState {
     readonly columns: ReadonlyMap<string, string>
   }>
   readonly rowLocalColumns?: boolean
+  readonly allowExcluded?: boolean
 }
 
 export interface RenderValueContext {
