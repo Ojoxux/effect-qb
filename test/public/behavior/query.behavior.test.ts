@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { describe, expect, test } from "bun:test"
 
-import { RowSet, Query as Q, Function as F, Table } from "#postgres"
+import { RowSet, Query as Q, Function as F, Renderer, Table } from "#postgres"
 import { Column as C } from "#postgres"
 import { makeRootEmployees, makeRootSocialGraph } from "../../fixtures/schema.ts"
 import { unsafeAny } from "../../helpers/unsafe.ts"
@@ -91,5 +91,23 @@ describe("query behavior", () => {
       users: { name: "users", mode: "required", baseName: "users" },
       posts: { name: "posts", mode: "required", baseName: "posts" }
     })
+  })
+
+  test("rejects ungrouped scalar order terms in grouped queries", () => {
+    const { users, posts } = makeRootSocialGraph()
+
+    const plan = Q.select({
+      email: users.email,
+      postCount: F.count(posts.id)
+    }).pipe(
+      Q.from(users),
+      Q.innerJoin(posts, Q.eq(users.id, posts.userId)),
+      Q.groupBy(users.email),
+      Q.orderBy(posts.userId)
+    )
+
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "Invalid grouped selection: scalar expressions must be covered by groupBy(...) when aggregates are present"
+    )
   })
 })

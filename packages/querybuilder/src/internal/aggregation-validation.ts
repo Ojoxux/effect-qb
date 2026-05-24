@@ -129,6 +129,9 @@ const selectionHasAggregate = (selection: SelectionValue): boolean => {
   return Object.values(selection).some((value) => selectionHasAggregate(value))
 }
 
+const expressionsHaveAggregate = (expressions: readonly Expression.Any[]): boolean =>
+  expressions.some(expressionHasAggregate)
+
 const hasDependencies = (expression: Expression.Any): boolean =>
   Object.keys(expression[Expression.TypeId].dependencies).length > 0
 
@@ -187,16 +190,29 @@ const isGroupedAggregateExpressionValid = (
     case "notIn":
     case "between":
     case "jsonBuildArray":
-      return ast.values?.every((value) => isGroupedAggregateExpressionValid(value, groupedExpressions)) ?? false
+      return Array.isArray(ast.values) &&
+        ast.values.every((value) => isGroupedAggregateExpressionValid(value, groupedExpressions))
     case "function":
-      return ast.args.every((value) => isGroupedAggregateExpressionValid(value, groupedExpressions))
+      return Array.isArray(ast.args) &&
+        ast.args.every((value) => isGroupedAggregateExpressionValid(value, groupedExpressions))
     case "case":
-      return ast.branches.every((branch) =>
-        isGroupedAggregateExpressionValid(branch.when, groupedExpressions) &&
-        isGroupedAggregateExpressionValid(branch.then, groupedExpressions)) &&
+      return Array.isArray(ast.branches) &&
+        ast.branches.every((branch) =>
+          typeof branch === "object" &&
+          branch !== null &&
+          isExpression((branch as ExpressionAst.CaseBranchNode).when) &&
+          isExpression((branch as ExpressionAst.CaseBranchNode).then) &&
+          isGroupedAggregateExpressionValid(branch.when, groupedExpressions) &&
+          isGroupedAggregateExpressionValid(branch.then, groupedExpressions)) &&
+        isExpression(ast.else) &&
         isGroupedAggregateExpressionValid(ast.else, groupedExpressions)
     case "jsonBuildObject":
-      return ast.entries?.every((entry) => isGroupedAggregateExpressionValid(entry.value, groupedExpressions)) ?? false
+      return Array.isArray(ast.entries) &&
+        ast.entries.every((entry) =>
+          typeof entry === "object" &&
+          entry !== null &&
+          isExpression(entry.value) &&
+          isGroupedAggregateExpressionValid(entry.value, groupedExpressions))
     default:
       return false
   }
@@ -287,19 +303,26 @@ const isGroupedHavingPredicateValid = (
 export const validateAggregationSelection = (
   selection: SelectionValue,
   grouped: readonly Expression.Any[],
-  having: readonly Expression.Any[] = []
+  having: readonly Expression.Any[] = [],
+  orderBy: readonly Expression.Any[] = []
 ): void => {
   const groupedExpressions = new Set(grouped.map(groupingKeyOfExpression))
   const hasAggregate = selectionHasAggregate(selection)
-  const isValid = hasAggregate || grouped.length > 0
+  const hasHavingAggregate = expressionsHaveAggregate(having)
+  const hasOrderByAggregate = expressionsHaveAggregate(orderBy)
+  const requiresGroupedValidation = hasAggregate || hasHavingAggregate || hasOrderByAggregate || grouped.length > 0
+  const isValid = requiresGroupedValidation
     ? isGroupedSelectionValid(selection, groupedExpressions)
     : true
   if (!isValid) {
     throw new Error("Invalid grouped selection: scalar expressions must be covered by groupBy(...) when aggregates are present")
   }
-  const hasHavingAggregate = having.some(expressionHasAggregate)
-  if ((hasAggregate || hasHavingAggregate || grouped.length > 0) &&
+  if (requiresGroupedValidation &&
     !having.every((predicate) => isGroupedHavingPredicateValid(predicate, groupedExpressions))) {
+    throw new Error("Invalid grouped selection: scalar expressions must be covered by groupBy(...) when aggregates are present")
+  }
+  if (requiresGroupedValidation &&
+    !orderBy.every((term) => isGroupedAggregateExpressionValid(term, groupedExpressions))) {
     throw new Error("Invalid grouped selection: scalar expressions must be covered by groupBy(...) when aggregates are present")
   }
 }
