@@ -1439,6 +1439,9 @@ export const renderQueryAst = (
         clauses.push(`from ${renderSourceReference(ast.from.source, ast.from.tableName, ast.from.baseTableName, state, dialect)}`)
       }
       for (const join of ast.joins) {
+        if (dialect.name === "standard" && join.kind === "full") {
+          throw new Error("Unsupported standard full join")
+        }
         const source = renderSourceReference(join.source, join.tableName, join.baseTableName, state, dialect)
         clauses.push(
           join.kind === "cross"

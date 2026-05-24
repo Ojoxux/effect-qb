@@ -239,6 +239,27 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("standard renderer rejects full outer joins", () => {
+    const users = Standard.Table.make("users", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey)
+    })
+    const posts = Standard.Table.make("posts", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey),
+      userId: Standard.Column.uuid()
+    })
+    const plan = Standard.Query.select({
+      userId: users.id,
+      postId: posts.id
+    }).pipe(
+      Standard.Query.from(users),
+      Standard.Query.fullJoin(posts, Standard.Query.eq(users.id, posts.userId))
+    )
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "Unsupported standard full join"
+    )
+  })
+
   test("renderers reject excluded references outside insert conflict handlers", () => {
     const users = Standard.Table.make("users", {
       email: Standard.Column.text()
