@@ -162,6 +162,37 @@ const quoteColumn = (
   tableName?: string
 ): string => dialect.quoteIdentifier(casedColumnName(columnName, state, tableName))
 
+const referenceCasing = (
+  reference: { readonly casing?: Casing.Options },
+  state: RenderState
+): Casing.Options | undefined =>
+  Casing.merge(state.casing, reference.casing)
+
+const renderReferenceTable = (
+  reference: {
+    readonly tableName: string
+    readonly schemaName?: string
+    readonly casing?: Casing.Options
+  },
+  state: RenderState,
+  dialect: SqlDialect
+): string => {
+  const casing = referenceCasing(reference, state)
+  const tableName = Casing.applyCategory(casing, "tables", reference.tableName)
+  const schemaName = reference.schemaName === undefined
+    ? undefined
+    : Casing.applyCategory(casing, "schemas", reference.schemaName)
+  return dialect.renderTableReference(tableName, tableName, schemaName)
+}
+
+const quoteReferenceColumn = (
+  columnName: string,
+  reference: { readonly casing?: Casing.Options },
+  state: RenderState,
+  dialect: SqlDialect
+): string =>
+  dialect.quoteIdentifier(Casing.applyCategory(referenceCasing(reference, state), "columns", columnName))
+
 const registerSourceReference = (
   source: unknown,
   tableName: string,
@@ -219,10 +250,11 @@ const renderColumnDefinition = (
   dialect: SqlDialect,
   state: RenderState,
   columnName: string,
-  column: Table.AnyTable[typeof Table.TypeId]["fields"][string]
+  column: Table.AnyTable[typeof Table.TypeId]["fields"][string],
+  tableName?: string
 ): string => {
   const clauses = [
-    dialect.quoteIdentifier(columnName),
+    quoteColumn(columnName, state, dialect, tableName),
     column.metadata.ddlType ?? renderDbType(dialect, column.metadata.dbType)
   ]
   if (column.metadata.identity) {
@@ -245,31 +277,32 @@ const renderCreateTableSql = (
   ifNotExists: boolean
 ): string => {
   const table = targetSource.source as Table.AnyTable
+  const tableCasing = casingForTable(table, state)
   const fields = table[Table.TypeId].fields
   const definitions = Object.entries(fields).map(([columnName, column]) =>
-    renderColumnDefinition(dialect, state, columnName, column)
+    renderColumnDefinition(dialect, state, columnName, column, targetSource.tableName)
   )
   for (const option of table[Table.OptionsSymbol]) {
     switch (option.kind) {
       case "primaryKey":
-        definitions.push(`${option.name ? `constraint ${dialect.quoteIdentifier(option.name)} ` : ""}primary key (${option.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")})${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`)
+        definitions.push(`${option.name ? `constraint ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "constraints", option.name))} ` : ""}primary key (${option.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")})${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`)
         break
       case "unique":
         if (option.nullsNotDistinct || option.deferrable || option.initiallyDeferred) {
           throw new Error("Unsupported sqlite unique constraint options")
         }
-        definitions.push(`${option.name ? `constraint ${dialect.quoteIdentifier(option.name)} ` : ""}unique${option.nullsNotDistinct ? " nulls not distinct" : ""} (${option.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")})${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`)
+        definitions.push(`${option.name ? `constraint ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "constraints", option.name))} ` : ""}unique${option.nullsNotDistinct ? " nulls not distinct" : ""} (${option.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")})${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`)
         break
       case "foreignKey": {
         const reference = option.references()
         definitions.push(
-          `${option.name ? `constraint ${dialect.quoteIdentifier(option.name)} ` : ""}foreign key (${option.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")}) references ${dialect.renderTableReference(reference.tableName, reference.tableName, reference.schemaName)} (${reference.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")})${option.onDelete !== undefined ? ` on delete ${renderReferentialAction(option.onDelete)}` : ""}${option.onUpdate !== undefined ? ` on update ${renderReferentialAction(option.onUpdate)}` : ""}${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`
+          `${option.name ? `constraint ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "constraints", option.name))} ` : ""}foreign key (${option.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")}) references ${renderReferenceTable(reference, state, dialect)} (${reference.columns.map((column) => quoteReferenceColumn(column, reference, state, dialect)).join(", ")})${option.onDelete !== undefined ? ` on delete ${renderReferentialAction(option.onDelete)}` : ""}${option.onUpdate !== undefined ? ` on update ${renderReferentialAction(option.onUpdate)}` : ""}${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`
         )
         break
       }
       case "check":
         definitions.push(
-          `constraint ${dialect.quoteIdentifier(option.name)} check (${renderDdlExpression(option.predicate, { ...state, rowLocalColumns: true }, dialect)})${option.noInherit ? " no inherit" : ""}`
+          `constraint ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "constraints", option.name))} check (${renderDdlExpression(option.predicate, { ...state, casing: tableCasing, rowLocalColumns: true }, dialect)})${option.noInherit ? " no inherit" : ""}`
         )
         break
       case "index":
@@ -288,7 +321,9 @@ const renderCreateIndexSql = (
   dialect: SqlDialect
 ): string => {
   const maybeIfNotExists = (dialect.name === "postgres" || dialect.name === "sqlite") && ddl.ifNotExists ? " if not exists" : ""
-  return `create${ddl.unique ? " unique" : ""} index${maybeIfNotExists} ${dialect.quoteIdentifier(ddl.name)} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} (${ddl.columns.map((column) => dialect.quoteIdentifier(column)).join(", ")})`
+  const table = targetSource.source as Table.AnyTable
+  const tableCasing = casingForTable(table, state)
+  return `create${ddl.unique ? " unique" : ""} index${maybeIfNotExists} ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} (${ddl.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")})`
 }
 
 const renderDropIndexSql = (
@@ -296,10 +331,13 @@ const renderDropIndexSql = (
   ddl: Extract<QueryAst.DdlClause, { readonly kind: "dropIndex" }>,
   state: RenderState,
   dialect: SqlDialect
-): string =>
-  dialect.name === "postgres" || dialect.name === "sqlite"
-    ? `drop index${ddl.ifExists ? " if exists" : ""} ${dialect.quoteIdentifier(ddl.name)}`
-    : `drop index ${dialect.quoteIdentifier(ddl.name)} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)}`
+): string => {
+  const table = targetSource.source as Table.AnyTable
+  const tableCasing = casingForTable(table, state)
+  return dialect.name === "postgres" || dialect.name === "sqlite"
+    ? `drop index${ddl.ifExists ? " if exists" : ""} ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))}`
+    : `drop index ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)}`
+}
 
 const isExpression = (value: unknown): value is Expression.Any =>
   value !== null && typeof value === "object" && Expression.TypeId in value

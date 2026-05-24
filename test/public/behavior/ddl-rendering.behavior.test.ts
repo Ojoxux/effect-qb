@@ -188,6 +188,55 @@ describe("ddl rendering behavior", () => {
     )
   })
 
+  test("mysql and sqlite DDL casing maps physical identifiers", () => {
+    const organizations = StdRoot.Table.make("OrganizationAccounts", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      accountSlug: StdRoot.Column.text().pipe(StdRoot.Column.unique)
+    }).pipe(
+      Casing.withCasing({
+        tables: "snake_case",
+        columns: "snake_case"
+      })
+    )
+
+    const membershipsBase = StdRoot.Table.make("MembershipRecords", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      organizationId: StdRoot.Column.uuid().pipe(
+        StdRoot.Column.references(() => organizations.id)
+      ),
+      organizationSlug: StdRoot.Column.text(),
+      createdAt: StdRoot.Column.datetime()
+    }).pipe(
+      Casing.withCasing({
+        tables: "snake_case",
+        columns: "snake_case",
+        indexes: "snake_case"
+      })
+    )
+    const memberships = membershipsBase.pipe(
+      StdRoot.Table.foreignKey("organizationSlug", () => organizations, "accountSlug")
+    )
+
+    expect(Mysql.Renderer.make().render(Mysql.Query.createTable(memberships)).sql).toContain(
+      "create table `membership_records` (`id` char(36) not null, `organization_id` char(36) not null, `organization_slug` text not null, `created_at` datetime not null, primary key (`id`), foreign key (`organization_id`) references `organization_accounts` (`id`), foreign key (`organization_slug`) references `organization_accounts` (`account_slug`))"
+    )
+    expect(Mysql.Renderer.make().render(Mysql.Query.createIndex(memberships, ["createdAt"])).sql).toBe(
+      "create index `membership_records_created_at_idx` on `membership_records` (`created_at`)"
+    )
+    expect(Mysql.Renderer.make().render(Mysql.Query.dropIndex(memberships, ["createdAt"])).sql).toBe(
+      "drop index `membership_records_created_at_idx` on `membership_records`"
+    )
+    expect(Sqlite.Renderer.make().render(Sqlite.Query.createTable(memberships)).sql).toContain(
+      'create table "membership_records" ("id" text not null, "organization_id" text not null, "organization_slug" text not null, "created_at" datetime not null, primary key ("id"), foreign key ("organization_id") references "organization_accounts" ("id"), foreign key ("organization_slug") references "organization_accounts" ("account_slug"))'
+    )
+    expect(Sqlite.Renderer.make().render(Sqlite.Query.createIndex(memberships, ["createdAt"])).sql).toBe(
+      'create index "membership_records_created_at_idx" on "membership_records" ("created_at")'
+    )
+    expect(Sqlite.Renderer.make().render(Sqlite.Query.dropIndex(memberships, ["createdAt"])).sql).toBe(
+      'drop index "membership_records_created_at_idx"'
+    )
+  })
+
   test("rejects unknown table option kinds at render time", () => {
     const postgresUsers = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
