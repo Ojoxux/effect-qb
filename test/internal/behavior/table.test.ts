@@ -334,6 +334,38 @@ describe("table definitions", () => {
     )
   })
 
+  test("table definitions trust empty non-index option column lists without runtime validation", () => {
+    const users = StdRoot.Table.make("empty_non_index_option_users", {
+      id: StdRoot.Column.uuid(),
+      orgId: StdRoot.Column.uuid()
+    }).pipe(
+      StdRoot.Table.option(unsafeAny({
+        kind: "primaryKey",
+        columns: []
+      })),
+      StdRoot.Table.option(unsafeAny({
+        kind: "unique",
+        columns: []
+      })),
+      StdRoot.Table.option(unsafeAny({
+        kind: "foreignKey",
+        columns: [],
+        references: {
+          tableName: "orgs",
+          columns: ["id"]
+        }
+      }))
+    )
+
+    expect(users[StdRoot.Table.OptionsSymbol]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "primaryKey", columns: [] }),
+        expect.objectContaining({ kind: "unique", columns: [] }),
+        expect.objectContaining({ kind: "foreignKey", columns: [] })
+      ])
+    )
+  })
+
   test("operator expressions feed query selection and source tracking", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),

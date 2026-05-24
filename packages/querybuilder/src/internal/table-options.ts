@@ -437,9 +437,6 @@ export const validateOptions = <Fields extends TableFieldMap>(
             option.columns,
             `Option '${option.kind}' on table '${tableName}' requires a column array`
           )
-        if (columns.length === 0 && option.kind !== "index") {
-          throw new Error(`Option '${option.kind}' on table '${tableName}' requires at least one column`)
-        }
         if (option.kind !== "foreignKey") {
           for (const column of columns) {
             if (!knownColumns.has(column)) {
