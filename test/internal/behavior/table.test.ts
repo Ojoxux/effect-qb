@@ -209,12 +209,18 @@ describe("table definitions", () => {
       knownColumns: "id"
     })
 
-    expect(() => StdRoot.Table.make("broken_memberships_arity", {
+    const brokenMembershipsArity = StdRoot.Table.make("broken_memberships_arity", {
       orgId: StdRoot.Column.uuid(),
       slug: StdRoot.Column.text()
     }).pipe(
       unsafeAny(Table.foreignKey(["orgId", "slug"], () => orgs, "id"))
-    )).toThrow("Foreign key on table 'broken_memberships_arity' must reference the same number of columns")
+    )
+    const brokenArityForeignKey = brokenMembershipsArity[StdRoot.Table.OptionsSymbol].find((option: { kind: string }) => option.kind === "foreignKey")
+    if (!brokenArityForeignKey || brokenArityForeignKey.kind !== "foreignKey") {
+      throw new Error("expected a foreign key option")
+    }
+    expect(brokenArityForeignKey.columns).toEqual(["orgId", "slug"])
+    expect(brokenArityForeignKey.references().columns).toEqual(["id"])
   })
 
   test("postgres rich index specs normalize columns-only input", () => {

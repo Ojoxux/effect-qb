@@ -504,11 +504,6 @@ export const validateOptions = <Fields extends TableFieldMap>(
             reference.columns,
             `Foreign key on table '${tableName}' requires referenced columns to be an array`
           )
-          if (referenceColumns.length !== columns.length) {
-            throw new Error(`Foreign key on table '${tableName}' must reference the same number of columns`)
-          }
-          if (reference.knownColumns) {
-          }
         }
         if (option.kind === "index") {
           requireOptionalNonEmptyString(
