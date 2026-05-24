@@ -66,6 +66,37 @@ describe("ddl rendering behavior", () => {
     expect(rendered.params).toEqual([])
   })
 
+  test("DDL uses table-level casing for constraints and index names", () => {
+    const usersBase = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      accountStatus: StdRoot.Column.text()
+    })
+    const users = usersBase.pipe(
+      Casing.withCasing({
+        columns: "snake_case",
+        indexes: "snake_case",
+        constraints: "snake_case"
+      }),
+      StdRoot.Table.check("AccountStatusCheck", StdRoot.Query.eq(usersBase.accountStatus, "active"))
+    )
+
+    expect(Postgres.Renderer.make().render(Postgres.Query.createTable(users)).sql).toContain(
+      `constraint "account_status_check" check (("account_status" = 'active'))`
+    )
+    expect(Mysql.Renderer.make().render(Mysql.Query.createTable(users)).sql).toContain(
+      "constraint `account_status_check` check ((`account_status` = 'active'))"
+    )
+    expect(Sqlite.Renderer.make().render(Sqlite.Query.createTable(users)).sql).toContain(
+      `constraint "account_status_check" check (("account_status" = 'active'))`
+    )
+    expect(Postgres.Renderer.make().render(Postgres.Query.createIndex(users, ["accountStatus"])).sql).toBe(
+      `create index "users_account_status_idx" on "users" ("account_status")`
+    )
+    expect(Postgres.Renderer.make().render(Postgres.Query.dropIndex(users, ["accountStatus"])).sql).toBe(
+      `drop index "users_account_status_idx"`
+    )
+  })
+
   test("postgres and mysql DDL expressions inline literals instead of bind parameters", () => {
     const postgresUsersBase = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
