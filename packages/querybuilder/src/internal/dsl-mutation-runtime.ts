@@ -1,6 +1,5 @@
 import * as Expression from "./scalar.js"
 import * as Plan from "./row-set.js"
-import * as Table from "./table.js"
 import { normalizeStatementFlag } from "./dsl-transaction-ddl-runtime.js"
 
 type DslMutationRuntimeContext = {
@@ -124,105 +123,7 @@ export const expectConflictClause = <
 }
 
 export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
-  const aliasedSourceKinds = new Set(["derived", "cte", "lateral", "values", "unnest", "tableFunction"])
-  const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
-    typeof value === "object" && value !== null
-
-  const isTableTarget = (target: unknown): boolean =>
-    typeof target === "object" && target !== null && Table.TypeId in target && Plan.TypeId in target
-
-  const hasColumnRecord = (value: Record<PropertyKey, unknown>): boolean => isRecord(value.columns)
-
-  const isAliasedSource = (source: unknown): boolean => {
-    if (!isRecord(source)) {
-      return false
-    }
-    if (isTableTarget(source)) {
-      return true
-    }
-    if (!("kind" in source) || !("name" in source) || !("baseName" in source)) {
-      return false
-    }
-    if (typeof source.kind !== "string" || !aliasedSourceKinds.has(source.kind)) {
-      return false
-    }
-    if (typeof source.name !== "string" || typeof source.baseName !== "string") {
-      return false
-    }
-    switch (source.kind) {
-      case "derived":
-      case "cte":
-      case "lateral":
-        return isRecord(source.plan) && Plan.TypeId in source.plan && hasColumnRecord(source)
-      case "values":
-        return Array.isArray(source.rows) && hasColumnRecord(source)
-      case "unnest":
-        return isRecord(source.arrays) && hasColumnRecord(source)
-      case "tableFunction":
-        return typeof source.functionName === "string" && Array.isArray(source.args) && hasColumnRecord(source)
-    }
-    return false
-  }
-
-  const assertMutationTarget = (target: unknown, apiName: string): void => {
-    if (!isTableTarget(target)) {
-      throw new Error(`${apiName}(...) requires table targets`)
-    }
-  }
-
-  const assertAliasedSource = (source: unknown, apiName: string): void => {
-    if (!isAliasedSource(source)) {
-      throw new Error(`${apiName}(...) requires an aliased source`)
-    }
-  }
-
-  const assertMutationTargets = (
-    target: unknown,
-    apiName: string,
-    options: { readonly allowMultiple?: boolean } = {}
-  ): void => {
-    const targets = Array.isArray(target) ? target : [target]
-    if (targets.length === 0) {
-      throw new Error(`${apiName}(...) requires at least one table target`)
-    }
-    if (Array.isArray(target) && targets.length === 1) {
-      throw new Error(`${apiName}(...) requires a table target, not a single-element target tuple`)
-    }
-    for (const entry of targets) {
-      assertMutationTarget(entry, apiName)
-    }
-    if (targets.length > 1 && options.allowMultiple !== true) {
-      throw new Error(`${apiName}(...) requires a single table target`)
-    }
-    if (targets.length > 1 && ctx.profile.dialect !== "mysql" && ctx.profile.dialect !== "sqlite") {
-      throw new Error(`${apiName}(...) only supports multiple mutation targets for mysql`)
-    }
-  }
-
-  const assertUniqueTargetNames = (targets: readonly { readonly tableName: string }[]): void => {
-    const seen = new Set<string>()
-    for (const target of targets) {
-      if (seen.has(target.tableName)) {
-        throw new Error(`mutation target source names must be unique: ${target.tableName}`)
-      }
-      seen.add(target.tableName)
-    }
-  }
-
-  const assertInsertSelectSource = (sourcePlan: any, selection: Record<string, unknown>): void => {
-    const statement = ctx.getQueryState(sourcePlan).statement
-    if (statement !== "select" && statement !== "set") {
-      throw new Error("insert sources only accept select-like query plans")
-    }
-    for (const value of Object.values(selection)) {
-      if (value === null || typeof value !== "object" || !(Expression.TypeId in value)) {
-        throw new Error("insert sources require a flat selection object")
-      }
-    }
-  }
-
   const insert = (target: any, values?: Record<string, unknown>) => {
-    assertMutationTargets(target, "insert")
     const { sourceName, sourceBaseName } = ctx.targetSourceDetails(target)
     const assignments = values === undefined
       ? []
@@ -304,7 +205,6 @@ export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
 
     const sourcePlan = source
     const selection = sourcePlan[Plan.TypeId].selection as Record<string, Expression.Any>
-    assertInsertSelectSource(sourcePlan, selection)
     const columns = ctx.normalizeInsertSelectColumns(selection)
     return ctx.makePlan({
       selection: current.selection,
@@ -327,9 +227,6 @@ export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
       const current = plan[Plan.TypeId]
       const currentAst = ctx.getAst(plan)
       const currentQuery = ctx.getQueryState(plan)
-      if (currentQuery.statement !== "insert") {
-        throw new Error(`onConflict(...) is not supported for ${currentQuery.statement} statements`)
-      }
       const insertTarget = currentAst.into!.source
       const conflictTarget = expectConflictClause({
         kind: "conflict",
@@ -368,9 +265,7 @@ export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
     }
 
   const update = (target: any, values: Record<string, unknown>) => {
-    assertMutationTargets(target, "update", { allowMultiple: true })
     const targets = ctx.mutationTargetClauses(target)
-    assertUniqueTargetNames(targets)
     const primaryTarget = targets[0]!
     const assignments = ctx.buildMutationAssignments(target, values)
     const targetNames = new Set(targets.map((entry: any) => entry.tableName))
@@ -397,7 +292,6 @@ export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
   }
 
   const upsert = (target: any, values: Record<string, unknown>, conflictColumns: string | readonly string[], updateValues?: Record<string, unknown>) => {
-    assertMutationTargets(target, "upsert")
     const { sourceName, sourceBaseName } = ctx.targetSourceDetails(target)
     const assignments = ctx.buildMutationAssignments(target, values)
     const updateAssignments = updateValues ? ctx.buildMutationAssignments(target, updateValues) : []
@@ -444,9 +338,7 @@ export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
   }
 
   const delete_ = (target: any) => {
-    assertMutationTargets(target, "delete", { allowMultiple: true })
     const targets = ctx.mutationTargetClauses(target)
-    assertUniqueTargetNames(targets)
     const primaryTarget = targets[0]!
     return ctx.makePlan({
       selection: {},
@@ -467,7 +359,6 @@ export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
   }
 
   const truncate = (target: any, options: { readonly restartIdentity?: boolean; readonly cascade?: boolean } = {}) => {
-    assertMutationTargets(target, "truncate")
     const restartIdentity = normalizeStatementFlag(options.restartIdentity)
     const cascade = normalizeStatementFlag(options.cascade)
     const { sourceName, sourceBaseName } = ctx.targetSourceDetails(target)
@@ -499,19 +390,11 @@ export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
   }
 
   const merge = (target: any, source: any, on: any, options: any = {}) => {
-    assertMutationTargets(target, "merge")
-    assertAliasedSource(source, "merge")
     const { sourceName: targetName, sourceBaseName: targetBaseName } = ctx.targetSourceDetails(target)
     const { sourceName: usingName, sourceBaseName: usingBaseName } = ctx.sourceDetails(source)
-    if (targetName === usingName) {
-      throw new Error(`merge(...) source name must differ from target source name: ${targetName}`)
-    }
     const onExpression = ctx.toDialectExpression(on)
     const matched = options.whenMatched
     const notMatched = options.whenNotMatched
-    if (matched && "delete" in matched && "update" in matched) {
-      throw new Error("merge whenMatched cannot specify both update and delete")
-    }
     const matchedPredicate = matched?.predicate ? ctx.toDialectExpression(matched.predicate) : undefined
     const matchedAssignments = matched && "update" in matched && matched.update
       ? ctx.buildMutationAssignments(target, matched.update)

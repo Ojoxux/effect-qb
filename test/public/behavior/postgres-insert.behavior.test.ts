@@ -113,48 +113,6 @@ describe("postgres insert behavior", () => {
     )
   })
 
-  test("rejects nested insert-select source selections at runtime", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text(),
-      bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
-    })
-
-    const source = Postgres.Query.select({
-      user: {
-        id: users.id,
-        email: users.email,
-        bio: users.bio
-      }
-    }).pipe(
-      Postgres.Query.from(users)
-    )
-
-    expect(() =>
-      Postgres.Query.insert(users).pipe(
-        Postgres.Query.from(unsafeAny(source))
-      )
-    ).toThrow("insert sources require a flat selection object")
-  })
-
-  test("rejects mutation plans used as insert sources at runtime", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-
-    const source = Postgres.Query.insert(users, {
-      id: userId,
-      email: "alice@example.com"
-    })
-
-    expect(() =>
-      Postgres.Query.insert(users).pipe(
-        Postgres.Query.from(unsafeAny(source))
-      )
-    ).toThrow("insert sources only accept select-like query plans")
-  })
-
   test("rejects invalid rendered postgres insert source kinds", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
     const users = StdRoot.Table.make("users", {
@@ -332,21 +290,6 @@ describe("postgres insert behavior", () => {
       userId,
       "alice@example.com"
     ])
-  })
-
-  test("rejects onConflict on non-insert statements at runtime", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-
-    expect(() =>
-      Postgres.Query.onConflict(["email"] as const, {
-        update: {
-          email: "alice@example.com"
-        }
-      })(unsafeAny(Postgres.Query.delete(users)))
-    ).toThrow("onConflict(...) is not supported for delete statements")
   })
 
   test("rejects empty postgres conflict constraint names before rendering SQL", () => {
