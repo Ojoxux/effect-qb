@@ -268,7 +268,7 @@ export const groupingKeyOfExpression = (expression: Expression.Any): string => {
     case "jsonStripNulls":
       return `json(${ast.kind},${expressionGroupingKey(ast.value)})`
     default:
-      throw new Error("Unsupported expression for grouping key generation")
+      return `unknown:${typeof ast === "object" && ast !== null && "kind" in ast ? String((ast as { readonly kind: unknown }).kind) : "ast"}`
   }
 }
 
