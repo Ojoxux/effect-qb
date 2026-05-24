@@ -405,6 +405,34 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects window partition terms without expressions before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const users = Standard.Table.make("users", {
+      email: Standard.Column.text()
+    })
+    const rowNumber = Standard.Function.rowNumber({
+      partitionBy: [users.email],
+      orderBy: [{ value: users.email, direction: "asc" }]
+    })
+    ;(rowNumber as any)[expressionAst].partitionBy[0] = undefined
+    const plan = Standard.Query.select({
+      rowNumber
+    }).pipe(Standard.Query.from(users))
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "window partition terms require expression values"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "window partition terms require expression values"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "window partition terms require expression values"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "window partition terms require expression values"
+    )
+  })
+
   test("rejects malformed coalesce expressions before rendering SQL", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const users = Standard.Table.make("users", {

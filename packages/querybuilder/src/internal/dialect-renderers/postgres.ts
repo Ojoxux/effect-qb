@@ -2015,6 +2015,9 @@ export const renderExpression = (
       if (ast.orderBy.some((entry) => !isExpression((entry as { readonly value?: unknown }).value))) {
         throw new Error("window order terms require expression values")
       }
+      if (ast.partitionBy.some((value) => !isExpression(value))) {
+        throw new Error("window partition terms require expression values")
+      }
       const clauses: string[] = []
       if (ast.partitionBy.length > 0) {
         clauses.push(`partition by ${ast.partitionBy.map((value: Expression.Any) => renderExpression(value, state, dialect)).join(", ")}`)
