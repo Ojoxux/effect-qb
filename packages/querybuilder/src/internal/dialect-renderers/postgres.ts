@@ -32,6 +32,9 @@ const renderDbType = (
   return dbType.kind
 }
 
+const isArrayDbType = (dbType: Expression.DbType.Any): boolean =>
+  "element" in dbType
+
 const renderCastType = (
   dialect: SqlDialect,
   dbType: unknown
@@ -276,6 +279,9 @@ const renderColumnDefinition = (
   casing?: Casing.Options
 ): string => {
   const expressionState = { ...state, casing, rowLocalColumns: true }
+  if (dialect.name !== "postgres" && isArrayDbType(column.metadata.dbType)) {
+    throw new Error(`Unsupported ${dialect.name} array column options`)
+  }
   const clauses = [
     quoteColumn(columnName, state, dialect, tableName),
     column.metadata.ddlType ?? renderDbType(dialect, column.metadata.dbType)

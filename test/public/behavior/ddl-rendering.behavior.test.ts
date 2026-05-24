@@ -143,6 +143,26 @@ describe("ddl rendering behavior", () => {
     ).toThrow("Unsupported sqlite identity column options")
   })
 
+  test("rejects array columns where unsupported by the dialect", () => {
+    const docs = StdRoot.Table.make("docs", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      tags: StdRoot.Column.text().pipe(Postgres.Column.array())
+    })
+
+    expect(Postgres.Renderer.make().render(Postgres.Query.createTable(docs)).sql).toBe(
+      'create table "docs" ("id" uuid not null, "tags" text[] not null, primary key ("id"))'
+    )
+    expect(() =>
+      Standard.Renderer.make().render(Standard.Query.createTable(docs))
+    ).toThrow("Unsupported standard array column options")
+    expect(() =>
+      Mysql.Renderer.make().render(Mysql.Query.createTable(docs))
+    ).toThrow("Unsupported mysql array column options")
+    expect(() =>
+      Sqlite.Renderer.make().render(Sqlite.Query.createTable(docs))
+    ).toThrow("Unsupported sqlite array column options")
+  })
+
   test("postgres and mysql DDL expressions inline literals instead of bind parameters", () => {
     const postgresUsersBase = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
