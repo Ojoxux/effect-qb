@@ -307,6 +307,11 @@ describe("postgres schema management", () => {
             columns: "snake_case"
           }
         })
+      },
+      {
+        kind: "foreignKey",
+        columns: ["orgId"],
+        references: 0
       }
     ]
 
@@ -314,6 +319,7 @@ describe("postgres schema management", () => {
     const firstForeignKey = model.options[0]
     const secondForeignKey = model.options[1]
     const thirdForeignKey = model.options[2]
+    const fourthForeignKey = model.options[3]
 
     if (firstForeignKey?.kind !== "foreignKey") {
       throw new Error("expected first foreign key option")
@@ -323,6 +329,9 @@ describe("postgres schema management", () => {
     }
     if (thirdForeignKey?.kind !== "foreignKey") {
       throw new Error("expected third foreign key option")
+    }
+    if (fourthForeignKey?.kind !== "foreignKey") {
+      throw new Error("expected fourth foreign key option")
     }
 
     expect(firstForeignKey.references()).toMatchObject({
@@ -340,6 +349,7 @@ describe("postgres schema management", () => {
       columns: ["id"],
       knownColumns: [0]
     })
+    expect(fourthForeignKey.references()).toBe(0)
   })
 
   test("source table models accept direct foreign key reference payload metadata", () => {

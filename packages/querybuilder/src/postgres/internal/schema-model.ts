@@ -187,6 +187,9 @@ const mapOption = (
           const reference = typeof option.references === "function"
             ? option.references()
             : option.references
+          if (typeof reference !== "object" || reference === null) {
+            return reference
+          }
           const referenceCasing = reference.casing
           return {
             ...reference,
