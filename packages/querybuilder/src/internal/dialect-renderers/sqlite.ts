@@ -24,7 +24,7 @@ const renderDbType = (
   dialect: SqlDialect,
   dbType: Expression.DbType.Any
 ): string => {
-  if (dialect.name === "sqlite" && dbType.dialect === "sqlite" && dbType.kind === "uuid") {
+  if (dialect.name === "sqlite" && dbType.kind === "uuid") {
     return "text"
   }
   return dbType.kind

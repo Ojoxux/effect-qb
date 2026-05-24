@@ -4,8 +4,32 @@ import { describe, expect, test } from "bun:test"
 import * as Mysql from "#mysql"
 import * as Postgres from "#postgres"
 import * as Sqlite from "#sqlite"
+import * as Standard from "#standard"
 
 describe("ddl rendering behavior", () => {
+  test("standard table DDL uses each renderer's portable type spelling", () => {
+    const assets = Standard.Table.make("assets", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey),
+      size: Standard.Column.bigint(),
+      ratio: Standard.Column.real(),
+      payload: Standard.Column.blob()
+    })
+    const plan = Standard.Query.createTable(assets)
+
+    expect(Standard.Renderer.make().render(plan).sql).toBe(
+      'create table "assets" ("id" uuid not null, "size" bigint not null, "ratio" real not null, "payload" blob not null, primary key ("id"))'
+    )
+    expect(Postgres.Renderer.make().render(plan).sql).toBe(
+      'create table "assets" ("id" uuid not null, "size" bigint not null, "ratio" real not null, "payload" bytea not null, primary key ("id"))'
+    )
+    expect(Mysql.Renderer.make().render(plan).sql).toBe(
+      "create table `assets` (`id` char(36) not null, `size` bigint not null, `ratio` real not null, `payload` blob not null, primary key (`id`))"
+    )
+    expect(Sqlite.Renderer.make().render(plan).sql).toBe(
+      'create table "assets" ("id" text not null, "size" bigint not null, "ratio" real not null, "payload" blob not null, primary key ("id"))'
+    )
+  })
+
   test("postgres check constraints render row-local column references", () => {
     const usersBase = Postgres.Table.make("users", {
       id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),

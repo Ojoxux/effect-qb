@@ -4,10 +4,12 @@ import * as BaseColumn from "../internal/column.js"
 import { makeColumnDefinition, type AnyColumnDefinition, type ColumnDefinition } from "../internal/column-state.js"
 import type * as Expression from "../internal/scalar.js"
 import {
+  BigIntStringSchema,
   DecimalStringSchema,
   LocalDateStringSchema,
   LocalDateTimeStringSchema,
   LocalTimeStringSchema,
+  type BigIntString,
   type DecimalString,
   type LocalDateString,
   type LocalDateTimeString,
@@ -48,6 +50,13 @@ const renderNumericDdlType = (
     : `${kind}(${options.precision},${options.scale})`
 }
 
+const boundedString = (length?: number): Schema.Schema<string> =>
+  length === undefined
+    ? Schema.String
+    : Schema.String.pipe(Schema.maxLength(length))
+
+const finiteNumber = Schema.Number.pipe(Schema.finite())
+
 export const custom = <SchemaType extends Schema.Schema.Any, Db extends Expression.DbType.Any>(
   schema: SchemaType,
   dbType: Db
@@ -66,7 +75,32 @@ export const custom = <SchemaType extends Schema.Schema.Any, Db extends Expressi
 
 export const uuid = () => primitive(Schema.UUID, standardDatatypes.uuid())
 export const text = () => primitive(Schema.String, standardDatatypes.text())
+export const varchar = (length?: number) =>
+  makeColumnDefinition(boundedString(length), {
+    dbType: standardDatatypes.varchar(),
+    nullable: false,
+    hasDefault: false,
+    generated: false,
+    primaryKey: false,
+    unique: false,
+    references: undefined,
+    ddlType: length === undefined ? "varchar" : `varchar(${length})`,
+    identity: undefined
+  })
+export const char = (length = 1) =>
+  makeColumnDefinition(boundedString(length), {
+    dbType: standardDatatypes.char(),
+    nullable: false,
+    hasDefault: false,
+    generated: false,
+    primaryKey: false,
+    unique: false,
+    references: undefined,
+    ddlType: `char(${length})`,
+    identity: undefined
+  })
 export const int = () => primitive(Schema.Int, standardDatatypes.int())
+export const bigint = () => primitive(BigIntStringSchema, standardDatatypes.bigint())
 export const number = (options?: BaseColumn.NumericOptions) =>
   makeColumnDefinition(DecimalStringSchema, {
     dbType: standardDatatypes.decimal(),
@@ -79,11 +113,13 @@ export const number = (options?: BaseColumn.NumericOptions) =>
     ddlType: renderNumericDdlType("decimal", options),
     identity: undefined
   })
+export const real = () => primitive(finiteNumber, standardDatatypes.real())
 export const boolean = () => primitive(Schema.Boolean, standardDatatypes.boolean())
 export const date = () => primitive(LocalDateStringSchema, standardDatatypes.date())
 export const time = () => primitive(LocalTimeStringSchema, standardDatatypes.time())
 export const datetime = () => primitive(LocalDateTimeStringSchema, standardDatatypes.datetime())
 export const timestamp = () => primitive(LocalDateTimeStringSchema, standardDatatypes.timestamp())
+export const blob = () => primitive(Schema.Uint8ArrayFromSelf, standardDatatypes.blob())
 export const json = <SchemaType extends Schema.Schema.Any>(schema: SchemaType) =>
   makeColumnDefinition(schema as unknown as Schema.Schema<NonNullable<Schema.Schema.Type<SchemaType>>, any, any>, {
     dbType: { ...standardDatatypes.json(), variant: "json" } as Expression.DbType.Json<"standard", "json">,

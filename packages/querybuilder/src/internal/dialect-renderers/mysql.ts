@@ -25,7 +25,7 @@ const renderDbType = (
   dialect: SqlDialect,
   dbType: Expression.DbType.Any
 ): string => {
-  if (dialect.name === "mysql" && dbType.dialect === "mysql" && dbType.kind === "uuid") {
+  if (dialect.name === "mysql" && dbType.kind === "uuid") {
     return "char(36)"
   }
   return dbType.kind
