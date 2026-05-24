@@ -1398,7 +1398,7 @@ export const renderQueryAst = (
 
   switch (ast.kind) {
     case "select": {
-      validateAggregationSelection(ast.select as SelectionValue, ast.groupBy)
+      validateAggregationSelection(ast.select as SelectionValue, ast.groupBy, ast.having.map((entry) => entry.predicate))
       const rendered = renderSelectionList(ast.select as Record<string, unknown>, state, dialect, false)
       projections = rendered.projections
       const selectList = rendered.sql.length > 0 ? ` ${rendered.sql}` : ""
