@@ -1994,6 +1994,14 @@ export const renderExpression = (
       if (!isExpression(ast.else)) {
         throw new Error("case(...) requires an else expression")
       }
+      if (ast.branches.some((branch) =>
+        typeof branch !== "object" ||
+        branch === null ||
+        !isExpression((branch as { readonly when?: unknown }).when) ||
+        !isExpression((branch as { readonly then?: unknown }).then)
+      )) {
+        throw new Error("case(...) requires every branch to define when and then expressions")
+      }
       return `case ${ast.branches.map((branch) =>
         `when ${renderExpression(branch.when, state, dialect)} then ${renderExpression(branch.then, state, dialect)}`
       ).join(" ")} else ${renderExpression(ast.else, state, dialect)} end`
