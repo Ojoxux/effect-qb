@@ -393,21 +393,10 @@ export const resolvePrimaryKeyColumns = <Fields extends TableFieldMap>(
     }
     return Array.isArray(option.columns) ? [option.columns] : []
   })
-  if (explicit.length > 1) {
-    throw new Error("Only one primary key declaration is allowed")
-  }
   if (explicit.length === 0) {
     return inline
   }
   const tablePrimaryKey = [...explicit[0]!] as (keyof Fields & string)[]
-  if (inline.length > 0) {
-    const same =
-      inline.length === tablePrimaryKey.length &&
-      inline.every((column) => tablePrimaryKey.includes(column))
-    if (!same) {
-      throw new Error("Inline primary keys conflict with table-level primary key declaration")
-    }
-  }
   return tablePrimaryKey
 }
 

@@ -8,24 +8,28 @@ import { unsafeAny, unsafeNever } from "../../helpers/unsafe.ts"
 import * as StdRoot from "#standard"
 
 describe("table behavior", () => {
-  test("rejects conflicting inline and table-level primary keys", () => {
-    expect(() => StdRoot.Table.make("memberships", {
+  test("conflicting inline and table-level primary keys trust table-level declarations", () => {
+    const memberships = StdRoot.Table.make("memberships", {
       orgId: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       userId: StdRoot.Column.uuid(),
       role: StdRoot.Column.text()
     }).pipe(
       Table.primaryKey(["orgId", "userId"] as const)
-    )).toThrow("Inline primary keys conflict with table-level primary key declaration")
+    )
+
+    expect(unsafeAny(memberships)[StdRoot.Table.TypeId].primaryKey).toEqual(["orgId", "userId"])
   })
 
-  test("rejects multiple table-level primary key declarations", () => {
-    expect(() => StdRoot.Table.make("memberships", {
+  test("multiple table-level primary key declarations trust the first declaration", () => {
+    const memberships = StdRoot.Table.make("memberships", {
       orgId: StdRoot.Column.uuid(),
       userId: StdRoot.Column.uuid()
     }).pipe(
       Table.primaryKey("orgId"),
       Table.primaryKey("userId")
-    )).toThrow("Only one primary key declaration is allowed")
+    )
+
+    expect(unsafeAny(memberships)[StdRoot.Table.TypeId].primaryKey).toEqual(["orgId"])
   })
 
   test("supports composite primary keys and preserves declared column order", () => {
@@ -51,13 +55,15 @@ describe("table behavior", () => {
     })
   })
 
-  test("rejects nullable columns in composite primary keys", () => {
-    expect(() => Table.primaryKey(["orgId", "slug"] as const)(
+  test("nullable columns in composite primary keys trust type-level constraints", () => {
+    const memberships = Table.primaryKey(["orgId", "slug"] as const)(
       unsafeNever(StdRoot.Table.make("memberships", {
         orgId: StdRoot.Column.uuid(),
         slug: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
       }))
-    )).toThrow("Primary key column 'slug' cannot be nullable")
+    )
+
+    expect(unsafeAny(memberships)[StdRoot.Table.TypeId].primaryKey).toEqual(["orgId", "slug"])
   })
 
   test("aliasing an alias preserves the physical base table and normalized options", () => {
