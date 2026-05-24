@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test"
 
 import { Casing, Column, Query, Table } from "../../../packages/querybuilder/src/index.ts"
+import * as Mysql from "#mysql"
 import * as Pg from "#postgres"
+import * as Sqlite from "#sqlite"
 import * as StdRoot from "#standard"
 
 describe("casing rendering behavior", () => {
@@ -32,6 +34,33 @@ describe("casing rendering behavior", () => {
     expect(rendered.projections).toEqual([
       { path: ["createdAt"], alias: "createdAt" }
     ])
+  })
+
+  test("mysql and sqlite renderer casing maps physical identifiers without changing model keys", () => {
+    const users = StdRoot.Table.make("UserAccounts", {
+      id: Column.uuid().pipe(Column.primaryKey),
+      createdAt: Column.datetime(),
+      displayName: Column.text()
+    })
+
+    const plan = Query.select({
+      createdAt: users.createdAt
+    }).pipe(
+      Query.from(users),
+      Query.where(Query.eq(users.displayName, "Alice"))
+    )
+
+    const casing = {
+      tables: "snake_case",
+      columns: "snake_case"
+    } as const
+
+    expect(Mysql.Renderer.make({ casing }).render(plan).sql).toBe(
+      "select `user_accounts`.`created_at` as `createdAt` from `user_accounts` where (`user_accounts`.`display_name` = ?)"
+    )
+    expect(Sqlite.Renderer.make({ casing }).render(plan).sql).toBe(
+      'select "user_accounts"."created_at" as "createdAt" from "user_accounts" where ("user_accounts"."display_name" = ?)'
+    )
   })
 
   test("table casing overrides renderer casing", () => {
