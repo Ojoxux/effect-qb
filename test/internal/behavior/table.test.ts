@@ -319,6 +319,21 @@ describe("table definitions", () => {
     )
   })
 
+  test("table definitions trust nullable primary-key metadata without runtime validation", () => {
+    const users = StdRoot.Table.make("nullable_pk_users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.nullable)
+    }).pipe(
+      StdRoot.Table.option(unsafeAny({
+        kind: "primaryKey",
+        columns: ["id"]
+      }))
+    )
+
+    expect(users[StdRoot.Table.OptionsSymbol]).toEqual(
+      expect.arrayContaining([expect.objectContaining({ kind: "primaryKey", columns: ["id"] })])
+    )
+  })
+
   test("operator expressions feed query selection and source tracking", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),

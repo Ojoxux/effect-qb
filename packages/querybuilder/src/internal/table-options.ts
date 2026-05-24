@@ -507,11 +507,6 @@ export const validateOptions = <Fields extends TableFieldMap>(
         throw new Error("Unsupported table option kind")
     }
   }
-  for (const column of resolvePrimaryKeyColumns(fields, tableOptions)) {
-    if (fields[column]!.metadata.nullable) {
-      throw new Error(`Primary key column '${String(column)}' cannot be nullable`)
-    }
-  }
 }
 
 /** Compile-time validation that option columns exist on the table. */
