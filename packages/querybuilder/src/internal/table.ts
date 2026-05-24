@@ -638,9 +638,6 @@ const appendOption = <
   option: Spec
 ): ApplyOption<Table, Spec> => {
   const state = table[TypeId]
-  if (state.kind !== "schema") {
-    throw new Error("Table options can only be applied to schema tables, not aliased query sources")
-  }
   return makeTable(
     state.name,
     state.fields,

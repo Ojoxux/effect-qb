@@ -204,14 +204,18 @@ describe("table definitions", () => {
     expect(() => BadClassTable.schemas).toThrow("Table.Class does not support table-level primary keys; declare primary keys inline on columns")
   })
 
-  test("aliased tables reject schema-level options", () => {
+  test("aliased tables trust type-level option constraints without runtime validation", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       email: StdRoot.Column.text()
     })
 
-    expect(() => Table.index("email")(unsafeAny(StdRoot.Table.alias(users, "users_alias")))).toThrow(
-      "Table options can only be applied to schema tables, not aliased query sources"
+    const aliased = unsafeAny(StdRoot.Table.alias(users, "users_alias"))
+    const withIndex = Table.index("email")(aliased)
+
+    expect(withIndex[StdRoot.Table.TypeId].kind).toBe("alias")
+    expect(withIndex[StdRoot.Table.OptionsSymbol]).toEqual(
+      expect.arrayContaining([expect.objectContaining({ kind: "index" })])
     )
   })
 
