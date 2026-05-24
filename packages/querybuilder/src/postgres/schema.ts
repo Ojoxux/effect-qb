@@ -53,13 +53,13 @@ export type SchemaNamespace<SchemaName extends string> = Pipeable & {
     Name extends string,
     const Values extends readonly [string, ...string[]]
   >(
-    name: Name,
+    name: BaseTable.NonEmptyStringInput<Name>,
     values: Values
   ) => EnumDefinition<Name, Values, SchemaName>
   readonly sequence: <
     Name extends string
   >(
-    name: Name
+    name: BaseTable.NonEmptyStringInput<Name>
   ) => SequenceDefinition<Name, SchemaName>
   readonly withSchema: <
     Table extends BaseTable.TableDefinition<any, any, any, any, any>
@@ -81,7 +81,7 @@ const SchemaProto = {
 }
 
 export const make = <SchemaName extends string>(
-  schemaName: SchemaName,
+  schemaName: BaseTable.NonEmptyStringInput<SchemaName>,
   options: { readonly casing?: Casing.Options } = {}
 ): SchemaNamespace<SchemaName> => {
   const physicalSchemaName = Casing.applyCategory(options.casing, "schemas", schemaName)
@@ -96,13 +96,13 @@ export const make = <SchemaName extends string>(
     Name extends string,
     const Values extends readonly [string, ...string[]]
   >(
-    name: Name,
+    name: BaseTable.NonEmptyStringInput<Name>,
     values: Values
   ) => enumType(Casing.applyCategory(options.casing, "types", name), values, physicalSchemaName) as unknown as EnumDefinition<Name, Values, SchemaName>
   namespace.sequence = <
     Name extends string
   >(
-    name: Name
+    name: BaseTable.NonEmptyStringInput<Name>
   ) => sequence(Casing.applyCategory(options.casing, "sequences", name), physicalSchemaName) as unknown as SequenceDefinition<Name, SchemaName>
   namespace.withSchema = <
     Table extends BaseTable.TableDefinition<any, any, any, any, any>

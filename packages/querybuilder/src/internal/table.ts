@@ -753,7 +753,7 @@ export const withSchema = <
  * Creates a namespace-scoped builder for a concrete SQL schema/database.
  */
 export const schema = <SchemaName extends string>(
-  schemaName: SchemaName
+  schemaName: NonEmptyStringInput<SchemaName>
 ): TableSchemaNamespace<SchemaName> => {
   const table = <
     Name extends string,
@@ -798,7 +798,7 @@ export const alias = <
   AliasName extends string
 >(
   table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, SchemaName> | TableClassStatic<Name, Fields, PrimaryKeyColumns, SchemaName>,
-  aliasName: AliasName
+  aliasName: NonEmptyStringInput<AliasName>
 ): TableDefinition<
   AliasName,
   Fields,
@@ -808,14 +808,14 @@ export const alias = <
 > => {
   const state = table[TypeId]
   const columns = Object.fromEntries(
-    Object.entries(state.fields).map(([key, column]) => [key, bindColumn(aliasName, key, column as AnyColumnDefinition, state.baseName, state.schemaName, state.casing)])
+    Object.entries(state.fields).map(([key, column]) => [key, bindColumn(aliasName as AliasName, key, column as AnyColumnDefinition, state.baseName, state.schemaName, state.casing)])
   ) as BoundColumns<AliasName, Fields>
   const aliased = attachPipe(Object.create(TableProto))
-  aliased.name = aliasName
+  aliased.name = aliasName as AliasName
   aliased.columns = columns
   defineSchemasGetter(aliased)
   aliased[TypeId] = {
-    name: aliasName,
+    name: aliasName as AliasName,
     baseName: state.baseName,
     schemaName: state.schemaName,
     fields: state.fields,
@@ -828,7 +828,7 @@ export const alias = <
     required: undefined as never,
     available: {
       [aliasName]: {
-        name: aliasName,
+        name: aliasName as AliasName,
         mode: "required",
         baseName: state.baseName
       }

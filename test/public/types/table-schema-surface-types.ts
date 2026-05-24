@@ -27,6 +27,20 @@ const publicSchema = Postgres.Schema.make("public")
 publicSchema.table("", {
   id: Std.Column.uuid()
 })
+// @ts-expect-error table aliases must be non-empty
+Std.Table.alias(postgresUsers, "")
+// @ts-expect-error schema namespace names must be non-empty
+Std.Table.schema("")
+// @ts-expect-error postgres schema namespace names must be non-empty
+Postgres.Schema.make("")
+// @ts-expect-error postgres enum names must be non-empty
+publicSchema.enum("", ["pending"])
+// @ts-expect-error postgres sequence names must be non-empty
+publicSchema.sequence("")
+// @ts-expect-error standalone postgres enum names must be non-empty
+Postgres.enum("", ["pending"])
+// @ts-expect-error standalone postgres sequence names must be non-empty
+Postgres.sequence("")
 const postgresSelectSchema = Std.Table.selectSchema(postgresUsers)
 const postgresInsertSchema = Std.Table.insertSchema(postgresUsers)
 const postgresUpdateSchema = Std.Table.updateSchema(postgresUsers)

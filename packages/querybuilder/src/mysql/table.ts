@@ -86,7 +86,7 @@ export const make = <
   BaseTable.make(name, fields, schemaName) as TableDefinition<Name, Fields>
 
 export const schema = <SchemaName extends string>(
-  schemaName: SchemaName
+  schemaName: BaseTable.NonEmptyStringInput<SchemaName>
 ): TableSchemaNamespace<SchemaName> => {
   const table = <
     Name extends string,
@@ -118,7 +118,7 @@ export const alias = <
   AliasName extends string
 >(
   table: Table,
-  aliasName: AliasName
+  aliasName: BaseTable.NonEmptyStringInput<AliasName>
 ): TableDefinition<
   AliasName,
   FieldsOfTable<Table>,

@@ -3,6 +3,7 @@ import { pipeArguments, type Pipeable } from "effect/Pipeable"
 
 import type * as Expression from "../internal/scalar.js"
 import { makeColumnDefinition, type ColumnDefinition } from "../internal/column-state.js"
+import type { NonEmptyStringInput } from "../internal/table-options.js"
 
 export const EnumTypeId: unique symbol = Symbol.for("effect-qb/SchemaManagement/Enum")
 export const SequenceTypeId: unique symbol = Symbol.for("effect-qb/SchemaManagement/Sequence")
@@ -212,7 +213,7 @@ export function enumType<
   Name extends string,
   const Values extends readonly [string, ...string[]]
 >(
-  name: Name,
+  name: NonEmptyStringInput<Name>,
   values: Values
 ): EnumDefinition<Name, Values, undefined>
 export function enumType<
@@ -220,9 +221,9 @@ export function enumType<
   const Values extends readonly [string, ...string[]],
   SchemaName extends string
 >(
-  name: Name,
+  name: NonEmptyStringInput<Name>,
   values: Values,
-  schemaName: SchemaName
+  schemaName: NonEmptyStringInput<SchemaName>
 ): EnumDefinition<Name, Values, SchemaName>
 export function enumType(
   name: string,
@@ -243,11 +244,11 @@ export function enumType(
 }
 
 export function sequence<Name extends string>(
-  name: Name
+  name: NonEmptyStringInput<Name>
 ): SequenceDefinition<Name, undefined>
 export function sequence<Name extends string, SchemaName extends string>(
-  name: Name,
-  schemaName: SchemaName
+  name: NonEmptyStringInput<Name>,
+  schemaName: NonEmptyStringInput<SchemaName>
 ): SequenceDefinition<Name, SchemaName>
 export function sequence(
   name: string,
@@ -265,21 +266,21 @@ export function sequence(
 }
 
 export const schema = <SchemaName extends string>(
-  schemaName: SchemaName
+  schemaName: NonEmptyStringInput<SchemaName>
 ) => ({
   schemaName,
   enumType: <
     Name extends string,
     const Values extends readonly [string, ...string[]]
   >(
-    name: Name,
+    name: NonEmptyStringInput<Name>,
     values: Values
   ): EnumDefinition<Name, Values, SchemaName> =>
     enumType(name, values, schemaName) as EnumDefinition<Name, Values, SchemaName>,
   sequence: <
     Name extends string
   >(
-    name: Name
+    name: NonEmptyStringInput<Name>
   ): SequenceDefinition<Name, SchemaName> =>
     sequence(name, schemaName) as SequenceDefinition<Name, SchemaName>
 })
