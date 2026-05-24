@@ -308,10 +308,7 @@ const renderCreateTableSql = (
     renderColumnDefinition(dialect, state, columnName, column, targetSource.tableName, tableCasing)
   )
   const options = table[Table.OptionsSymbol] as unknown
-  if (!Array.isArray(options)) {
-    throw new Error(`Table '${table[Table.TypeId].name}' options require an array`)
-  }
-  const tableOptions = options as readonly TableOptionSpec[]
+  const tableOptions = (Array.isArray(options) ? options : [options]) as readonly TableOptionSpec[]
   validateOptions(table[Table.TypeId].name, fields, tableOptions)
   for (const option of tableOptions) {
     if (typeof option !== "object" || option === null || !("kind" in option)) {

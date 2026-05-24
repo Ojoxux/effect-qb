@@ -482,6 +482,42 @@ describe("ddl rendering behavior", () => {
     )
   })
 
+  test("normalizes non-array table option metadata during DDL rendering", () => {
+    const postgresUsers = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid()
+    })
+    ;(postgresUsers as any)[StdRoot.Table.OptionsSymbol] = {
+      kind: "primaryKey",
+      columns: ["id"]
+    }
+
+    const mysqlUsers = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid()
+    })
+    ;(mysqlUsers as any)[StdRoot.Table.OptionsSymbol] = {
+      kind: "primaryKey",
+      columns: ["id"]
+    }
+
+    const sqliteUsers = StdRoot.Table.make("users", {
+      id: StdRoot.Column.text()
+    })
+    ;(sqliteUsers as any)[StdRoot.Table.OptionsSymbol] = {
+      kind: "primaryKey",
+      columns: ["id"]
+    }
+
+    expect(Postgres.Renderer.make().render(Postgres.Query.createTable(postgresUsers)).sql).toContain(
+      'create table "users" ("id" uuid not null, primary key ("id"))'
+    )
+    expect(Mysql.Renderer.make().render(Mysql.Query.createTable(mysqlUsers)).sql).toContain(
+      "create table `users` (`id` char(36) not null, primary key (`id`))"
+    )
+    expect(Sqlite.Renderer.make().render(Sqlite.Query.createTable(sqliteUsers)).sql).toContain(
+      'create table "users" ("id" text not null, primary key ("id"))'
+    )
+  })
+
   test("rejects malformed foreign key reference columns before rendering DDL", () => {
     const orgs = StdRoot.Table.make("orgs", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
