@@ -461,6 +461,22 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects collate expressions without collation identifiers before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const email = Standard.Query.collate(Standard.Query.literal("alice@example.com"), "C")
+    ;(email as any)[expressionAst].collation = []
+    const plan = Standard.Query.select({
+      email
+    })
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "collate(...) requires at least one collation identifier"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "collate(...) requires at least one collation identifier"
+    )
+  })
+
   test("rejects malformed coalesce expressions before rendering SQL", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const users = Standard.Table.make("users", {

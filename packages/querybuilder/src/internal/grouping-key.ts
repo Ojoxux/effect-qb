@@ -52,6 +52,13 @@ const escapeGroupingText = (value: string): string =>
     .replace(/=/g, "\\=")
     .replace(/>/g, "\\>")
 
+const collationGroupingKey = (collation: unknown): string => {
+  if (!Array.isArray(collation) || collation.length === 0 || collation.some((segment) => typeof segment !== "string" || segment.length === 0)) {
+    throw new Error("collate(...) requires at least one collation identifier")
+  }
+  return collation.map(escapeGroupingText).join(",")
+}
+
 const jsonSegmentGroupingKey = (segment: unknown): string => {
   if (segment !== null && typeof segment === "object" && "kind" in segment) {
     switch ((segment as { readonly kind: string }).kind) {
@@ -113,7 +120,7 @@ export const groupingKeyOfExpression = (expression: Expression.Any): string => {
     case "cast":
       return `cast(${groupingKeyOfExpression(ast.value)} as ${ast.target.dialect}:${ast.target.kind})`
     case "collate":
-      return `collate(${groupingKeyOfExpression(ast.value)},${ast.collation.map(escapeGroupingText).join(",")})`
+      return `collate(${groupingKeyOfExpression(ast.value)},${collationGroupingKey(ast.collation)})`
     case "function":
       return `function(${escapeGroupingText(ast.name)},${ast.args.map(groupingKeyOfExpression).join(",")})`
     case "isNull":

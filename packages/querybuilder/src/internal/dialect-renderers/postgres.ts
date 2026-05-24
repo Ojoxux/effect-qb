@@ -1818,6 +1818,12 @@ export const renderExpression = (
         throw new Error("quantified comparison operator must be eq, neq, lt, lte, gt, or gte")
     }
   }
+  const renderCollation = (collation: unknown): string => {
+    if (!Array.isArray(collation) || collation.length === 0 || collation.some((segment) => typeof segment !== "string" || segment.length === 0)) {
+      throw new Error("collate(...) requires at least one collation identifier")
+    }
+    return collation.map((segment) => dialect.quoteIdentifier(segment)).join(".")
+  }
   switch (ast.kind) {
     case "column":
       return state.rowLocalColumns || ast.tableName.length === 0
@@ -1835,7 +1841,7 @@ export const renderExpression = (
     case "cast":
       return `cast(${renderExpression(ast.value, state, dialect)} as ${renderCastType(dialect, ast.target)})`
     case "collate":
-      return `(${renderExpression(ast.value, state, dialect)} collate ${ast.collation.map((segment) => dialect.quoteIdentifier(segment)).join(".")})`
+      return `(${renderExpression(ast.value, state, dialect)} collate ${renderCollation(ast.collation)})`
     case "function":
       return renderFunctionCall(ast.name, Array.isArray(ast.args) ? ast.args : [], state, dialect)
     case "eq":
