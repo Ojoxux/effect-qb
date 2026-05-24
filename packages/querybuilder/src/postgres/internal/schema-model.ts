@@ -66,10 +66,13 @@ const applyCasing = (
 const mapColumnList = (
   columns: ColumnList,
   casing: Casing.Options | undefined
-): ColumnList => [
-  applyCasing(casing, "columns", columns[0]),
-  ...columns.slice(1).map((column) => applyCasing(casing, "columns", column))
-]
+): ColumnList =>
+  columns.length === 0
+    ? columns as unknown as ColumnList
+    : [
+        applyCasing(casing, "columns", columns[0]),
+        ...columns.slice(1).map((column) => applyCasing(casing, "columns", column))
+      ]
 
 const expressionStateForTable = (
   state: Table.AnyTable[typeof Table.TypeId],

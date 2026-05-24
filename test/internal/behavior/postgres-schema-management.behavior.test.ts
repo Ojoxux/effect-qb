@@ -173,6 +173,27 @@ describe("postgres schema management", () => {
     })
   })
 
+  test("source table models preserve empty option column arrays with casing", () => {
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
+    }).pipe(
+      Casing.withCasing({
+        columns: "snake_case"
+      })
+    )
+    ;(users as any)[StdRoot.Table.OptionsSymbol] = [{
+      kind: "unique",
+      columns: []
+    }]
+
+    const model = toTableModel(users as unknown as Parameters<typeof toTableModel>[0])
+    const unique = model.options.find((option) => option.kind === "unique")
+    expect(unique).toMatchObject({
+      kind: "unique",
+      columns: []
+    })
+  })
+
   test("source table models preserve malformed index key metadata without runtime validation", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
