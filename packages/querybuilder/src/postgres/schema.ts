@@ -98,12 +98,12 @@ export const make = <SchemaName extends string>(
   >(
     name: BaseTable.NonEmptyStringInput<Name>,
     values: Values
-  ) => enumType(Casing.applyCategory(options.casing, "types", name), values, physicalSchemaName) as unknown as EnumDefinition<Name, Values, SchemaName>
+  ) => enumType(Casing.applyCategory(options.casing, "types", name), values, physicalSchemaName) as EnumDefinition<Name, Values, SchemaName>
   namespace.sequence = <
     Name extends string
   >(
     name: BaseTable.NonEmptyStringInput<Name>
-  ) => sequence(Casing.applyCategory(options.casing, "sequences", name), physicalSchemaName) as unknown as SequenceDefinition<Name, SchemaName>
+  ) => sequence(Casing.applyCategory(options.casing, "sequences", name), physicalSchemaName) as SequenceDefinition<Name, SchemaName>
   namespace.withSchema = <
     Table extends BaseTable.TableDefinition<any, any, any, any, any>
   >(table: Table & ValidatePostgresSchemaTable<Table>) => BaseTable.withSchema(table, schemaName, options.casing)

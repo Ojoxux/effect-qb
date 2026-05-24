@@ -136,7 +136,7 @@ export const schema = <SchemaName extends string>(
   return {
     schemaName,
     table
-  } as unknown as TableSchemaNamespace<SchemaName>
+  } as TableSchemaNamespace<SchemaName>
 }
 
 export const alias = <
@@ -165,7 +165,7 @@ export const Class = <Self = never, SchemaName extends string | undefined = "pub
   schemaName: SchemaName = "public" as SchemaName
 ) => {
   const base = BaseTable.Class<Self, SchemaName>(name, schemaName)
-  return base as unknown as <
+  return base as <
     Fields extends DialectFieldMap
   >(fields: Fields & BaseTable.NonEmptyFieldMap<Fields>) => [Self] extends [never]
     ? BaseTable.MissingSelfGeneric
@@ -338,15 +338,15 @@ const makeTableScopedOption = <
 }
 
 const normalizeColumns = (columns: string | readonly string[]): readonly [string, ...string[]] => {
-  const normalized = Array.isArray(columns) ? [...columns] : [columns]
-  return normalized as unknown as readonly [string, ...string[]]
+  if (typeof columns === "string") {
+    return [columns]
+  }
+  return [columns[0] as string, ...columns.slice(1)]
 }
 
-const normalizeIndexKeys = (
-  keys: readonly [RichIndexKeyInput, ...RichIndexKeyInput[]]
-): readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]] =>
-  keys.map((key) => "expression" in key
-      ? {
+const normalizeIndexKey = (key: RichIndexKeyInput): BaseTable.IndexKeySpec =>
+  "expression" in key
+    ? {
         kind: "expression",
         expression: key.expression,
         order: key.order,
@@ -361,7 +361,12 @@ const normalizeIndexKeys = (
         nulls: key.nulls,
         operatorClass: key.operatorClass,
         collation: key.collation
-      }) as unknown as readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]]
+      }
+
+const normalizeIndexKeys = (
+  keys: readonly [RichIndexKeyInput, ...RichIndexKeyInput[]]
+): readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]] =>
+  [normalizeIndexKey(keys[0]), ...keys.slice(1).map(normalizeIndexKey)]
 
 export const primaryKey: {
   <const Columns extends string | readonly string[]>(
@@ -440,7 +445,7 @@ export const index: {
           unique: spec.unique,
           method: spec.method,
           include: spec.include,
-          predicate: predicate as unknown as DdlExpressionLike
+          predicate: predicate as DdlExpressionLike
         }
         return isTableExpressionFactory(predicate)
           ? makeTableScopedOption(placeholder, (table) => ({
@@ -467,6 +472,7 @@ export const foreignKey = <
         const spec = columnsOrSpec as RichForeignKeyInput<LocalColumns, TargetTable, TargetColumns>
         const targetTable = spec.target()
         const targetState = targetTable[BaseTable.TypeId]
+        const knownColumns = Object.keys(targetState.fields).map((key) => key as ColumnNamesOfTable<TargetTable>)
         return BaseTable.option({
           kind: "foreignKey",
           columns: normalizeColumns(spec.columns) as BaseTable.NormalizeColumns<LocalColumns>,
@@ -475,7 +481,7 @@ export const foreignKey = <
             tableName: targetState.baseName,
             schemaName: targetState.schemaName,
             columns: normalizeColumns(spec.referencedColumns) as BaseTable.NormalizeColumns<TargetColumns>,
-            knownColumns: Object.keys(targetState.fields) as unknown as readonly ColumnNamesOfTable<TargetTable>[]
+            knownColumns
           }),
           onUpdate: spec.onUpdate,
           onDelete: spec.onDelete,
@@ -520,7 +526,7 @@ export const check: {
         const placeholder = {
           kind: "check" as const,
           name: spec.name,
-          predicate: specPredicate as unknown as DdlExpressionLike,
+          predicate: specPredicate as DdlExpressionLike,
           noInherit: spec.noInherit
         }
         return isTableExpressionFactory(specPredicate)
@@ -538,7 +544,7 @@ export const check: {
         const placeholder = {
           kind: "check" as const,
           name: nameOrSpec,
-          predicate: predicateOrFactory as unknown as DdlExpressionLike
+          predicate: predicateOrFactory as DdlExpressionLike
         }
         return isTableExpressionFactory(predicateOrFactory)
           ? makeTableScopedOption(placeholder, (table) => ({

@@ -2459,7 +2459,7 @@ export const makeExpression = <
   Object.defineProperty(expression, "pipe", {
     configurable: true,
     writable: true,
-    value: function(this: unknown) {
+    value: function(this: Pipeable) {
       return pipeArguments(expression, arguments)
     }
   })
@@ -2509,7 +2509,7 @@ export const makePlan = <
   Object.defineProperty(plan, "pipe", {
     configurable: true,
     writable: true,
-    value: function(this: unknown) {
+    value: function(this: Pipeable) {
       return pipeArguments(plan, arguments)
     }
   })

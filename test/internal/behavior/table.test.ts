@@ -229,11 +229,11 @@ describe("table definitions", () => {
       kind: Q.literal("user")
     })
 
-    expect(selection[RowSet.TypeId].required as unknown as readonly string[]).toEqual(["users"])
+    expect(selection[RowSet.TypeId].required).toEqual(["users"])
     expect(selection[RowSet.TypeId].available).toEqual({})
 
     const sourced = selection.pipe(Q.from(users))
-    expect(sourced[RowSet.TypeId].required as unknown as readonly string[]).toEqual([])
+    expect(sourced[RowSet.TypeId].required).toEqual([])
     expect(sourced[RowSet.TypeId].available.users.name).toBe("users")
     expect(sourced[RowSet.TypeId].available.users.mode).toBe("required")
   })
@@ -261,7 +261,7 @@ describe("table definitions", () => {
       Q.where(true)
     )
 
-    expect(query[RowSet.TypeId].required as unknown as readonly string[]).toEqual([])
+    expect(query[RowSet.TypeId].required).toEqual([])
     expect(query[RowSet.TypeId].available.users.name).toBe("users")
     expect(query[RowSet.TypeId].available.posts.name).toBe("posts")
     expect(query[RowSet.TypeId].available.users.mode).toBe("required")
@@ -276,7 +276,7 @@ describe("table definitions", () => {
       Q.leftJoin(posts, true)
     )
 
-    expect(leftJoined[RowSet.TypeId].required as unknown as readonly string[]).toEqual([])
+    expect(leftJoined[RowSet.TypeId].required).toEqual([])
     expect(leftJoined[RowSet.TypeId].available.posts.name).toBe("posts")
     expect(leftJoined[RowSet.TypeId].available.posts.mode).toBe("optional")
   })
@@ -653,7 +653,7 @@ describe("table definitions", () => {
       mode: "optional",
       baseName: "employees"
     })
-    expect(plan[RowSet.TypeId].required as unknown as readonly string[]).toEqual([])
+    expect(plan[RowSet.TypeId].required).toEqual([])
   })
 
   test("renderer emits aliased self-joins with base tables and logical source names", () => {

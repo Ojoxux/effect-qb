@@ -409,12 +409,12 @@ export const remapColumnDefinition = <
     enum: metadata.enum
   }
   if (ExpressionAst.TypeId in column) {
-    next[ExpressionAst.TypeId] = (column as unknown as {
+    next[ExpressionAst.TypeId] = (column as {
       readonly [ExpressionAst.TypeId]: ExpressionAst.Any
     })[ExpressionAst.TypeId]
   }
   if (BoundColumnTypeId in column) {
-    next[BoundColumnTypeId] = (column as unknown as {
+    next[BoundColumnTypeId] = (column as {
       readonly [BoundColumnTypeId]: {
         readonly tableName: string
         readonly columnName: string

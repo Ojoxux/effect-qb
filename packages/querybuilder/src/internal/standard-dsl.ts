@@ -1517,7 +1517,7 @@ const profile: QueryDialectProfile<Dialect, TextDb, NumericDb, BoolDb, Timestamp
     if (value === null || value instanceof Date) {
       return undefined
     }
-    return Schema.Literal(value) as unknown as Schema.Schema.Any
+    return Schema.Literal(value) as Schema.Schema.Any
   }
 
   const literal = <const Value extends LiteralValue>(
@@ -1604,7 +1604,7 @@ const profile: QueryDialectProfile<Dialect, TextDb, NumericDb, BoolDb, Timestamp
     value: Expression.Any,
     target: Expression.Any
   ): Expression.Any => {
-    const ast = (value as unknown as { readonly [ExpressionAst.TypeId]: ExpressionAst.Any })[ExpressionAst.TypeId]
+    const ast = (value as Expression.Any & { readonly [ExpressionAst.TypeId]: ExpressionAst.Any })[ExpressionAst.TypeId]
     if (ast.kind !== "literal") {
       return value
     }
@@ -1625,8 +1625,8 @@ const profile: QueryDialectProfile<Dialect, TextDb, NumericDb, BoolDb, Timestamp
     left: Expression.Any,
     right: Expression.Any
   ): readonly [Expression.Any, Expression.Any] => {
-    const leftAst = (left as unknown as { readonly [ExpressionAst.TypeId]: ExpressionAst.Any })[ExpressionAst.TypeId]
-    const rightAst = (right as unknown as { readonly [ExpressionAst.TypeId]: ExpressionAst.Any })[ExpressionAst.TypeId]
+    const leftAst = (left as Expression.Any & { readonly [ExpressionAst.TypeId]: ExpressionAst.Any })[ExpressionAst.TypeId]
+    const rightAst = (right as Expression.Any & { readonly [ExpressionAst.TypeId]: ExpressionAst.Any })[ExpressionAst.TypeId]
     if (leftAst.kind === "literal" && rightAst.kind !== "literal") {
       return [retargetLiteralExpression(left, right), right]
     }
@@ -1659,7 +1659,7 @@ const profile: QueryDialectProfile<Dialect, TextDb, NumericDb, BoolDb, Timestamp
   ): readonly Expression.Any[] => {
     const flattened: Array<Expression.Any> = []
     for (const value of values) {
-      const ast = (value as unknown as { readonly [ExpressionAst.TypeId]: ExpressionAst.Any })[ExpressionAst.TypeId]
+      const ast = (value as Expression.Any & { readonly [ExpressionAst.TypeId]: ExpressionAst.Any })[ExpressionAst.TypeId]
       if (ast.kind === kind) {
         flattened.push(...ast.values)
       } else {
@@ -1866,7 +1866,8 @@ type BinaryPredicateExpression<
   >(
     ...args: ComparableArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "eq">
   ): BinaryPredicateExpression<Left, Right, "eq"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "eq")
   }
 
@@ -1876,7 +1877,8 @@ type BinaryPredicateExpression<
   >(
     ...args: ComparableArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "neq">
   ): BinaryPredicateExpression<Left, Right, "neq"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "neq")
   }
 
@@ -1886,7 +1888,8 @@ type BinaryPredicateExpression<
   >(
     ...args: ComparableArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "lt">
   ): BinaryPredicateExpression<Left, Right, "lt"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "lt")
   }
 
@@ -1896,7 +1899,8 @@ type BinaryPredicateExpression<
   >(
     ...args: ComparableArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "lte">
   ): BinaryPredicateExpression<Left, Right, "lte"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "lte")
   }
 
@@ -1906,7 +1910,8 @@ type BinaryPredicateExpression<
   >(
     ...args: ComparableArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "gt">
   ): BinaryPredicateExpression<Left, Right, "gt"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "gt")
   }
 
@@ -1916,7 +1921,8 @@ type BinaryPredicateExpression<
   >(
     ...args: ComparableArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "gte">
   ): BinaryPredicateExpression<Left, Right, "gte"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "gte")
   }
 
@@ -1926,7 +1932,8 @@ type BinaryPredicateExpression<
   >(
     ...args: TextArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "like">
   ): BinaryPredicateExpression<Left, Right, "like"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "like")
   }
 
@@ -1936,7 +1943,8 @@ type BinaryPredicateExpression<
   >(
     ...args: TextArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "ilike">
   ): BinaryPredicateExpression<Left, Right, "ilike"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "ilike")
   }
 
@@ -1946,7 +1954,8 @@ type BinaryPredicateExpression<
   >(
     ...args: TextArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "regexMatch">
   ): BinaryPredicateExpression<Left, Right, "regexMatch"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "regexMatch")
   }
 
@@ -1956,7 +1965,8 @@ type BinaryPredicateExpression<
   >(
     ...args: TextArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "regexIMatch">
   ): BinaryPredicateExpression<Left, Right, "regexIMatch"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "regexIMatch")
   }
 
@@ -1966,7 +1976,8 @@ type BinaryPredicateExpression<
   >(
     ...args: TextArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "regexNotMatch">
   ): BinaryPredicateExpression<Left, Right, "regexNotMatch"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "regexNotMatch")
   }
 
@@ -1976,7 +1987,8 @@ type BinaryPredicateExpression<
   >(
     ...args: TextArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "regexNotIMatch">
   ): BinaryPredicateExpression<Left, Right, "regexNotIMatch"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "regexNotIMatch")
   }
 
@@ -1986,7 +1998,8 @@ type BinaryPredicateExpression<
   >(
     ...args: ComparableArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "isDistinctFrom">
   ): BinaryPredicateExpression<Left, Right, "isDistinctFrom", "never"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "isDistinctFrom", "never")
   }
 
@@ -1996,7 +2009,8 @@ type BinaryPredicateExpression<
   >(
     ...args: ComparableArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "isNotDistinctFrom">
   ): BinaryPredicateExpression<Left, Right, "isNotDistinctFrom", "never"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "isNotDistinctFrom", "never")
   }
 
@@ -3328,7 +3342,8 @@ type BinaryPredicateExpression<
   >(
     ...args: ContainmentArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "contains">
   ): BinaryPredicateExpression<Left, Right, "contains"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "contains")
   }
 
@@ -3338,7 +3353,8 @@ type BinaryPredicateExpression<
   >(
     ...args: ContainmentArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "containedBy">
   ): BinaryPredicateExpression<Left, Right, "containedBy"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "containedBy")
   }
 
@@ -3348,7 +3364,8 @@ type BinaryPredicateExpression<
   >(
     ...args: ContainmentArgs<Left, Right, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, "overlaps">
   ): BinaryPredicateExpression<Left, Right, "overlaps"> => {
-    const [left, right] = args as unknown as [Left, Right]
+    const left = args[0] as Left
+    const right = args[1] as Right
     return buildBinaryPredicate(left as ExpressionInput, right as ExpressionInput, "overlaps")
   }
 
@@ -4061,7 +4078,7 @@ type BinaryPredicateExpression<
     }
     if (value !== null && typeof value === "object" && Expression.TypeId in value) {
       const expression = value as unknown as Expression.Any
-      const ast = (expression as unknown as { readonly [ExpressionAst.TypeId]: ExpressionAst.Any })[ExpressionAst.TypeId]
+      const ast = (expression as Expression.Any & { readonly [ExpressionAst.TypeId]: ExpressionAst.Any })[ExpressionAst.TypeId]
       if (ast.kind === "literal") {
         const normalizedValue = normalizeMutationValue(ast.value)
         return makeExpression({
@@ -4130,8 +4147,8 @@ type BinaryPredicateExpression<
               : ">="
 
   const targetSourceDetails = (table: MutationTargetLike | SchemaTableLike) => {
-    const sourceName = (table as unknown as TableLike)[Table.TypeId].name
-    const sourceBaseName = (table as unknown as TableLike)[Table.TypeId].baseName
+    const sourceName = (table as TableLike)[Table.TypeId].name
+    const sourceBaseName = (table as TableLike)[Table.TypeId].baseName
     return {
       sourceName,
       sourceBaseName
@@ -4283,7 +4300,7 @@ type BinaryPredicateExpression<
     }
     const valueMap = values as Record<string, Record<string, unknown> | undefined>
     return targets.flatMap((table) => {
-      const targetName = (table as unknown as TableLike)[Table.TypeId].name
+      const targetName = (table as TableLike)[Table.TypeId].name
       const scopedValues = valueMap[targetName] ?? {}
       const columns = table as unknown as Record<string, Expression.Any>
       return Object.entries(scopedValues).map(([columnName, value]) => ({
@@ -4305,12 +4322,16 @@ type BinaryPredicateExpression<
     const firstRow = rows[0]
     const firstColumns = Object.keys(firstRow)
     const columns = firstColumns as [string, ...string[]]
-    const normalizedRows = rows.map((row) => {
+    const normalizeRow = (row: InsertRowInput<Target>) => {
       const assignments = buildMutationAssignments(target, row) as readonly QueryAst.AssignmentClause[]
       return {
         values: columns.map((columnName) => assignments.find((assignment) => assignment.columnName === columnName)!)
       } satisfies QueryAst.InsertValuesRowClause
-    }) as unknown as [QueryAst.InsertValuesRowClause, ...QueryAst.InsertValuesRowClause[]]
+    }
+    const normalizedRows: readonly [QueryAst.InsertValuesRowClause, ...QueryAst.InsertValuesRowClause[]] = [
+      normalizeRow(rows[0]),
+      ...rows.slice(1).map(normalizeRow)
+    ]
     const required = normalizedRows.flatMap((row) =>
       row.values.flatMap((entry) => Object.keys(entry.value[Expression.TypeId].dependencies))
     )

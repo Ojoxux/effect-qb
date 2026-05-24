@@ -110,7 +110,7 @@ export const schema = <SchemaName extends string>(
   return {
     schemaName,
     table
-  } as unknown as TableSchemaNamespace<SchemaName>
+  } as TableSchemaNamespace<SchemaName>
 }
 
 export const alias = <
@@ -139,7 +139,7 @@ export const Class = <Self = never, SchemaName extends string | undefined = unde
   schemaName: SchemaName = undefined as SchemaName
 ) => {
   const base = BaseTable.Class<Self, SchemaName>(name, schemaName)
-  return base as unknown as <
+  return base as <
     Fields extends DialectFieldMap
   >(fields: Fields & BaseTable.NonEmptyFieldMap<Fields>) => [Self] extends [never]
     ? BaseTable.MissingSelfGeneric

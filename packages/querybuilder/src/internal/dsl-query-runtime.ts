@@ -20,10 +20,11 @@ type DslQueryRuntimeContext = {
 
 export const makeDslQueryRuntime = (ctx: DslQueryRuntimeContext) => {
   const values = (rows: readonly [Record<string, any>, ...Record<string, any>[]]) => {
-    const normalizedRows = rows.map((row) => ctx.normalizeValuesRow(row)) as unknown as readonly [
-      Record<string, Expression.Any>,
-      ...Record<string, Expression.Any>[]
-    ]
+    const [first, ...rest] = rows
+    const normalizedRows = [
+      ctx.normalizeValuesRow(first),
+      ...rest.map((row) => ctx.normalizeValuesRow(row))
+    ] satisfies readonly [Record<string, Expression.Any>, ...Record<string, Expression.Any>[]]
     const columnNames = Object.keys(normalizedRows[0]!)
     return Object.assign(Object.create(ctx.ValuesInputProto), {
       kind: "values",

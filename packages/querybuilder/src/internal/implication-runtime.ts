@@ -41,7 +41,7 @@ const collectPresenceWitnesses = (
     return
   }
   if (Expression.TypeId in selection && ExpressionAst.TypeId in selection) {
-    const expression = selection as unknown as AstBackedExpression
+    const expression = selection as AstBackedExpression
     const ast = expression[ExpressionAst.TypeId]
     if (ast.kind === "column" && expression[Expression.TypeId].nullability === "never") {
       output.add(columnPredicateKey(ast.tableName, ast.columnName))

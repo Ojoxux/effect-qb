@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema"
 import * as BaseColumn from "../internal/column.js"
 import { makeColumnDefinition, type AnyColumnDefinition, type ColumnDefinition } from "../internal/column-state.js"
 import type * as Expression from "../internal/scalar.js"
+import { enrichDbType } from "../internal/datatypes/enrich.js"
 import {
   DecimalStringSchema,
   LocalDateStringSchema,
@@ -12,13 +13,6 @@ import {
   type LocalDateTimeString
 } from "../internal/runtime/value.js"
 import { mysqlDatatypes } from "./datatypes/index.js"
-
-const enrichDbType = <Db extends Expression.DbType.Any>(dbType: Db): Db => {
-  const candidate = (mysqlDatatypes as unknown as Record<string, (() => Expression.DbType.Any) | undefined>)[dbType.kind]
-  return typeof candidate === "function"
-    ? { ...candidate(), ...dbType } as Db
-    : dbType
-}
 
 const primitive = <Type, Db extends Expression.DbType.Any>(
   schema: Schema.Schema<Type, any, any>,
@@ -50,8 +44,8 @@ export const custom = <SchemaType extends Schema.Schema.Any, Db extends Expressi
   schema: SchemaType,
   dbType: Db
 ) =>
-  makeColumnDefinition(schema as unknown as Schema.Schema<NonNullable<Schema.Schema.Type<SchemaType>>, any, any>, {
-    dbType: enrichDbType(dbType),
+  makeColumnDefinition(schema as Schema.Schema<NonNullable<Schema.Schema.Type<SchemaType>>, any, any>, {
+    dbType: enrichDbType(mysqlDatatypes, dbType),
     nullable: false,
     hasDefault: false,
     generated: false,
@@ -82,7 +76,7 @@ export const date = () => primitive(LocalDateStringSchema, mysqlDatatypes.date()
 export const datetime = () => primitive(LocalDateTimeStringSchema, mysqlDatatypes.datetime())
 export const timestamp = () => primitive(LocalDateTimeStringSchema, mysqlDatatypes.timestamp())
 export const json = <SchemaType extends Schema.Schema.Any>(schema: SchemaType) =>
-  makeColumnDefinition(schema as unknown as Schema.Schema<NonNullable<Schema.Schema.Type<SchemaType>>, any, any>, {
+  makeColumnDefinition(schema as Schema.Schema<NonNullable<Schema.Schema.Type<SchemaType>>, any, any>, {
     dbType: { ...mysqlDatatypes.json(), variant: "json" } as Expression.DbType.Json<"mysql", "json">,
     nullable: false,
     hasDefault: false,

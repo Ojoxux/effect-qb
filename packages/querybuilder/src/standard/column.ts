@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema"
 import * as BaseColumn from "../internal/column.js"
 import { makeColumnDefinition, type AnyColumnDefinition, type ColumnDefinition } from "../internal/column-state.js"
 import type * as Expression from "../internal/scalar.js"
+import { enrichDbType } from "../internal/datatypes/enrich.js"
 import {
   BigIntStringSchema,
   DecimalStringSchema,
@@ -16,13 +17,6 @@ import {
   type LocalTimeString
 } from "../internal/runtime/value.js"
 import { standardDatatypes } from "./datatypes/index.js"
-
-const enrichDbType = <Db extends Expression.DbType.Any>(dbType: Db): Db => {
-  const candidate = (standardDatatypes as unknown as Record<string, (() => Expression.DbType.Any) | undefined>)[dbType.kind]
-  return typeof candidate === "function"
-    ? { ...candidate(), ...dbType } as Db
-    : dbType
-}
 
 const primitive = <Type, Db extends Expression.DbType.Any>(
   schema: Schema.Schema<Type, any, any>,
@@ -61,8 +55,8 @@ export const custom = <SchemaType extends Schema.Schema.Any, Db extends Expressi
   schema: SchemaType,
   dbType: Db
 ) =>
-  makeColumnDefinition(schema as unknown as Schema.Schema<NonNullable<Schema.Schema.Type<SchemaType>>, any, any>, {
-    dbType: enrichDbType(dbType),
+  makeColumnDefinition(schema as Schema.Schema<NonNullable<Schema.Schema.Type<SchemaType>>, any, any>, {
+    dbType: enrichDbType(standardDatatypes, dbType),
     nullable: false,
     hasDefault: false,
     generated: false,
@@ -121,7 +115,7 @@ export const datetime = () => primitive(LocalDateTimeStringSchema, standardDatat
 export const timestamp = () => primitive(LocalDateTimeStringSchema, standardDatatypes.timestamp())
 export const blob = () => primitive(Schema.Uint8ArrayFromSelf, standardDatatypes.blob())
 export const json = <SchemaType extends Schema.Schema.Any>(schema: SchemaType) =>
-  makeColumnDefinition(schema as unknown as Schema.Schema<NonNullable<Schema.Schema.Type<SchemaType>>, any, any>, {
+  makeColumnDefinition(schema as Schema.Schema<NonNullable<Schema.Schema.Type<SchemaType>>, any, any>, {
     dbType: { ...standardDatatypes.json(), variant: "json" } as Expression.DbType.Json<"standard", "json">,
     nullable: false,
     hasDefault: false,

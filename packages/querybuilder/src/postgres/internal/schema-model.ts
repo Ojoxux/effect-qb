@@ -65,8 +65,10 @@ const applyCasing = (
 const mapColumnList = (
   columns: ColumnList,
   casing: Casing.Options | undefined
-): ColumnList =>
-  columns.map((column) => applyCasing(casing, "columns", column)) as unknown as ColumnList
+): ColumnList => [
+  applyCasing(casing, "columns", columns[0]),
+  ...columns.slice(1).map((column) => applyCasing(casing, "columns", column))
+]
 
 const expressionStateForTable = (
   state: Table.AnyTable[typeof Table.TypeId],
@@ -118,7 +120,10 @@ const mapOption = (
         predicate: option.predicate === undefined ? undefined : mapDdlExpression(option.predicate, expressionState),
         keys: option.keys === undefined
           ? undefined
-          : option.keys.map((key) => mapIndexKey(key, casing, expressionState)) as unknown as typeof option.keys
+          : [
+              mapIndexKey(option.keys[0], casing, expressionState),
+              ...option.keys.slice(1).map((key) => mapIndexKey(key, casing, expressionState))
+            ]
       }
     case "primaryKey":
       return {

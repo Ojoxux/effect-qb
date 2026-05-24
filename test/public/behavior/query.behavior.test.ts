@@ -17,7 +17,7 @@ describe("query behavior", () => {
       Q.where(true)
     )
 
-    expect(plan[RowSet.TypeId].required as unknown as readonly string[]).toEqual([])
+    expect(plan[RowSet.TypeId].required).toEqual([])
     expect(plan[RowSet.TypeId].available).toEqual({})
   })
 
@@ -31,14 +31,14 @@ describe("query behavior", () => {
       predicate: Q.and(Q.eq(users.email, "alice@example.com"), Q.isNull(posts.title))
     })
 
-    expect(selected[RowSet.TypeId].required as unknown as readonly string[]).toEqual(["users", "posts", "comments"])
+    expect(selected[RowSet.TypeId].required).toEqual(["users", "posts", "comments"])
 
     const partiallySatisfied = selected.pipe(
       Q.from(users),
       Q.leftJoin(posts, Q.eq(users.id, posts.userId))
     )
 
-    expect(partiallySatisfied[RowSet.TypeId].required as unknown as readonly string[]).toEqual(["comments"])
+    expect(partiallySatisfied[RowSet.TypeId].required).toEqual(["comments"])
     expect(partiallySatisfied[RowSet.TypeId].available).toMatchObject({
       users: { name: "users", mode: "required", baseName: "users" },
       posts: { name: "posts", mode: "optional", baseName: "posts" }
@@ -55,14 +55,14 @@ describe("query behavior", () => {
       reportId: report.id
     })
 
-    expect(selected[RowSet.TypeId].required as unknown as readonly string[]).toEqual(["manager", "report"])
+    expect(selected[RowSet.TypeId].required).toEqual(["manager", "report"])
 
     const sourced = selected.pipe(
       Q.from(manager),
       Q.leftJoin(report, Q.eq(report.managerId, manager.id))
     )
 
-    expect(sourced[RowSet.TypeId].required as unknown as readonly string[]).toEqual([])
+    expect(sourced[RowSet.TypeId].required).toEqual([])
     expect(sourced[RowSet.TypeId].available).toMatchObject({
       manager: { name: "manager", mode: "required", baseName: "employees" },
       report: { name: "report", mode: "optional", baseName: "employees" }
@@ -79,14 +79,14 @@ describe("query behavior", () => {
       Q.having(unsafeAny(Q.eq(unsafeAny(F.count(posts.id)), 2)))
     )
 
-    expect(plan[RowSet.TypeId].required as unknown as readonly string[]).toEqual(["posts", "users"])
+    expect(plan[RowSet.TypeId].required).toEqual(["posts", "users"])
 
     const sourced = plan.pipe(
       Q.from(users),
       Q.innerJoin(posts, Q.eq(users.id, posts.userId))
     )
 
-    expect(sourced[RowSet.TypeId].required as unknown as readonly string[]).toEqual([])
+    expect(sourced[RowSet.TypeId].required).toEqual([])
     expect(sourced[RowSet.TypeId].available).toMatchObject({
       users: { name: "users", mode: "required", baseName: "users" },
       posts: { name: "posts", mode: "required", baseName: "posts" }

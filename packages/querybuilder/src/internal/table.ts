@@ -349,7 +349,7 @@ const getSchemaCache = <
 >(
   table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, any> | TableClassStatic<Name, Fields, PrimaryKeyColumns, any>
 ): TableSchemaCache<Name, Fields, PrimaryKeyColumns> => {
-  const target = table as unknown as {
+  const target = table as {
     [SchemaCacheSymbol]?: TableSchemaCache<Name, Fields, PrimaryKeyColumns>
   }
   if (target[SchemaCacheSymbol] !== undefined) {
@@ -651,20 +651,37 @@ const appendOption = <
 }
 
 const makeOption = <Spec extends TableOptionSpec>(option: Spec): TableOption<Spec> => {
-  const builder = ((table: TableDefinition<any, any, any, "schema", any>) =>
-    appendOption(table, option)) as unknown as TableOption<Spec>
-  ;(builder as { option: Spec }).option = option
-  return builder
+  return Object.assign(
+    <
+      Name extends string,
+      Fields extends TableFieldMap,
+      PrimaryKeyColumns extends keyof Fields & string
+    >(
+      table: OptionInputTable<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>, Spec>
+    ): ApplyOption<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>, Spec> =>
+      appendOption(table as TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>, option),
+    { option }
+  )
 }
 
 const makeResolvedOption = <Spec extends TableOptionSpec>(
   option: Spec,
   resolve: (table: TableDefinition<any, any, any, "schema", any>) => Spec
 ): TableOption<Spec> => {
-  const builder = ((table: TableDefinition<any, any, any, "schema", any>) =>
-    appendOption(table, resolve(table))) as unknown as TableOption<Spec>
-  ;(builder as { option: Spec }).option = option
-  return builder
+  return Object.assign(
+    <
+      Name extends string,
+      Fields extends TableFieldMap,
+      PrimaryKeyColumns extends keyof Fields & string
+    >(
+      table: OptionInputTable<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>, Spec>
+    ): ApplyOption<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>, Spec> =>
+      appendOption(
+        table as TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>,
+        resolve(table as TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>)
+      ),
+    { option }
+  )
 }
 
 export const option = <Spec extends TableOptionSpec>(spec: Spec): TableOption<Spec> =>
@@ -778,12 +795,12 @@ export const schema = <SchemaName extends string>(
         schemaName,
         "explicit"
       ) as TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>,
-      options as unknown as Options
+      options as Options
     ) as ApplyDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
   return {
     schemaName,
     table
-  } as unknown as TableSchemaNamespace<SchemaName>
+  } as TableSchemaNamespace<SchemaName>
 }
 
 /**
@@ -997,7 +1014,7 @@ export const foreignKey = <
     schemaName: target()[TypeId].schemaName,
     casing: target()[TypeId].casing,
     columns: normalizeColumnList(referencedColumns) as NormalizeColumns<TargetColumns>,
-    knownColumns: Object.keys(target()[TypeId].fields) as unknown as readonly ColumnNamesOfAnyTable<TargetTable>[]
+    knownColumns: Object.keys(target()[TypeId].fields).map((key) => key as ColumnNamesOfAnyTable<TargetTable>)
   })
 })
 

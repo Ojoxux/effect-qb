@@ -254,8 +254,10 @@ type InlinePrimaryKeyKeys<Fields extends TableFieldMap> = Extract<{
 
 /** Normalizes a string or tuple input into a non-empty column list. */
 export const normalizeColumnList = (columns: string | readonly string[]): ColumnList => {
-  const normalized = Array.isArray(columns) ? [...columns] : [columns]
-  return normalized as unknown as ColumnList
+  if (typeof columns === "string") {
+    return [columns]
+  }
+  return [columns[0] as string, ...columns.slice(1)]
 }
 
 /** Converts inline column flags into normalized table option records. */

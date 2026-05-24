@@ -509,24 +509,28 @@ export const fromDriver = <
   renderer: Renderer.Renderer<Dialect>,
   sqlDriver: Driver<Dialect, Error, Context>
 ): Executor<Dialect, Error, Context> => {
-  const executor = {
+  const executor: Executor<Dialect, Error, Context> = {
     dialect: renderer.dialect,
-    execute(plan: any) {
+    execute<PlanValue extends Query.Plan.Any>(
+      plan: Query.DialectCompatiblePlan<PlanValue, Dialect>
+    ) {
       const rendered = renderer.render(plan) as Renderer.RenderedQuery<any, Dialect>
       return Effect.map(
         sqlDriver.execute(rendered),
         (rows) => remapRows<any>(rendered, rows)
-      )
+      ) as Effect.Effect<Query.ResultRows<PlanValue>, Error, Context>
     },
-    stream(plan: any) {
+    stream<PlanValue extends Query.Plan.Any>(
+      plan: Query.DialectCompatiblePlan<PlanValue, Dialect>
+    ) {
       const rendered = renderer.render(plan) as Renderer.RenderedQuery<any, Dialect>
       return Stream.mapChunks(
         sqlDriver.stream(rendered),
         (rows) => Chunk.unsafeFromArray(remapRows<any>(rendered, Chunk.toReadonlyArray(rows)))
-      )
+      ) as Stream.Stream<Query.ResultRow<PlanValue>, Error, Context>
     }
   }
-  return executor as unknown as Executor<Dialect, Error, Context>
+  return executor
 }
 
 export const streamFromSqlClient = <Dialect extends string>(
