@@ -4885,6 +4885,11 @@ type ConflictTargetInput<
           readonly constraint?: string
         }>)
 
+type ConflictConstraintNameConstraint<Target> =
+  Target extends { readonly constraint: infer Constraint extends string }
+    ? { readonly constraint: NonEmptyStringInput<Constraint> }
+    : unknown
+
 type ConflictActionInput<
   Target extends MutationTargetLike,
   Dialect extends string,
@@ -6196,9 +6201,9 @@ type AsCurriedResult<
     const Columns extends DdlColumnInput,
     UpdateValues extends MutationInputOf<Table.UpdateOf<Target>> | undefined = MutationInputOf<Table.UpdateOf<Target>> | undefined,
     Options extends ConflictActionInput<Target, Dialect, UpdateValues> = ConflictActionInput<Target, Dialect, UpdateValues>,
-    ConflictTarget extends ConflictTargetInput<Target, Dialect, Columns> = ConflictTargetInput<Target, Dialect, Columns>
+    const ConflictTarget extends ConflictTargetInput<Target, Dialect, Columns> = ConflictTargetInput<Target, Dialect, Columns>
   >(
-    target: ConflictTarget,
+    target: ConflictTarget & ConflictConstraintNameConstraint<ConflictTarget>,
     options?: Options & ConflictActionUpdateNonEmptyConstraint<Options>
   ) =>
     <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
