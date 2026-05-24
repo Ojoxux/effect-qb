@@ -38,7 +38,10 @@ export interface QueryState<Outstanding extends string, AvailableNames extends s
 /** Effective SQL dialect carried by an expression. */
 export type DialectOf<Value extends Expression.Any> = Value[typeof Expression.TypeId]["dialect"];
 type ConcreteDialect<D> = D extends "standard" ? never : D;
-export type DialectConflictError<A extends string, B extends string> = {
+type IsDialectUnion<Union, All = Union> = Union extends any ? [
+    All
+] extends [Union] ? false : true : false;
+export type DialectConflictError<A extends string, B extends string> = string & {
     readonly _tag: "DialectConflict";
     readonly left: A;
     readonly right: B;
@@ -58,7 +61,7 @@ export type NormalizeDialect<Dialect extends string> = [
     Dialect
 ] extends [never] ? never : [
     Exclude<Dialect, "standard">
-] extends [never] ? "standard" : Exclude<Dialect, "standard">;
+] extends [never] ? "standard" : IsDialectUnion<Exclude<Dialect, "standard">> extends true ? DialectConflictError<Exclude<Dialect, "standard">, Exclude<Dialect, "standard">> : Exclude<Dialect, "standard">;
 /** Source dependency union carried by an expression. */
 export type DependenciesOf<Value extends Expression.Any> = Expression.DependenciesOf<Value>;
 /** Aggregation kind carried by an expression. */

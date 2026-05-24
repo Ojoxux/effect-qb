@@ -28,6 +28,10 @@ type _AssertMergeConflict = Assert<IsExact<
   RootQuery.DialectConflictError<"postgres", "mysql">
 >>
 type _AssertNormalizeStandardPostgres = Assert<IsExact<RootQuery.NormalizeDialect<"standard" | "postgres">, "postgres">>
+type _AssertNormalizeConflict = Assert<IsExact<
+  RootQuery.NormalizeDialect<"postgres" | "mysql">,
+  RootQuery.DialectConflictError<"postgres" | "mysql", "postgres" | "mysql">
+>>
 
 const pgUsers = Postgres.Table.make("users", {
   id: Postgres.Column.uuid().pipe(Postgres.Column.primaryKey),
@@ -129,6 +133,24 @@ void narrowedPgRendered
 // @ts-expect-error postgres-narrowed standard plans are not accepted by mysql renderers
 const narrowedMysqlRendered = Mysql.Renderer.make().render(standardNarrowedToPostgres)
 void narrowedMysqlRendered
+
+const standardConflictPlan = Standard.Query.select({
+  id: stdUsers.id
+}).pipe(
+  Standard.Query.from(stdUsers),
+  Standard.Query.orderBy(Postgres.Query.literal(1)),
+  Standard.Query.where(Mysql.Query.literal(true))
+)
+
+type StandardConflictDialect = RootQuery.PlanDialectOf<typeof standardConflictPlan>
+type _AssertStandardConflictDialect = Assert<IsExact<
+  StandardConflictDialect,
+  RootQuery.DialectConflictError<"postgres" | "mysql", "postgres" | "mysql">
+>>
+
+// @ts-expect-error concrete dialect conflicts are not accepted by postgres renderers
+const conflictPgRendered = Postgres.Renderer.make().render(standardConflictPlan)
+void conflictPgRendered
 
 // @ts-expect-error postgres set operators do not accept mysql left operands
 const postgresSetWithMysqlLeft = Postgres.Query.union(myPlan, pgPlan)
