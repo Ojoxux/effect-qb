@@ -1237,11 +1237,21 @@ const isKnownTableOption = (option: unknown): option is TableOptionSpec => {
   if (typeof option !== "object" || option === null || !("kind" in option)) {
     return false
   }
+  const isRenderableDdlExpression = (value: unknown): boolean => {
+    try {
+      normalizeDdlExpressionSql(value as never)
+      return true
+    } catch {
+      return false
+    }
+  }
   const candidate = option as { readonly kind?: unknown }
   switch (candidate.kind) {
     case "index":
-    case "check":
       return true
+    case "check":
+      return typeof (option as { readonly name?: unknown }).name === "string" &&
+        isRenderableDdlExpression((option as { readonly predicate?: unknown }).predicate)
     case "primaryKey":
     case "unique":
       return Array.isArray((option as { readonly columns?: unknown }).columns)
