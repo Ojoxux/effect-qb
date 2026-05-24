@@ -135,6 +135,57 @@ describe("cross-cutting statement behavior", () => {
     ).toThrow("Unsupported transaction isolation level")
   })
 
+  test("rejects malformed statement option flags before rendering SQL", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
+    })
+
+    expect(() =>
+      Postgres.Query.transaction({ readOnly: "yes" } as any)
+    ).toThrow("transaction(...) option 'readOnly' must be boolean")
+
+    expect(() =>
+      Postgres.Query.createTable(users, { ifNotExists: "yes" } as any)
+    ).toThrow("createTable(...) option 'ifNotExists' must be boolean")
+
+    expect(() =>
+      Postgres.Query.createIndex(users, "id", { unique: "yes" } as any)
+    ).toThrow("createIndex(...) option 'unique' must be boolean")
+
+    expect(() =>
+      Postgres.Query.truncate(users, { cascade: "yes" } as any)
+    ).toThrow("truncate(...) option 'cascade' must be boolean")
+
+    const transactionPlan = Postgres.Query.transaction()
+    ;(transactionPlan as any)[queryAst].transaction.readOnly = "yes"
+
+    expect(() =>
+      Postgres.Renderer.make().render(transactionPlan)
+    ).toThrow("transaction(...) option 'readOnly' must be boolean")
+
+    const createTablePlan = Postgres.Query.createTable(users)
+    ;(createTablePlan as any)[queryAst].ddl.ifNotExists = "yes"
+
+    expect(() =>
+      Postgres.Renderer.make().render(createTablePlan)
+    ).toThrow("createTable(...) option 'ifNotExists' must be boolean")
+
+    const createIndexPlan = Postgres.Query.createIndex(users, "id")
+    ;(createIndexPlan as any)[queryAst].ddl.unique = "yes"
+
+    expect(() =>
+      Postgres.Renderer.make().render(createIndexPlan)
+    ).toThrow("createIndex(...) option 'unique' must be boolean")
+
+    const truncatePlan = Postgres.Query.truncate(users)
+    ;(truncatePlan as any)[queryAst].truncate.cascade = "yes"
+
+    expect(() =>
+      Postgres.Renderer.make().render(truncatePlan)
+    ).toThrow("truncate(...) option 'cascade' must be boolean")
+  })
+
   test("rejects invalid rendered transaction kinds", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
 

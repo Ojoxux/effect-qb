@@ -9,7 +9,7 @@ import * as ExpressionAst from "../expression-ast.js"
 import * as JsonPath from "../json/path.js"
 import { normalizeLockFlag, renderMysqlMutationLockMode, renderSelectLockMode } from "../dsl-plan-runtime.js"
 import { expectConflictClause, expectInsertSourceKind, expectInsertValues } from "../dsl-mutation-runtime.js"
-import { expectDdlClauseKind, expectTruncateClause, renderTransactionIsolationLevel } from "../dsl-transaction-ddl-runtime.js"
+import { expectDdlClauseKind, expectTruncateClause, normalizeStatementFlag, renderTransactionIsolationLevel } from "../dsl-transaction-ddl-runtime.js"
 import {
   renderJsonSelectSql,
   renderSelectSql,
@@ -293,8 +293,9 @@ const renderCreateTableSql = (
   targetSource: QueryAst.FromClause,
   state: RenderState,
   dialect: SqlDialect,
-  ifNotExists: boolean
+  ifNotExists: unknown
 ): string => {
+  const normalizedIfNotExists = normalizeStatementFlag("createTable", "ifNotExists", ifNotExists)
   const table = targetSource.source as Table.AnyTable
   const tableCasing = casingForTable(table, state)
   const fields = table[Table.TypeId].fields
@@ -336,7 +337,7 @@ const renderCreateTableSql = (
         throw new Error("Unsupported table option kind")
     }
   }
-  return `create table${ifNotExists ? " if not exists" : ""} ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} (${definitions.join(", ")})`
+  return `create table${normalizedIfNotExists ? " if not exists" : ""} ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} (${definitions.join(", ")})`
 }
 
 const renderCreateIndexSql = (
@@ -345,13 +346,15 @@ const renderCreateIndexSql = (
   state: RenderState,
   dialect: SqlDialect
 ): string => {
-  if (ddl.ifNotExists) {
+  const unique = normalizeStatementFlag("createIndex", "unique", ddl.unique)
+  const ifNotExists = normalizeStatementFlag("createIndex", "ifNotExists", ddl.ifNotExists)
+  if (ifNotExists) {
     throw new Error("Unsupported mysql create index options")
   }
-  const maybeIfNotExists = dialect.name === "postgres" && ddl.ifNotExists ? " if not exists" : ""
+  const maybeIfNotExists = dialect.name === "postgres" && ifNotExists ? " if not exists" : ""
   const table = targetSource.source as Table.AnyTable
   const tableCasing = casingForTable(table, state)
-  return `create${ddl.unique ? " unique" : ""} index${maybeIfNotExists} ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} (${ddl.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")})`
+  return `create${unique ? " unique" : ""} index${maybeIfNotExists} ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} (${ddl.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")})`
 }
 
 const renderDropIndexSql = (
@@ -360,13 +363,14 @@ const renderDropIndexSql = (
   state: RenderState,
   dialect: SqlDialect
 ): string => {
-  if (ddl.ifExists) {
+  const ifExists = normalizeStatementFlag("dropIndex", "ifExists", ddl.ifExists)
+  if (ifExists) {
     throw new Error("Unsupported mysql drop index options")
   }
   const table = targetSource.source as Table.AnyTable
   const tableCasing = casingForTable(table, state)
   return dialect.name === "postgres"
-    ? `drop index${ddl.ifExists ? " if exists" : ""} ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))}`
+    ? `drop index${ifExists ? " if exists" : ""} ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))}`
     : `drop index ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)}`
 }
 
@@ -1226,7 +1230,7 @@ const renderTransactionClause = (
       if (isolationLevel) {
         modes.push(isolationLevel)
       }
-      if (clause.readOnly === true) {
+      if (normalizeStatementFlag("transaction", "readOnly", clause.readOnly)) {
         modes.push("read only")
       }
       return modes.length > 0
@@ -1704,14 +1708,16 @@ export const renderQueryAst = (
       assertNoStatementQueryClauses(truncateAst, "truncate")
       const truncate = expectTruncateClause(truncateAst.truncate)
       const targetSource = truncateAst.target!
-      if (dialect.name === "mysql" && (truncate.restartIdentity || truncate.cascade)) {
+      const restartIdentity = normalizeStatementFlag("truncate", "restartIdentity", truncate.restartIdentity)
+      const cascade = normalizeStatementFlag("truncate", "cascade", truncate.cascade)
+      if (dialect.name === "mysql" && (restartIdentity || cascade)) {
         throw new Error("Unsupported mysql truncate options")
       }
       sql = `truncate table ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)}`
-      if (truncate.restartIdentity) {
+      if (restartIdentity) {
         sql += " restart identity"
       }
-      if (truncate.cascade) {
+      if (cascade) {
         sql += " cascade"
       }
       break
@@ -1771,7 +1777,8 @@ export const renderQueryAst = (
       const dropTableAst = ast as QueryAst.Ast<Record<string, unknown>, any, "dropTable">
       assertNoStatementQueryClauses(dropTableAst, "dropTable")
       const ddl = expectDdlClauseKind(dropTableAst.ddl, "dropTable")
-      sql = `drop table${ddl.ifExists ? " if exists" : ""} ${renderSourceReference(dropTableAst.target!.source, dropTableAst.target!.tableName, dropTableAst.target!.baseTableName, state, dialect)}`
+      const ifExists = normalizeStatementFlag("dropTable", "ifExists", ddl.ifExists)
+      sql = `drop table${ifExists ? " if exists" : ""} ${renderSourceReference(dropTableAst.target!.source, dropTableAst.target!.tableName, dropTableAst.target!.baseTableName, state, dialect)}`
       break
     }
     case "createIndex": {

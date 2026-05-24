@@ -1,6 +1,7 @@
 import * as Expression from "./scalar.js"
 import * as Plan from "./row-set.js"
 import * as Table from "./table.js"
+import { normalizeStatementFlag } from "./dsl-transaction-ddl-runtime.js"
 
 type DslMutationRuntimeContext = {
   readonly profile: {
@@ -485,6 +486,8 @@ export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
 
   const truncate = (target: any, options: { readonly restartIdentity?: boolean; readonly cascade?: boolean } = {}) => {
     assertMutationTargets(target, "truncate")
+    const restartIdentity = normalizeStatementFlag("truncate", "restartIdentity", options.restartIdentity)
+    const cascade = normalizeStatementFlag("truncate", "cascade", options.cascade)
     const { sourceName, sourceBaseName } = ctx.targetSourceDetails(target)
     return ctx.makePlan({
       selection: {},
@@ -502,8 +505,8 @@ export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
       },
       truncate: {
         kind: "truncate",
-        restartIdentity: options.restartIdentity ?? false,
-        cascade: options.cascade ?? false
+        restartIdentity,
+        cascade
       },
       where: [],
       having: [],

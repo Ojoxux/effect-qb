@@ -8,7 +8,7 @@ import type { RenderState, RenderValueContext, SqlDialect } from "../dialect.js"
 import * as ExpressionAst from "../expression-ast.js"
 import * as JsonPath from "../json/path.js"
 import { expectConflictClause, expectInsertSourceKind, expectInsertValues } from "../dsl-mutation-runtime.js"
-import { expectDdlClauseKind } from "../dsl-transaction-ddl-runtime.js"
+import { expectDdlClauseKind, normalizeStatementFlag } from "../dsl-transaction-ddl-runtime.js"
 import {
   renderJsonSelectSql,
   renderSelectSql,
@@ -296,8 +296,9 @@ const renderCreateTableSql = (
   targetSource: QueryAst.FromClause,
   state: RenderState,
   dialect: SqlDialect,
-  ifNotExists: boolean
+  ifNotExists: unknown
 ): string => {
+  const normalizedIfNotExists = normalizeStatementFlag("createTable", "ifNotExists", ifNotExists)
   const table = targetSource.source as Table.AnyTable
   const tableCasing = casingForTable(table, state)
   const fields = table[Table.TypeId].fields
@@ -339,7 +340,7 @@ const renderCreateTableSql = (
         throw new Error("Unsupported table option kind")
     }
   }
-  return `create table${ifNotExists ? " if not exists" : ""} ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} (${definitions.join(", ")})`
+  return `create table${normalizedIfNotExists ? " if not exists" : ""} ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} (${definitions.join(", ")})`
 }
 
 const renderCreateIndexSql = (
@@ -348,10 +349,12 @@ const renderCreateIndexSql = (
   state: RenderState,
   dialect: SqlDialect
 ): string => {
-  const maybeIfNotExists = (dialect.name === "postgres" || dialect.name === "sqlite") && ddl.ifNotExists ? " if not exists" : ""
+  const unique = normalizeStatementFlag("createIndex", "unique", ddl.unique)
+  const ifNotExists = normalizeStatementFlag("createIndex", "ifNotExists", ddl.ifNotExists)
+  const maybeIfNotExists = (dialect.name === "postgres" || dialect.name === "sqlite") && ifNotExists ? " if not exists" : ""
   const table = targetSource.source as Table.AnyTable
   const tableCasing = casingForTable(table, state)
-  return `create${ddl.unique ? " unique" : ""} index${maybeIfNotExists} ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} (${ddl.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")})`
+  return `create${unique ? " unique" : ""} index${maybeIfNotExists} ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} (${ddl.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")})`
 }
 
 const renderDropIndexSql = (
@@ -360,10 +363,11 @@ const renderDropIndexSql = (
   state: RenderState,
   dialect: SqlDialect
 ): string => {
+  const ifExists = normalizeStatementFlag("dropIndex", "ifExists", ddl.ifExists)
   const table = targetSource.source as Table.AnyTable
   const tableCasing = casingForTable(table, state)
   return dialect.name === "postgres" || dialect.name === "sqlite"
-    ? `drop index${ddl.ifExists ? " if exists" : ""} ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))}`
+    ? `drop index${ifExists ? " if exists" : ""} ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))}`
     : `drop index ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "indexes", ddl.name))} on ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)}`
 }
 
@@ -1180,6 +1184,9 @@ const renderTransactionClause = (
 ): string => {
   switch (clause.kind) {
     case "transaction": {
+      if (clause.readOnly !== undefined) {
+        normalizeStatementFlag("transaction", "readOnly", clause.readOnly)
+      }
       if (clause.isolationLevel !== undefined || clause.readOnly !== undefined) {
         throw new Error("Unsupported sqlite transaction options")
       }
@@ -1712,7 +1719,8 @@ export const renderQueryAst = (
       const dropTableAst = ast as QueryAst.Ast<Record<string, unknown>, any, "dropTable">
       assertNoStatementQueryClauses(dropTableAst, "dropTable")
       const ddl = expectDdlClauseKind(dropTableAst.ddl, "dropTable")
-      sql = `drop table${ddl.ifExists ? " if exists" : ""} ${renderSourceReference(dropTableAst.target!.source, dropTableAst.target!.tableName, dropTableAst.target!.baseTableName, state, dialect)}`
+      const ifExists = normalizeStatementFlag("dropTable", "ifExists", ddl.ifExists)
+      sql = `drop table${ifExists ? " if exists" : ""} ${renderSourceReference(dropTableAst.target!.source, dropTableAst.target!.tableName, dropTableAst.target!.baseTableName, state, dialect)}`
       break
     }
     case "createIndex": {
