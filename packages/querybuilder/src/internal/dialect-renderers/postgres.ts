@@ -802,9 +802,10 @@ const renderJsonExpression = (
       return undefined
     }
     case "jsonBuildObject": {
-      const entries = Array.isArray((ast as { readonly entries?: readonly { readonly key: string; readonly value: Expression.Any }[] }).entries)
-        ? (ast as { readonly entries: readonly { readonly key: string; readonly value: Expression.Any }[] }).entries
-        : []
+      if (!Array.isArray((ast as { readonly entries?: unknown }).entries)) {
+        throw new Error("json build object expressions require an entries array")
+      }
+      const entries = (ast as { readonly entries: readonly { readonly key: string; readonly value: Expression.Any }[] }).entries
       const renderedEntries = entries.flatMap((entry) => [
         dialect.renderLiteral(entry.key, state),
         renderJsonInputExpression(entry.value, state, dialect)
@@ -818,9 +819,10 @@ const renderJsonExpression = (
       return undefined
     }
     case "jsonBuildArray": {
-      const values = Array.isArray((ast as { readonly values?: readonly Expression.Any[] }).values)
-        ? (ast as { readonly values: readonly Expression.Any[] }).values
-        : []
+      if (!Array.isArray((ast as { readonly values?: unknown }).values)) {
+        throw new Error("json build array expressions require a value array")
+      }
+      const values = (ast as { readonly values: readonly Expression.Any[] }).values
       const renderedValues = values.map((value) => renderJsonInputExpression(value, state, dialect)).join(", ")
       if (dialect.name === "postgres") {
         return `${postgresExpressionKind === "jsonb" ? "jsonb" : "json"}_build_array(${renderedValues})`

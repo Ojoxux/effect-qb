@@ -232,11 +232,15 @@ const visitExpression = (
     case "jsonPathExists":
     case "jsonPathMatch":
       return visitExpression(ast.query, visitExpression(ast.base, next, context), context)
-    case "jsonBuildObject":
-      return ((ast as { readonly entries?: readonly { readonly value: unknown }[] }).entries ?? []).reduce<string | undefined>(
+    case "jsonBuildObject": {
+      const entries = Array.isArray((ast as { readonly entries?: unknown }).entries)
+        ? (ast as { readonly entries: readonly { readonly value: unknown }[] }).entries
+        : []
+      return entries.reduce<string | undefined>(
         (current, entry) => visitExpression(entry.value, current, context),
         next
       )
+    }
     case "column":
     case "literal":
     case "excluded":

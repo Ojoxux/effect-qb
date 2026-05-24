@@ -4,7 +4,7 @@ import * as Mysql from "#mysql"
 import * as Sqlite from "#sqlite"
 import * as Standard from "#standard"
 import { Column as C, Table } from "#standard"
-import { Query as Q, Function as F, Renderer } from "#postgres"
+import { Query as Q, Function as F, Json as PgJson, Renderer } from "#postgres"
 import { makeMysqlEmployees, makeMysqlSocialGraph, makeRootSocialGraph } from "../../fixtures/schema.ts"
 import * as StdRoot from "#standard"
 
@@ -685,6 +685,52 @@ describe("rendering behavior", () => {
     )
     expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
       "coalesce(...) requires at least one value"
+    )
+  })
+
+  test("rejects json build object expressions without an entries array before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const pgBuiltObject = PgJson.json.buildObject({
+      email: "alice@example.com"
+    })
+    const mysqlBuiltObject = Mysql.Json.json.buildObject({
+      email: "alice@example.com"
+    })
+    const sqliteBuiltObject = Sqlite.Json.json.buildObject({
+      email: "alice@example.com"
+    })
+    ;(pgBuiltObject as any)[expressionAst].entries = {}
+    ;(mysqlBuiltObject as any)[expressionAst].entries = {}
+    ;(sqliteBuiltObject as any)[expressionAst].entries = {}
+
+    expect(() => Renderer.make().render(Q.select({ builtObject: pgBuiltObject }))).toThrow(
+      "json build object expressions require an entries array"
+    )
+    expect(() => Mysql.Renderer.make().render(Mysql.Query.select({ builtObject: mysqlBuiltObject }))).toThrow(
+      "json build object expressions require an entries array"
+    )
+    expect(() => Sqlite.Renderer.make().render(Sqlite.Query.select({ builtObject: sqliteBuiltObject }))).toThrow(
+      "json build object expressions require an entries array"
+    )
+  })
+
+  test("rejects json build array expressions without a value array before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const pgBuiltArray = PgJson.json.buildArray("alice@example.com")
+    const mysqlBuiltArray = Mysql.Json.json.buildArray("alice@example.com")
+    const sqliteBuiltArray = Sqlite.Json.json.buildArray("alice@example.com")
+    ;(pgBuiltArray as any)[expressionAst].values = {}
+    ;(mysqlBuiltArray as any)[expressionAst].values = {}
+    ;(sqliteBuiltArray as any)[expressionAst].values = {}
+
+    expect(() => Renderer.make().render(Q.select({ builtArray: pgBuiltArray }))).toThrow(
+      "json build array expressions require a value array"
+    )
+    expect(() => Mysql.Renderer.make().render(Mysql.Query.select({ builtArray: mysqlBuiltArray }))).toThrow(
+      "json build array expressions require a value array"
+    )
+    expect(() => Sqlite.Renderer.make().render(Sqlite.Query.select({ builtArray: sqliteBuiltArray }))).toThrow(
+      "json build array expressions require a value array"
     )
   })
 
