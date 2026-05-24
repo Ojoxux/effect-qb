@@ -289,6 +289,28 @@ describe("table definitions", () => {
       kind: "index",
       keys: [null]
     })
+
+    const malformedStructuredKeyIndexUsers = StdRoot.Table.make("malformed_structured_key_index_users", {
+      id: StdRoot.Column.uuid()
+    }).pipe(
+      StdRoot.Table.option(unsafeAny({
+        kind: "index",
+        keys: [
+          { kind: "partition" },
+          { kind: "column", column: {} },
+          { kind: "expression" }
+        ]
+      }))
+    )
+    const malformedStructuredKeyIndex = malformedStructuredKeyIndexUsers[StdRoot.Table.OptionsSymbol].find((option) => option.kind === "index")
+    expect(malformedStructuredKeyIndex).toMatchObject({
+      kind: "index",
+      keys: [
+        { kind: "partition" },
+        { kind: "column", column: {} },
+        { kind: "expression" }
+      ]
+    })
   })
 
   test("class tables trust type-level primary-key option constraints without runtime validation", () => {

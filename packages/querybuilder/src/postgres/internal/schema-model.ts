@@ -2,6 +2,7 @@ import * as Table from "../../internal/table.js"
 import type { AnyColumnDefinition } from "../../internal/column-state.js"
 import type { RenderState } from "../../internal/dialect.js"
 import * as Casing from "../../internal/casing.js"
+import * as Expression from "../../internal/scalar.js"
 import * as SchemaExpression from "../../internal/schema-expression.js"
 import { normalizeDdlExpressionSql } from "./schema-ddl.js"
 import { validateOptions, type ColumnList, type DdlExpressionLike, type IndexKeySpec, type TableOptionSpec } from "../../internal/table-options.js"
@@ -90,20 +91,37 @@ const mapDdlExpression = (
 ): SchemaExpression.SchemaExpression =>
   SchemaExpression.fromSql(normalizeDdlExpressionSql(expression, state))
 
+const isDdlExpressionLike = (value: unknown): value is DdlExpressionLike =>
+  typeof value === "object" &&
+  value !== null &&
+  (Expression.TypeId in value || SchemaExpression.TypeId in value)
+
 const mapIndexKey = (
   key: IndexKeySpec,
   casing: Casing.Options | undefined,
   expressionState: Partial<RenderState>
-): IndexKeySpec =>
-  key.kind === "column"
-    ? {
-        ...key,
-        column: applyCasing(casing, "columns", key.column)
-      }
-    : {
-        ...key,
-        expression: mapDdlExpression(key.expression, expressionState)
-      }
+): IndexKeySpec => {
+  const kind = (key as { readonly kind?: unknown }).kind
+  if (kind === "column") {
+    const column = (key as { readonly column?: unknown }).column
+    return typeof column === "string"
+      ? {
+          ...key,
+          column: applyCasing(casing, "columns", column)
+        }
+      : key
+  }
+  if (kind === "expression") {
+    const expression = (key as { readonly expression?: unknown }).expression
+    return isDdlExpressionLike(expression)
+      ? {
+          ...key,
+          expression: mapDdlExpression(expression, expressionState)
+        }
+      : key
+  }
+  return key
+}
 
 const mapOption = (
   option: TableOptionSpec,

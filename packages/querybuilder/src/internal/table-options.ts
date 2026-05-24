@@ -459,19 +459,6 @@ export const validateOptions = <Fields extends TableFieldMap>(
             if (typeof key !== "object" || key === null || !("kind" in key)) {
               continue
             }
-            const kind = (key as { readonly kind?: unknown }).kind
-            if (kind === "column") {
-              const column = (key as { readonly column?: unknown }).column
-              if (typeof column !== "string" || column.length === 0) {
-                throw new Error(`Index on table '${tableName}' requires column key columns`)
-              }
-            } else if (kind === "expression") {
-              if (!isDdlExpressionLike((key as { readonly expression?: unknown }).expression)) {
-                throw new Error(`Index on table '${tableName}' requires expression key expressions`)
-              }
-            } else {
-              throw new Error(`Index on table '${tableName}' requires key kind to be column or expression`)
-            }
           }
         }
         break

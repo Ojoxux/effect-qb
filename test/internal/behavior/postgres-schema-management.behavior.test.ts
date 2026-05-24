@@ -173,21 +173,25 @@ describe("postgres schema management", () => {
     })
   })
 
-  test("source table models reject malformed index key metadata before mapping metadata", () => {
+  test("source table models preserve malformed index key metadata without runtime validation", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
-    ;(users as any)[StdRoot.Table.OptionsSymbol] = [{ kind: "index", keys: [{ kind: "partition" }] }]
+    ;(users as any)[StdRoot.Table.OptionsSymbol] = [{
+      kind: "index",
+      keys: [{ kind: "partition" }, { kind: "expression" }, { kind: "column", column: {} }]
+    }]
 
-    expect(() => toTableModel(users as unknown as Parameters<typeof toTableModel>[0])).toThrow(
-      "Index on table 'users' requires key kind to be column or expression"
-    )
-
-    ;(users as any)[StdRoot.Table.OptionsSymbol] = [{ kind: "index", keys: [{ kind: "expression" }] }]
-
-    expect(() => toTableModel(users as unknown as Parameters<typeof toTableModel>[0])).toThrow(
-      "Index on table 'users' requires expression key expressions"
-    )
+    const model = toTableModel(users as unknown as Parameters<typeof toTableModel>[0])
+    const index = model.options.find((option) => option.kind === "index")
+    expect(index).toMatchObject({
+      kind: "index",
+      keys: [
+        { kind: "partition" },
+        { kind: "expression" },
+        { kind: "column", column: {} }
+      ]
+    })
   })
 
   test("source table models preserve index support identifiers without runtime validation", () => {
