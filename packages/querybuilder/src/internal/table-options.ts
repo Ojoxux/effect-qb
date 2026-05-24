@@ -509,12 +509,6 @@ export const validateOptions = <Fields extends TableFieldMap>(
             if (!Array.isArray(reference.knownColumns)) {
               throw new Error(`Foreign key on table '${tableName}' requires known referenced columns to be an array`)
             }
-            const referenced = new Set(reference.knownColumns)
-            for (const column of referenceColumns) {
-              if (!referenced.has(column)) {
-                throw new Error(`Unknown referenced column '${column}' on table '${reference.tableName}'`)
-              }
-            }
           }
         }
         if (option.kind === "index") {

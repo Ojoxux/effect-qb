@@ -134,7 +134,7 @@ describe("table definitions", () => {
     })).toThrow("Invalid dialects for table 'mixed_users': Mixed table dialects are not supported: postgres, mysql")
   })
 
-  test("table-level foreign keys validate referenced columns and use physical table names", () => {
+  test("table-level foreign keys trust typed referenced columns and use physical table names", () => {
     const orgs = StdRoot.Table.make("orgs", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       slug: StdRoot.Column.text().pipe(C.unique)
@@ -159,11 +159,21 @@ describe("table definitions", () => {
       knownColumns: ["id", "slug"]
     })
 
-    expect(() => StdRoot.Table.make("broken_memberships", {
+    const brokenMemberships = StdRoot.Table.make("broken_memberships", {
       orgId: StdRoot.Column.uuid()
     }).pipe(
       Table.foreignKey("orgId", () => orgs, "missing")
-    )).toThrow("Unknown referenced column 'missing' on table 'orgs'")
+    )
+    const brokenForeignKey = brokenMemberships[StdRoot.Table.OptionsSymbol].find((option: { kind: string }) => option.kind === "foreignKey")
+    if (!brokenForeignKey || brokenForeignKey.kind !== "foreignKey") {
+      throw new Error("expected a foreign key option")
+    }
+    expect(brokenForeignKey.references()).toEqual({
+      tableName: "orgs",
+      schemaName: undefined,
+      columns: ["missing"],
+      knownColumns: ["id", "slug"]
+    })
 
     expect(() => StdRoot.Table.make("broken_memberships_arity", {
       orgId: StdRoot.Column.uuid(),
