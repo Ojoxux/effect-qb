@@ -270,6 +270,34 @@ describe("postgres schema management", () => {
     })
   })
 
+  test("source table models accept direct foreign key reference payload metadata", () => {
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      orgId: StdRoot.Column.uuid()
+    })
+    ;(users as any)[StdRoot.Table.OptionsSymbol] = [{
+      kind: "foreignKey",
+      columns: ["orgId"],
+      references: {
+        tableName: "orgs",
+        columns: ["id"],
+        knownColumns: ["id"]
+      }
+    }]
+
+    const model = toTableModel(users as unknown as Parameters<typeof toTableModel>[0])
+    const foreignKey = model.options[0]
+    if (foreignKey?.kind !== "foreignKey") {
+      throw new Error("expected foreign key option")
+    }
+
+    expect(foreignKey.references()).toMatchObject({
+      tableName: "orgs",
+      columns: ["id"],
+      knownColumns: ["id"]
+    })
+  })
+
   test("classifies safe and destructive schema changes", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid(),

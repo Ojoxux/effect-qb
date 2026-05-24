@@ -143,7 +143,9 @@ const mapOption = (
         columns: mapColumnList(option.columns, casing),
         name: option.name === undefined ? undefined : applyCasing(casing, "constraints", option.name),
         references: () => {
-          const reference = option.references()
+          const reference = typeof option.references === "function"
+            ? option.references()
+            : option.references
           const referenceCasing = reference.casing
           return {
             ...reference,
