@@ -150,6 +150,35 @@ describe("postgres schema management", () => {
     )
   })
 
+  test("source table models reject malformed index support identifiers before mapping metadata", () => {
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
+    })
+    ;(users as any)[StdRoot.Table.OptionsSymbol] = [{ kind: "index", columns: ["id"], method: {} }]
+
+    expect(() => toTableModel(users as unknown as Parameters<typeof toTableModel>[0])).toThrow(
+      "Index on table 'users' requires index methods to be non-empty strings"
+    )
+
+    ;(users as any)[StdRoot.Table.OptionsSymbol] = [{
+      kind: "index",
+      keys: [{ kind: "column", column: "id", operatorClass: {} }]
+    }]
+
+    expect(() => toTableModel(users as unknown as Parameters<typeof toTableModel>[0])).toThrow(
+      "Index on table 'users' requires key operator classes to be non-empty strings"
+    )
+
+    ;(users as any)[StdRoot.Table.OptionsSymbol] = [{
+      kind: "index",
+      keys: [{ kind: "column", column: "id", collation: {} }]
+    }]
+
+    expect(() => toTableModel(users as unknown as Parameters<typeof toTableModel>[0])).toThrow(
+      "Index on table 'users' requires key collations to be non-empty strings"
+    )
+  })
+
   test("source table models reject malformed foreign key reference identifiers before mapping metadata", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),

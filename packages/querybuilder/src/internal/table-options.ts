@@ -58,6 +58,15 @@ const requireOptionalColumnArray = (
 ): readonly string[] =>
   value === undefined ? [] : requireColumnArray(value, message)
 
+const requireOptionalNonEmptyString = (
+  value: unknown,
+  message: string
+): void => {
+  if (value !== undefined && (typeof value !== "string" || value.length === 0)) {
+    throw new Error(message)
+  }
+}
+
 const isDdlExpressionLike = (value: unknown): value is DdlExpressionLike =>
   typeof value === "object" &&
   value !== null &&
@@ -411,6 +420,10 @@ export const validateOptions = <Fields extends TableFieldMap>(
           }
         }
         if (option.kind === "index") {
+          requireOptionalNonEmptyString(
+            option.method,
+            `Index on table '${tableName}' requires index methods to be non-empty strings`
+          )
           const includedColumns = requireOptionalColumnArray(
             option.include,
             `Index on table '${tableName}' requires included columns to be an array`
@@ -428,6 +441,14 @@ export const validateOptions = <Fields extends TableFieldMap>(
             if (typeof key !== "object" || key === null || !("kind" in key)) {
               throw new Error(`Index on table '${tableName}' requires key metadata objects`)
             }
+            requireOptionalNonEmptyString(
+              (key as { readonly operatorClass?: unknown }).operatorClass,
+              `Index on table '${tableName}' requires key operator classes to be non-empty strings`
+            )
+            requireOptionalNonEmptyString(
+              (key as { readonly collation?: unknown }).collation,
+              `Index on table '${tableName}' requires key collations to be non-empty strings`
+            )
             const kind = (key as { readonly kind?: unknown }).kind
             if (kind === "column") {
               const column = (key as { readonly column?: unknown }).column
