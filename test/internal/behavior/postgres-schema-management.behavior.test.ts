@@ -116,6 +116,23 @@ describe("postgres schema management", () => {
     )
   })
 
+  test("source table models reject malformed table option names before mapping metadata", () => {
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
+    })
+    ;(users as any)[StdRoot.Table.OptionsSymbol] = [{ kind: "primaryKey", columns: ["id"], name: {} }]
+
+    expect(() => toTableModel(users as unknown as Parameters<typeof toTableModel>[0])).toThrow(
+      "Option 'primaryKey' on table 'users' requires option names to be non-empty strings"
+    )
+
+    ;(users as any)[StdRoot.Table.OptionsSymbol] = [{ kind: "index", columns: ["id"], name: {} }]
+
+    expect(() => toTableModel(users as unknown as Parameters<typeof toTableModel>[0])).toThrow(
+      "Option 'index' on table 'users' requires option names to be non-empty strings"
+    )
+  })
+
   test("source table models reject malformed index key metadata before mapping metadata", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)

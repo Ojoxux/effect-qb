@@ -354,6 +354,10 @@ export const validateOptions = <Fields extends TableFieldMap>(
       case "primaryKey":
       case "unique":
       case "foreignKey": {
+        const optionName = (option as { readonly name?: unknown }).name
+        if (optionName !== undefined && (typeof optionName !== "string" || optionName.length === 0)) {
+          throw new Error(`Option '${option.kind}' on table '${tableName}' requires option names to be non-empty strings`)
+        }
         const columns = option.kind === "index"
           ? requireOptionalColumnArray(
             option.columns,
