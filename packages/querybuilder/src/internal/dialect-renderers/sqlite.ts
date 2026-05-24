@@ -280,7 +280,7 @@ const renderColumnDefinition = (
     column.metadata.ddlType ?? renderDbType(dialect, column.metadata.dbType)
   ]
   if (column.metadata.identity) {
-    clauses.push(`generated ${column.metadata.identity.generation === "byDefault" ? "by default" : "always"} as identity`)
+    throw new Error("Unsupported sqlite identity column options")
   } else if (column.metadata.generatedValue) {
     clauses.push(`generated always as (${renderDdlExpression(column.metadata.generatedValue, expressionState, dialect)}) stored`)
   } else if (column.metadata.defaultValue) {
