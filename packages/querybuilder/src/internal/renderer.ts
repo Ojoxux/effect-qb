@@ -302,11 +302,15 @@ const visitAssignment = (
 ): string | undefined => visitExpression(assignment.value, dialect, context)
 
 const visitAssignments = (
+  name: string,
   assignments: readonly QueryAst.AssignmentClause[] | undefined,
   dialect: string | undefined,
   context: RuntimeDialectContext
 ): string | undefined =>
-  assignments?.reduce((current, assignment) => visitAssignment(assignment, current, context), dialect) ?? dialect
+  optionalClauseArray<QueryAst.AssignmentClause>(name, assignments).reduce(
+    (current, assignment) => visitAssignment(assignment, current, context),
+    dialect
+  )
 
 const visitInsertSource = (
   source: QueryAst.InsertSourceClause | undefined,
@@ -318,8 +322,8 @@ const visitInsertSource = (
   }
   switch (source.kind) {
     case "values":
-      return source.rows.reduce(
-        (current, row) => visitAssignments(row.values, current, context),
+      return requiredClauseArray<QueryAst.InsertValuesRowClause>("insertSource.rows", source.rows).reduce(
+        (current, row) => visitAssignments("insertSource.values", row.values, current, context),
         dialect
       )
     case "query":
@@ -329,13 +333,28 @@ const visitInsertSource = (
   }
 }
 
+const clauseArrayArticle = (name: string): "a" | "an" =>
+  /^[aeiou]/i.test(name) ? "an" : "a"
+
 const requiredClauseArray = <Value>(
   name: string,
   entries: readonly Value[] | undefined
 ): readonly Value[] => {
   if (!Array.isArray(entries)) {
-    const article = name === "orderBy" ? "an" : "a"
-    throw new Error(`query plans require ${article} ${name} clause array`)
+    throw new Error(`query plans require ${clauseArrayArticle(name)} ${name} clause array`)
+  }
+  return entries
+}
+
+const optionalClauseArray = <Value>(
+  name: string,
+  entries: readonly Value[] | undefined
+): readonly Value[] => {
+  if (entries === undefined) {
+    return []
+  }
+  if (!Array.isArray(entries)) {
+    throw new Error(`query plans require ${clauseArrayArticle(name)} ${name} clause array when present`)
   }
   return entries
 }
@@ -362,13 +381,17 @@ const visitPlan = (
   const joins = requiredClauseArray<QueryAst.JoinClause>("join", ast.joins)
   const groupBy = requiredClauseArray<Expression.Any>("groupBy", ast.groupBy)
   const orderBy = requiredClauseArray<QueryAst.OrderByClause>("orderBy", ast.orderBy)
+  const distinctOn = optionalClauseArray<Expression.Any>("distinctOn", ast.distinctOn)
+  const fromSources = optionalClauseArray<QueryAst.FromClause>("fromSources", ast.fromSources)
+  const targets = optionalClauseArray<QueryAst.FromClause>("targets", ast.targets)
+  const setOperations = optionalClauseArray<QueryAst.SetOperationClause>("setOperations", ast.setOperations)
   next = visitSelection(ast.select, next, context)
-  next = visitSelection(ast.distinctOn, next, context)
+  next = distinctOn.reduce((current, expression) => visitExpression(expression, current, context), next)
   next = visitSourceClause(ast.from, next, context)
-  next = ast.fromSources?.reduce((current, source) => visitSourceClause(source, current, context), next) ?? next
+  next = fromSources.reduce((current, source) => visitSourceClause(source, current, context), next)
   next = visitSourceClause(ast.into, next, context)
   next = visitSourceClause(ast.target, next, context)
-  next = ast.targets?.reduce((current, source) => visitSourceClause(source, current, context), next) ?? next
+  next = targets.reduce((current, source) => visitSourceClause(source, current, context), next)
   next = visitSourceClause(ast.using, next, context)
   next = where.reduce((current, clause) => visitExpression(clause.predicate, current, context), next)
   next = having.reduce((current, clause) => visitExpression(clause.predicate, current, context), next)
@@ -380,21 +403,21 @@ const visitPlan = (
   next = orderBy.reduce((current, order) => visitExpression(order.value, current, context), next)
   next = visitExpression(ast.limit, next, context)
   next = visitExpression(ast.offset, next, context)
-  next = ast.setOperations?.reduce((current, operation) => visitPlan(operation.query, current, context), next) ?? next
-  next = visitAssignments(ast.values, next, context)
+  next = setOperations.reduce((current, operation) => visitPlan(operation.query, current, context), next)
+  next = visitAssignments("values", ast.values, next, context)
   next = visitInsertSource(ast.insertSource, next, context)
-  next = visitAssignments(ast.set, next, context)
+  next = visitAssignments("set", ast.set, next, context)
   if (ast.conflict !== undefined) {
     next = visitExpression(ast.conflict.target?.kind === "columns" ? ast.conflict.target.where : undefined, next, context)
-    next = visitAssignments(ast.conflict.values, next, context)
+    next = visitAssignments("conflict.values", ast.conflict.values, next, context)
     next = visitExpression(ast.conflict.where, next, context)
   }
   if (ast.merge !== undefined) {
     next = visitExpression(ast.merge.on, next, context)
     next = visitExpression(ast.merge.whenMatched?.predicate, next, context)
-    next = visitAssignments(ast.merge.whenMatched?.kind === "update" ? ast.merge.whenMatched.values : undefined, next, context)
+    next = visitAssignments("merge.whenMatched.values", ast.merge.whenMatched?.kind === "update" ? ast.merge.whenMatched.values : undefined, next, context)
     next = visitExpression(ast.merge.whenNotMatched?.predicate, next, context)
-    next = visitAssignments(ast.merge.whenNotMatched?.values, next, context)
+    next = visitAssignments("merge.whenNotMatched.values", ast.merge.whenNotMatched?.values, next, context)
   }
   return next
 }

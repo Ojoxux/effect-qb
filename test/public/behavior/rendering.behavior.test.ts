@@ -1653,6 +1653,17 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects plans with malformed optional source arrays before rendering SQL", () => {
+    const plan = Q.select({
+      answer: Q.literal(1)
+    })
+    ;(plan as any)[QueryAst.TypeId].fromSources = {}
+
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "query plans require a fromSources clause array when present"
+    )
+  })
+
   test("keeps projection metadata deterministic across repeated renders", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
