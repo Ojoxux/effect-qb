@@ -433,6 +433,34 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects invalid quantified comparison operators before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const users = Standard.Table.make("users", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey)
+    })
+    const userIds = Standard.Query.select({
+      value: users.id
+    }).pipe(Standard.Query.from(users))
+    const matchesAny = Standard.Query.compareAny(users.id, userIds, "eq")
+    ;(matchesAny as any)[expressionAst].operator = "sideways"
+    const plan = Standard.Query.select({
+      matchesAny
+    }).pipe(Standard.Query.from(users))
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "quantified comparison operator must be eq, neq, lt, lte, gt, or gte"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "quantified comparison operator must be eq, neq, lt, lte, gt, or gte"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "quantified comparison operator must be eq, neq, lt, lte, gt, or gte"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "quantified comparison operator must be eq, neq, lt, lte, gt, or gte"
+    )
+  })
+
   test("rejects malformed coalesce expressions before rendering SQL", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const users = Standard.Table.make("users", {

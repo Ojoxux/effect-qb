@@ -1800,19 +1800,25 @@ export const renderExpression = (
     return jsonSql
   }
   const ast = rawAst as ExpressionAst.Any
-  const renderComparisonOperator = (operator: "eq" | "neq" | "lt" | "lte" | "gt" | "gte"): "=" | "<>" | "<" | "<=" | ">" | ">=" =>
-    operator === "eq"
-      ? "="
-      : operator === "neq"
-        ? "<>"
-        : operator === "lt"
-          ? "<"
-          : operator === "lte"
-            ? "<="
-            : operator === "gt"
-              ? ">"
-              : ">="
-    switch (ast.kind) {
+  const renderComparisonOperator = (operator: unknown): "=" | "<>" | "<" | "<=" | ">" | ">=" => {
+    switch (operator) {
+      case "eq":
+        return "="
+      case "neq":
+        return "<>"
+      case "lt":
+        return "<"
+      case "lte":
+        return "<="
+      case "gt":
+        return ">"
+      case "gte":
+        return ">="
+      default:
+        throw new Error("quantified comparison operator must be eq, neq, lt, lte, gt, or gte")
+    }
+  }
+  switch (ast.kind) {
     case "column":
       return state.rowLocalColumns || ast.tableName.length === 0
         ? quoteColumn(ast.columnName, state, dialect, ast.tableName)

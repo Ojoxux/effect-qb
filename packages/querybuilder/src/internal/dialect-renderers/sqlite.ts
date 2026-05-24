@@ -1783,19 +1783,25 @@ export const renderExpression = (
     return jsonSql
   }
   const ast = rawAst as ExpressionAst.Any
-  const renderComparisonOperator = (operator: "eq" | "neq" | "lt" | "lte" | "gt" | "gte"): "=" | "<>" | "<" | "<=" | ">" | ">=" =>
-    operator === "eq"
-      ? "="
-      : operator === "neq"
-        ? "<>"
-        : operator === "lt"
-          ? "<"
-          : operator === "lte"
-            ? "<="
-            : operator === "gt"
-              ? ">"
-              : ">="
-    switch (ast.kind) {
+  const renderComparisonOperator = (operator: unknown): "=" | "<>" | "<" | "<=" | ">" | ">=" => {
+    switch (operator) {
+      case "eq":
+        return "="
+      case "neq":
+        return "<>"
+      case "lt":
+        return "<"
+      case "lte":
+        return "<="
+      case "gt":
+        return ">"
+      case "gte":
+        return ">="
+      default:
+        throw new Error("quantified comparison operator must be eq, neq, lt, lte, gt, or gte")
+    }
+  }
+  switch (ast.kind) {
     case "column":
       return state.rowLocalColumns || ast.tableName.length === 0
         ? quoteColumn(ast.columnName, state, dialect, ast.tableName)
@@ -1969,16 +1975,20 @@ export const renderExpression = (
       return `(${renderSubqueryExpressionPlan(ast.plan, state, dialect)})`
     case "inSubquery":
       return `(${renderExpression(ast.left, state, dialect)} in (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
-    case "comparisonAny":
+    case "comparisonAny": {
+      const operator = renderComparisonOperator(ast.operator)
       if (dialect.name === "sqlite") {
         throw new Error("Unsupported sqlite quantified comparison")
       }
-      return `(${renderExpression(ast.left, state, dialect)} ${renderComparisonOperator(ast.operator)} any (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
-    case "comparisonAll":
+      return `(${renderExpression(ast.left, state, dialect)} ${operator} any (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
+    }
+    case "comparisonAll": {
+      const operator = renderComparisonOperator(ast.operator)
       if (dialect.name === "sqlite") {
         throw new Error("Unsupported sqlite quantified comparison")
       }
-      return `(${renderExpression(ast.left, state, dialect)} ${renderComparisonOperator(ast.operator)} all (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
+      return `(${renderExpression(ast.left, state, dialect)} ${operator} all (${renderSubqueryExpressionPlan(ast.plan, state, dialect)}))`
+    }
     case "window": {
       if (!Array.isArray(ast.partitionBy) || !Array.isArray(ast.orderBy) || typeof ast.function !== "string") {
         break
