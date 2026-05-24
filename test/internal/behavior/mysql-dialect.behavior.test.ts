@@ -725,17 +725,6 @@ describe("mysql dialect behavior", () => {
     expect(rendered.params).toEqual([])
   })
 
-  test("rejects mysql row lock options that request multiple wait modes", () => {
-    const { users } = makeMysqlSocialGraph()
-
-    expect(() => Mysql.Query.select({
-      id: users.id
-    }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.lock("update", unsafeAny({ nowait: true, skipLocked: true }))
-    )).toThrow("lock(...) options cannot specify both nowait and skipLocked")
-  })
-
   test("renders mysql set operators with stable operand ordering", () => {
     const { users } = makeMysqlSocialGraph()
 

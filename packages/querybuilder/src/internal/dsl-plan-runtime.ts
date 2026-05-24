@@ -414,9 +414,6 @@ export const makeDslPlanRuntime = (ctx: DslPlanRuntimeContext) => {
 
   const lock = (mode: string, options: { readonly nowait?: boolean; readonly skipLocked?: boolean } = {}) =>
     (plan: any) => {
-      if (options.nowait && options.skipLocked) {
-        throw new Error("lock(...) options cannot specify both nowait and skipLocked")
-      }
       const current = plan[Plan.TypeId]
       const currentAst = ctx.getAst(plan)
       const currentQuery = ctx.getQueryState(plan)

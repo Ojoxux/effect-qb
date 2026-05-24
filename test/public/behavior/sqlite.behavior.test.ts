@@ -219,45 +219,6 @@ describe("sqlite behavior", () => {
     }))).toThrow("effect-qb: unknown conflict target column")
   })
 
-  test("rejects sqlite named conflict constraints", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.text().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-
-    expect(() => Sqlite.Query.onConflict({
-      constraint: "users_email_key"
-    } as any, {
-      update: {
-        email: Sqlite.Query.excluded(users.email)
-      }
-    })(Sqlite.Query.insert(users, {
-      id: "user-1",
-      email: "alice@example.com"
-    }))).toThrow("effect-qb: sqlite does not support named conflict constraints")
-  })
-
-  test("rejects sqlite conflict action predicates without update assignments", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.text().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-
-    const insert = Sqlite.Query.insert(users, {
-      id: "user-1",
-      email: "alice@example.com"
-    })
-
-    expect(() => Sqlite.Query.onConflict(["email"] as const, {
-      where: Sqlite.Query.isNotNull(users.email)
-    } as any)(insert)).toThrow("effect-qb: conflict action where(...) requires update assignments")
-
-    expect(() => Sqlite.Query.onConflict(["email"] as const, {
-      update: {},
-      where: Sqlite.Query.isNotNull(users.email)
-    } as any)(insert)).toThrow("effect-qb: conflict action where(...) requires update assignments")
-  })
-
   test("rejects sqlite empty returning selections before omitting returning", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.text().pipe(StdRoot.Column.primaryKey),

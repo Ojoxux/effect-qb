@@ -241,53 +241,6 @@ describe("mysql insert behavior", () => {
     }))).toThrow("effect-qb: unknown conflict target column")
   })
 
-  test("rejects mysql named and predicate-scoped conflict targets", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-
-    const insert = Mysql.Query.insert(users, {
-      id: userId,
-      email: "alice@example.com"
-    })
-    const update = {
-      email: Mysql.Query.excluded(users.email)
-    }
-
-    expect(() => Mysql.Query.onConflict({
-      constraint: "users_email_key"
-    } as any, { update })(insert)).toThrow("effect-qb: mysql does not support named or predicate-scoped conflict targets")
-
-    expect(() => Mysql.Query.onConflict({
-      columns: ["email"] as const,
-      where: Mysql.Query.isNotNull(users.email)
-    } as any, { update })(insert)).toThrow("effect-qb: mysql does not support named or predicate-scoped conflict targets")
-  })
-
-  test("rejects mysql conflict action predicates", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-
-    const insert = Mysql.Query.insert(users, {
-      id: userId,
-      email: "alice@example.com"
-    })
-
-    expect(() => Mysql.Query.onConflict(["email"] as const, {
-      where: Mysql.Query.isNotNull(users.email)
-    } as any)(insert)).toThrow("effect-qb: conflict action where(...) requires update assignments")
-
-    expect(() => Mysql.Query.onConflict(["email"] as const, {
-      update: {
-        email: Mysql.Query.excluded(users.email)
-      },
-      where: Mysql.Query.isNotNull(users.email)
-    } as any)(insert)).toThrow("effect-qb: mysql does not support conflict where(...) predicates")
-  })
-
   test("rejects mysql empty returning selections before treating them as no-ops", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),

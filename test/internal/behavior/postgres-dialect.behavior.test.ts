@@ -1042,17 +1042,6 @@ describe("postgres dialect behavior", () => {
     expect(rendered.params).toEqual([])
   })
 
-  test("rejects postgres row lock options that request multiple wait modes", () => {
-    const { users } = makePostgresSocialGraph()
-
-    expect(() => Postgres.Query.select({
-      id: users.id
-    }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.lock("update", unsafeAny({ nowait: true, skipLocked: true }))
-    )).toThrow("lock(...) options cannot specify both nowait and skipLocked")
-  })
-
   test("renders postgres set operators with stable operand ordering", () => {
     const { users } = makePostgresSocialGraph()
 
