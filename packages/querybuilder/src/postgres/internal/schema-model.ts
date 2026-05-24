@@ -94,6 +94,15 @@ const mapDdlExpression = (
 ): SchemaExpression.SchemaExpression =>
   SchemaExpression.fromSql(normalizeDdlExpressionSql(expression, state))
 
+const mapOptionName = (
+  name: unknown,
+  casing: Casing.Options | undefined,
+  category: "indexes" | "constraints"
+): unknown =>
+  typeof name === "string"
+    ? applyCasing(casing, category, name)
+    : name
+
 const isDdlExpressionLike = (value: unknown): value is DdlExpressionLike =>
   typeof value === "object" &&
   value !== null &&
@@ -136,7 +145,7 @@ const mapOption = (
       return {
         ...option,
         columns: option.columns === undefined ? undefined : mapColumnList(option.columns, casing),
-        name: option.name === undefined ? undefined : applyCasing(casing, "indexes", option.name),
+        name: option.name === undefined ? undefined : mapOptionName(option.name, casing, "indexes"),
         include: option.include?.map((column) => applyCasing(casing, "columns", column)),
         predicate: option.predicate === undefined ? undefined : mapDdlExpression(option.predicate, expressionState),
         keys: option.keys === undefined
@@ -152,19 +161,19 @@ const mapOption = (
       return {
         ...option,
         columns: mapColumnList(option.columns, casing),
-        name: option.name === undefined ? undefined : applyCasing(casing, "constraints", option.name)
+        name: option.name === undefined ? undefined : mapOptionName(option.name, casing, "constraints")
       }
     case "unique":
       return {
         ...option,
         columns: mapColumnList(option.columns, casing),
-        name: option.name === undefined ? undefined : applyCasing(casing, "constraints", option.name)
+        name: option.name === undefined ? undefined : mapOptionName(option.name, casing, "constraints")
       }
     case "foreignKey":
       return {
         ...option,
         columns: mapColumnList(option.columns, casing),
-        name: option.name === undefined ? undefined : applyCasing(casing, "constraints", option.name),
+        name: option.name === undefined ? undefined : mapOptionName(option.name, casing, "constraints"),
         references: () => {
           const reference = typeof option.references === "function"
             ? option.references()
@@ -185,7 +194,7 @@ const mapOption = (
     case "check":
       return {
         ...option,
-        name: applyCasing(casing, "constraints", option.name),
+        name: mapOptionName(option.name, casing, "constraints"),
         predicate: mapDdlExpression(option.predicate, expressionState)
       }
   }

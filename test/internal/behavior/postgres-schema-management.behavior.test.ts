@@ -119,7 +119,12 @@ describe("postgres schema management", () => {
   test("source table models preserve table option names without runtime validation", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
-    })
+    }).pipe(
+      Casing.withCasing({
+        indexes: "snake_case",
+        constraints: "snake_case"
+      })
+    )
     ;(users as any)[StdRoot.Table.OptionsSymbol] = [
       { kind: "primaryKey", columns: ["id"], name: {} },
       { kind: "index", columns: ["id"], name: {} }
