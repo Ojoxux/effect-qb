@@ -162,6 +162,23 @@ const renderConstraint = (table: TableModel, option: Exclude<TableOptionSpec, { 
   }
 }
 
+const isKnownConstraintOption = (
+  option: unknown
+): option is Exclude<TableOptionSpec, { readonly kind: "index" }> => {
+  if (typeof option !== "object" || option === null || !("kind" in option)) {
+    return false
+  }
+  switch ((option as { readonly kind?: unknown }).kind) {
+    case "primaryKey":
+    case "unique":
+    case "foreignKey":
+    case "check":
+      return true
+    default:
+      return false
+  }
+}
+
 const indexKeysOf = (option: Extract<TableOptionSpec, { readonly kind: "index" }>): readonly IndexKeySpec[] =>
   option.keys ?? (option.columns ?? []).map((column) => ({
     kind: "column" as const,
@@ -210,8 +227,8 @@ export const renderIndexDefinition = (
 export const renderCreateTable = (table: TableModel): string => {
   const definitions = [
     ...table.columns.map(renderColumnDefinition),
-    ...table.options
-      .filter((option): option is Exclude<TableOptionSpec, { readonly kind: "index" }> => option.kind !== "index")
+    ...(table.options as readonly unknown[])
+      .filter(isKnownConstraintOption)
       .map((option) => renderConstraint(table, option))
   ]
   return `create table ${qualify(table.schemaName, table.name)} (${definitions.join(", ")})`
