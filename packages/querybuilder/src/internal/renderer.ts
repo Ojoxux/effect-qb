@@ -237,7 +237,7 @@ const visitExpression = (
         ? (ast as { readonly entries: readonly { readonly value: unknown }[] }).entries
         : []
       return entries.reduce<string | undefined>(
-        (current, entry) => visitExpression(entry.value, current, context),
+        (current, entry) => isObject(entry) ? visitExpression(entry.value, current, context) : current,
         next
       )
     }

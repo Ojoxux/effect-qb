@@ -734,6 +734,52 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects json build object entries without value expressions before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const pgBuiltObject = PgJson.json.buildObject({
+      email: "alice@example.com"
+    })
+    const mysqlBuiltObject = Mysql.Json.json.buildObject({
+      email: "alice@example.com"
+    })
+    const sqliteBuiltObject = Sqlite.Json.json.buildObject({
+      email: "alice@example.com"
+    })
+    ;(pgBuiltObject as any)[expressionAst].entries[0] = null
+    ;(mysqlBuiltObject as any)[expressionAst].entries[0] = null
+    ;(sqliteBuiltObject as any)[expressionAst].entries[0] = null
+
+    expect(() => Renderer.make().render(Q.select({ builtObject: pgBuiltObject }))).toThrow(
+      "json build object entries require string keys and value expressions"
+    )
+    expect(() => Mysql.Renderer.make().render(Mysql.Query.select({ builtObject: mysqlBuiltObject }))).toThrow(
+      "json build object entries require string keys and value expressions"
+    )
+    expect(() => Sqlite.Renderer.make().render(Sqlite.Query.select({ builtObject: sqliteBuiltObject }))).toThrow(
+      "json build object entries require string keys and value expressions"
+    )
+  })
+
+  test("rejects json build array entries without value expressions before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const pgBuiltArray = PgJson.json.buildArray("alice@example.com")
+    const mysqlBuiltArray = Mysql.Json.json.buildArray("alice@example.com")
+    const sqliteBuiltArray = Sqlite.Json.json.buildArray("alice@example.com")
+    ;(pgBuiltArray as any)[expressionAst].values[0] = undefined
+    ;(mysqlBuiltArray as any)[expressionAst].values[0] = undefined
+    ;(sqliteBuiltArray as any)[expressionAst].values[0] = undefined
+
+    expect(() => Renderer.make().render(Q.select({ builtArray: pgBuiltArray }))).toThrow(
+      "json build array entries require value expressions"
+    )
+    expect(() => Mysql.Renderer.make().render(Mysql.Query.select({ builtArray: mysqlBuiltArray }))).toThrow(
+      "json build array entries require value expressions"
+    )
+    expect(() => Sqlite.Renderer.make().render(Sqlite.Query.select({ builtArray: sqliteBuiltArray }))).toThrow(
+      "json build array entries require value expressions"
+    )
+  })
+
   test("rejects malformed concat expressions before rendering SQL", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const users = Standard.Table.make("users", {

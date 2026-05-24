@@ -806,6 +806,14 @@ const renderJsonExpression = (
         throw new Error("json build object expressions require an entries array")
       }
       const entries = (ast as { readonly entries: readonly { readonly key: string; readonly value: Expression.Any }[] }).entries
+      if (entries.some((entry) =>
+        typeof entry !== "object" ||
+        entry === null ||
+        typeof (entry as { readonly key?: unknown }).key !== "string" ||
+        !isExpression((entry as { readonly value?: unknown }).value)
+      )) {
+        throw new Error("json build object entries require string keys and value expressions")
+      }
       const renderedEntries = entries.flatMap((entry) => [
         dialect.renderLiteral(entry.key, state),
         renderJsonInputExpression(entry.value, state, dialect)
@@ -823,6 +831,9 @@ const renderJsonExpression = (
         throw new Error("json build array expressions require a value array")
       }
       const values = (ast as { readonly values: readonly Expression.Any[] }).values
+      if (values.some((value) => !isExpression(value))) {
+        throw new Error("json build array entries require value expressions")
+      }
       const renderedValues = values.map((value) => renderJsonInputExpression(value, state, dialect)).join(", ")
       if (dialect.name === "postgres") {
         return `${postgresExpressionKind === "jsonb" ? "jsonb" : "json"}_build_array(${renderedValues})`
