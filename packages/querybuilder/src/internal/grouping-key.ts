@@ -54,6 +54,17 @@ const requiredExpressionGroupingKey = (
   return groupingKeyOfExpression(value)
 }
 
+const requiredBinaryExpressionGroupingKey = (
+  functionName: string,
+  left: unknown,
+  right: unknown
+): string => {
+  if (!isExpression(left) || !isExpression(right)) {
+    throw new Error(`${functionName}(...) requires left and right expressions`)
+  }
+  return `${groupingKeyOfExpression(left)},${groupingKeyOfExpression(right)}`
+}
+
 const escapeGroupingText = (value: string): string =>
   value
     .replace(/\\/g, "\\\\")
@@ -159,7 +170,7 @@ export const groupingKeyOfExpression = (expression: Expression.Any): string => {
     case "contains":
     case "containedBy":
     case "overlaps":
-      return `${ast.kind}(${groupingKeyOfExpression(ast.left)},${groupingKeyOfExpression(ast.right)})`
+      return `${ast.kind}(${requiredBinaryExpressionGroupingKey(ast.kind, ast.left, ast.right)})`
     case "and":
     case "or":
     case "coalesce":

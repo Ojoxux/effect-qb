@@ -380,6 +380,29 @@ const expectValueExpression = (
   return value
 }
 
+const expectBinaryExpressions = (
+  functionName: string,
+  left: unknown,
+  right: unknown
+): readonly [Expression.Any, Expression.Any] => {
+  if (!isExpression(left) || !isExpression(right)) {
+    throw new Error(`${functionName}(...) requires left and right expressions`)
+  }
+  return [left, right]
+}
+
+const renderBinaryExpression = (
+  functionName: string,
+  operator: string,
+  left: unknown,
+  right: unknown,
+  state: RenderState,
+  dialect: SqlDialect
+): string => {
+  const [leftExpression, rightExpression] = expectBinaryExpressions(functionName, left, right)
+  return `(${renderExpression(leftExpression, state, dialect)} ${operator} ${renderExpression(rightExpression, state, dialect)})`
+}
+
 const unsupportedJsonFeature = (
   dialect: SqlDialect,
   feature: string
@@ -1881,24 +1904,27 @@ export const renderExpression = (
     case "function":
       return renderFunctionCall(ast.name, ast.args, state, dialect)
     case "eq":
-      return `(${renderExpression(ast.left, state, dialect)} = ${renderExpression(ast.right, state, dialect)})`
+      return renderBinaryExpression("eq", "=", ast.left, ast.right, state, dialect)
     case "neq":
-      return `(${renderExpression(ast.left, state, dialect)} <> ${renderExpression(ast.right, state, dialect)})`
+      return renderBinaryExpression("neq", "<>", ast.left, ast.right, state, dialect)
     case "lt":
-      return `(${renderExpression(ast.left, state, dialect)} < ${renderExpression(ast.right, state, dialect)})`
+      return renderBinaryExpression("lt", "<", ast.left, ast.right, state, dialect)
     case "lte":
-      return `(${renderExpression(ast.left, state, dialect)} <= ${renderExpression(ast.right, state, dialect)})`
+      return renderBinaryExpression("lte", "<=", ast.left, ast.right, state, dialect)
     case "gt":
-      return `(${renderExpression(ast.left, state, dialect)} > ${renderExpression(ast.right, state, dialect)})`
+      return renderBinaryExpression("gt", ">", ast.left, ast.right, state, dialect)
     case "gte":
-      return `(${renderExpression(ast.left, state, dialect)} >= ${renderExpression(ast.right, state, dialect)})`
+      return renderBinaryExpression("gte", ">=", ast.left, ast.right, state, dialect)
     case "like":
-      return `(${renderExpression(ast.left, state, dialect)} like ${renderExpression(ast.right, state, dialect)})`
-    case "ilike":
+      return renderBinaryExpression("like", "like", ast.left, ast.right, state, dialect)
+    case "ilike": {
+      const [left, right] = expectBinaryExpressions("ilike", ast.left, ast.right)
       return dialect.name === "postgres"
-        ? `(${renderExpression(ast.left, state, dialect)} ilike ${renderExpression(ast.right, state, dialect)})`
-        : `(lower(${renderExpression(ast.left, state, dialect)}) like lower(${renderExpression(ast.right, state, dialect)}))`
+        ? `(${renderExpression(left, state, dialect)} ilike ${renderExpression(right, state, dialect)})`
+        : `(lower(${renderExpression(left, state, dialect)}) like lower(${renderExpression(right, state, dialect)}))`
+    }
     case "regexMatch":
+      expectBinaryExpressions("regexMatch", ast.left, ast.right)
       if (dialect.name === "sqlite") {
         throw new Error("Unsupported sqlite regex operator")
       }
@@ -1906,6 +1932,7 @@ export const renderExpression = (
         ? `(${renderExpression(ast.left, state, dialect)} ~ ${renderExpression(ast.right, state, dialect)})`
         : `(${renderExpression(ast.left, state, dialect)} regexp ${renderExpression(ast.right, state, dialect)})`
     case "regexIMatch":
+      expectBinaryExpressions("regexIMatch", ast.left, ast.right)
       if (dialect.name === "sqlite") {
         throw new Error("Unsupported sqlite regex operator")
       }
@@ -1913,6 +1940,7 @@ export const renderExpression = (
         ? `(${renderExpression(ast.left, state, dialect)} ~* ${renderExpression(ast.right, state, dialect)})`
         : `(${renderExpression(ast.left, state, dialect)} regexp ${renderExpression(ast.right, state, dialect)})`
     case "regexNotMatch":
+      expectBinaryExpressions("regexNotMatch", ast.left, ast.right)
       if (dialect.name === "sqlite") {
         throw new Error("Unsupported sqlite regex operator")
       }
@@ -1920,6 +1948,7 @@ export const renderExpression = (
         ? `(${renderExpression(ast.left, state, dialect)} !~ ${renderExpression(ast.right, state, dialect)})`
         : `(${renderExpression(ast.left, state, dialect)} not regexp ${renderExpression(ast.right, state, dialect)})`
     case "regexNotIMatch":
+      expectBinaryExpressions("regexNotIMatch", ast.left, ast.right)
       if (dialect.name === "sqlite") {
         throw new Error("Unsupported sqlite regex operator")
       }
@@ -1927,42 +1956,48 @@ export const renderExpression = (
         ? `(${renderExpression(ast.left, state, dialect)} !~* ${renderExpression(ast.right, state, dialect)})`
         : `(${renderExpression(ast.left, state, dialect)} not regexp ${renderExpression(ast.right, state, dialect)})`
     case "isDistinctFrom":
-      return `(${renderExpression(ast.left, state, dialect)} is distinct from ${renderExpression(ast.right, state, dialect)})`
+      return renderBinaryExpression("isDistinctFrom", "is distinct from", ast.left, ast.right, state, dialect)
     case "isNotDistinctFrom":
-      return `(${renderExpression(ast.left, state, dialect)} is not distinct from ${renderExpression(ast.right, state, dialect)})`
-    case "contains":
+      return renderBinaryExpression("isNotDistinctFrom", "is not distinct from", ast.left, ast.right, state, dialect)
+    case "contains": {
+      const [leftExpression, rightExpression] = expectBinaryExpressions("contains", ast.left, ast.right)
       if (dialect.name === "postgres") {
-        const left = isJsonExpression(ast.left)
-          ? renderPostgresJsonValue(ast.left, state, dialect)
-          : renderExpression(ast.left, state, dialect)
-        const right = isJsonExpression(ast.right)
-          ? renderPostgresJsonValue(ast.right, state, dialect)
-          : renderExpression(ast.right, state, dialect)
+        const left = isJsonExpression(leftExpression)
+          ? renderPostgresJsonValue(leftExpression, state, dialect)
+          : renderExpression(leftExpression, state, dialect)
+        const right = isJsonExpression(rightExpression)
+          ? renderPostgresJsonValue(rightExpression, state, dialect)
+          : renderExpression(rightExpression, state, dialect)
         return `(${left} @> ${right})`
       }
       throw new Error("Unsupported container operator for SQL rendering")
-    case "containedBy":
+    }
+    case "containedBy": {
+      const [leftExpression, rightExpression] = expectBinaryExpressions("containedBy", ast.left, ast.right)
       if (dialect.name === "postgres") {
-        const left = isJsonExpression(ast.left)
-          ? renderPostgresJsonValue(ast.left, state, dialect)
-          : renderExpression(ast.left, state, dialect)
-        const right = isJsonExpression(ast.right)
-          ? renderPostgresJsonValue(ast.right, state, dialect)
-          : renderExpression(ast.right, state, dialect)
+        const left = isJsonExpression(leftExpression)
+          ? renderPostgresJsonValue(leftExpression, state, dialect)
+          : renderExpression(leftExpression, state, dialect)
+        const right = isJsonExpression(rightExpression)
+          ? renderPostgresJsonValue(rightExpression, state, dialect)
+          : renderExpression(rightExpression, state, dialect)
         return `(${left} <@ ${right})`
       }
       throw new Error("Unsupported container operator for SQL rendering")
-    case "overlaps":
+    }
+    case "overlaps": {
+      const [leftExpression, rightExpression] = expectBinaryExpressions("overlaps", ast.left, ast.right)
       if (dialect.name === "postgres") {
-        const left = isJsonExpression(ast.left)
-          ? renderPostgresJsonValue(ast.left, state, dialect)
-          : renderExpression(ast.left, state, dialect)
-        const right = isJsonExpression(ast.right)
-          ? renderPostgresJsonValue(ast.right, state, dialect)
-          : renderExpression(ast.right, state, dialect)
+        const left = isJsonExpression(leftExpression)
+          ? renderPostgresJsonValue(leftExpression, state, dialect)
+          : renderExpression(leftExpression, state, dialect)
+        const right = isJsonExpression(rightExpression)
+          ? renderPostgresJsonValue(rightExpression, state, dialect)
+          : renderExpression(rightExpression, state, dialect)
         return `(${left} && ${right})`
       }
       throw new Error("Unsupported container operator for SQL rendering")
+    }
     case "isNull":
       return `(${renderExpression(expectValueExpression("isNull", ast.value), state, dialect)} is null)`
     case "isNotNull":

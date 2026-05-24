@@ -691,6 +691,59 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects binary expressions without operands before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const users = Standard.Table.make("users", {
+      email: Standard.Column.text()
+    })
+    const matches = Standard.Query.eq(users.email, "alice@example.com")
+    ;(matches as any)[expressionAst].right = undefined
+    const plan = Standard.Query.select({
+      matches
+    }).pipe(Standard.Query.from(users))
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "eq(...) requires left and right expressions"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "eq(...) requires left and right expressions"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "eq(...) requires left and right expressions"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "eq(...) requires left and right expressions"
+    )
+  })
+
+  test("rejects grouped binary expressions without operands before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const users = Standard.Table.make("users", {
+      email: Standard.Column.text()
+    })
+    const matches = Standard.Query.eq(users.email, "alice@example.com")
+    const plan = Standard.Query.select({
+      matches
+    }).pipe(
+      Standard.Query.from(users),
+      Standard.Query.groupBy(matches)
+    )
+    ;(matches as any)[expressionAst].right = undefined
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "eq(...) requires left and right expressions"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "eq(...) requires left and right expressions"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "eq(...) requires left and right expressions"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "eq(...) requires left and right expressions"
+    )
+  })
+
   test("rejects malformed coalesce expressions before rendering SQL", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const users = Standard.Table.make("users", {
