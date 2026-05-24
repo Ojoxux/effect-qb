@@ -134,6 +134,40 @@ void narrowedPgRendered
 const narrowedMysqlRendered = Mysql.Renderer.make().render(standardNarrowedToPostgres)
 void narrowedMysqlRendered
 
+const standardNarrowedToMysql = Standard.Query.select({
+  id: stdUsers.id
+}).pipe(
+  Standard.Query.from(stdUsers),
+  Standard.Query.orderBy(Mysql.Query.literal(1))
+)
+
+type StandardMysqlNarrowedDialect = RootQuery.PlanDialectOf<typeof standardNarrowedToMysql>
+type _AssertStandardMysqlNarrowedDialect = Assert<IsExact<StandardMysqlNarrowedDialect, "mysql">>
+
+const standardMysqlRendered = Mysql.Renderer.make().render(standardNarrowedToMysql)
+void standardMysqlRendered
+
+// @ts-expect-error mysql-narrowed standard plans are not accepted by postgres renderers
+const standardMysqlPgRendered = Postgres.Renderer.make().render(standardNarrowedToMysql)
+void standardMysqlPgRendered
+
+const standardNarrowedToSqlite = Standard.Query.select({
+  id: stdUsers.id
+}).pipe(
+  Standard.Query.from(stdUsers),
+  Standard.Query.orderBy(Sqlite.Query.literal(1))
+)
+
+type StandardSqliteNarrowedDialect = RootQuery.PlanDialectOf<typeof standardNarrowedToSqlite>
+type _AssertStandardSqliteNarrowedDialect = Assert<IsExact<StandardSqliteNarrowedDialect, "sqlite">>
+
+const standardSqliteRendered = Sqlite.Renderer.make().render(standardNarrowedToSqlite)
+void standardSqliteRendered
+
+// @ts-expect-error sqlite-narrowed standard plans are not accepted by mysql renderers
+const standardSqliteMysqlRendered = Mysql.Renderer.make().render(standardNarrowedToSqlite)
+void standardSqliteMysqlRendered
+
 const standardConflictPlan = Standard.Query.select({
   id: stdUsers.id
 }).pipe(
@@ -256,6 +290,19 @@ const myExecutor = Executor.make("mysql", <PlanValue extends RootQuery.QueryPlan
   void plan
   return null as never
 })
+const sqliteExecutor = Executor.make("sqlite", <PlanValue extends RootQuery.QueryPlan<any, any, any, any, any, any, any, any, any>>(
+  plan: RootQuery.DialectCompatiblePlan<PlanValue, "sqlite">
+): Effect.Effect<any, never, never> => {
+  void plan
+  return null as never
+})
+
+pgExecutor.execute(stdPlan)
+pgExecutor.execute(standardNarrowedToPostgres)
+myExecutor.execute(stdPlan)
+myExecutor.execute(standardNarrowedToMysql)
+sqliteExecutor.execute(stdPlan)
+sqliteExecutor.execute(standardNarrowedToSqlite)
 
 type MysqlPlanAgainstPostgres = RootQuery.DialectCompatiblePlan<typeof myPlan, "postgres">
 const mysqlPlanDialectError: MysqlPlanAgainstPostgres["__effect_qb_error__"] =
