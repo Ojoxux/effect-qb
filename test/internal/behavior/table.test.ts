@@ -193,7 +193,7 @@ describe("table definitions", () => {
     )).toThrow("Index on table 'empty_manual_index_users' requires at least one column or key")
   })
 
-  test("class tables reject table-level primary keys", () => {
+  test("class tables trust type-level primary-key option constraints without runtime validation", () => {
     class BadClassTable extends StdRoot.Table.Class<BadClassTable>("bad_class_table")({
       id: StdRoot.Column.uuid(),
       slug: StdRoot.Column.text()
@@ -201,7 +201,9 @@ describe("table definitions", () => {
       static override readonly [StdRoot.Table.options] = [unsafeAny(Table.primaryKey(["id", "slug"] as const))]
     }
 
-    expect(() => BadClassTable.schemas).toThrow("Table.Class does not support table-level primary keys; declare primary keys inline on columns")
+    expect(BadClassTable[StdRoot.Table.OptionsSymbol]).toEqual(
+      expect.arrayContaining([expect.objectContaining({ kind: "primaryKey" })])
+    )
   })
 
   test("aliased tables trust type-level option constraints without runtime validation", () => {

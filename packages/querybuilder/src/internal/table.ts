@@ -560,14 +560,6 @@ const applyDeclaredOptions = <
   ) as unknown as Table
 }
 
-const validateClassOptions = (declaredOptions: readonly TableOptionSpec[]): void => {
-  for (const option of declaredOptions) {
-    if (option.kind === "primaryKey") {
-      throw new Error("Table.Class does not support table-level primary keys; declare primary keys inline on columns")
-    }
-  }
-}
-
 const resolveFieldDialect = (fields: TableFieldMap): string => {
   const dialects = [...new Set(Object.values(fields).map((field) => field.metadata.dbType.dialect))]
   if (dialects.length === 0) {
@@ -604,7 +596,6 @@ const ensureClassArtifacts = <
   }
   const state = self[TypeId]
   const classOptions = self[options]
-  validateClassOptions(extractDeclaredOptions(classOptions))
   const table = applyDeclaredOptions(
     makeTable(
       state.name,
@@ -912,13 +903,11 @@ export function Class<
         }
 
         static get schemas() {
-          validateClassOptions(extractDeclaredOptions((this as unknown as TableClassStatic<Name, Fields>)[options]))
           return schemasFor(this as any)
         }
 
         static get [TypeId]() {
           const declaredOptions = extractDeclaredOptions((this as unknown as TableClassStatic<Name, Fields>)[options])
-          validateClassOptions(declaredOptions)
           return {
             name,
             baseName: name,
