@@ -2002,6 +2002,9 @@ export const renderExpression = (
       if (!Array.isArray(ast.partitionBy) || !Array.isArray(ast.orderBy) || typeof ast.function !== "string") {
         break
       }
+      if (ast.function === "over" && !isExpression(ast.value)) {
+        throw new Error("window over(...) requires an aggregate expression")
+      }
       const clauses: string[] = []
       if (ast.partitionBy.length > 0) {
         clauses.push(`partition by ${ast.partitionBy.map((value: Expression.Any) => renderExpression(value, state, dialect)).join(", ")}`)
