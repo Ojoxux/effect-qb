@@ -447,6 +447,25 @@ describe("rendering behavior", () => {
     expect(Sqlite.Renderer.make().render(plan).sql).toContain(" as undefined)")
   })
 
+  test("groupBy builders trust typed cast targets without grouping-key runtime validation", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const users = Standard.Table.make("users", {
+      email: Standard.Column.text()
+    })
+    const value = Standard.Query.cast(users.email, Standard.Query.type.text())
+    ;(value as any)[expressionAst].target = undefined
+
+    const plan = Standard.Query.select({
+      value
+    }).pipe(
+      Standard.Query.from(users),
+      Standard.Query.groupBy(value)
+    )
+
+    expect(Standard.Renderer.make().render(plan).sql).toContain("group by cast(")
+    expect(Standard.Renderer.make().render(plan).sql).toContain("as undefined")
+  })
+
   test("renders safe extract fields as SQL field syntax", () => {
     const timestamp = new Date("2024-01-02T03:04:05.000Z")
     const extracted = Standard.Function.call(

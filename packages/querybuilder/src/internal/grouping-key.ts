@@ -67,15 +67,8 @@ const variadicGroupingKey = (
 ): string => (values as readonly Expression.Any[]).map(groupingKeyOfExpression).join(",")
 
 const castTargetGroupingKey = (target: unknown): string => {
-  if (
-    target !== null &&
-    typeof target === "object" &&
-    typeof (target as { readonly dialect?: unknown }).dialect === "string" &&
-    typeof (target as { readonly kind?: unknown }).kind === "string"
-  ) {
-    return `${(target as { readonly dialect: string }).dialect}:${(target as { readonly kind: string }).kind}`
-  }
-  throw new Error("cast(...) requires a target db type")
+  const typed = target as { readonly dialect?: string; readonly kind?: string } | null | undefined
+  return `${typed?.dialect}:${typed?.kind}`
 }
 
 const escapeGroupingText = (value: string): string =>
