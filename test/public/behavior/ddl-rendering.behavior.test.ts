@@ -565,7 +565,26 @@ describe("ddl rendering behavior", () => {
     ).toThrow("Unsupported sqlite check constraint options")
   })
 
-  test("rejects deferrable constraints where unsupported by the dialect", () => {
+  test("rejects non-portable constraint options where unsupported by the dialect", () => {
+    const standardUniqueUsers = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      email: StdRoot.Column.text()
+    }).pipe(
+      Postgres.Table.unique({
+        columns: "email",
+        nullsNotDistinct: true
+      })
+    )
+    const standardPrimaryUsers = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid(),
+      email: StdRoot.Column.text()
+    }).pipe(
+      Postgres.Table.primaryKey({
+        columns: "id",
+        deferrable: true,
+        initiallyDeferred: true
+      })
+    )
     const mysqlUsers = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid()
     }).pipe(
@@ -599,7 +618,25 @@ describe("ddl rendering behavior", () => {
         initiallyDeferred: true
       })
     )
+    const standardMemberships = StdRoot.Table.make("memberships", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      orgId: StdRoot.Column.uuid()
+    }).pipe(
+      Postgres.Table.foreignKey({
+        columns: "orgId",
+        target: () => orgs,
+        referencedColumns: "id",
+        deferrable: true,
+        initiallyDeferred: true
+      })
+    )
 
+    expect(() =>
+      Standard.Renderer.make().render(Standard.Query.createTable(standardUniqueUsers))
+    ).toThrow("Unsupported standard unique constraint options")
+    expect(() =>
+      Standard.Renderer.make().render(Standard.Query.createTable(standardPrimaryUsers))
+    ).toThrow("Unsupported standard primary key constraint options")
     expect(() =>
       Mysql.Renderer.make().render(Mysql.Query.createTable(mysqlUsers))
     ).toThrow("Unsupported mysql primary key constraint options")
@@ -609,6 +646,9 @@ describe("ddl rendering behavior", () => {
     expect(() =>
       Mysql.Renderer.make().render(Mysql.Query.createTable(memberships))
     ).toThrow("Unsupported mysql foreign key constraint options")
+    expect(() =>
+      Standard.Renderer.make().render(Standard.Query.createTable(standardMemberships))
+    ).toThrow("Unsupported standard foreign key constraint options")
   })
 
   test("postgres drop index qualifies indexes for schema-scoped tables", () => {
