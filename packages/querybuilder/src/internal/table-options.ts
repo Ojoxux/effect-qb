@@ -437,13 +437,6 @@ export const validateOptions = <Fields extends TableFieldMap>(
             option.columns,
             `Option '${option.kind}' on table '${tableName}' requires a column array`
           )
-        if (option.kind !== "foreignKey") {
-          for (const column of columns) {
-            if (!knownColumns.has(column)) {
-              throw new Error(`Unknown column '${column}' on table '${tableName}'`)
-            }
-          }
-        }
         if (option.kind === "foreignKey") {
           const reference = typeof option.references === "function"
             ? option.references()
@@ -461,11 +454,6 @@ export const validateOptions = <Fields extends TableFieldMap>(
             option.include,
             `Index on table '${tableName}' requires included columns to be an array`
           )
-          for (const column of includedColumns) {
-            if (!knownColumns.has(column)) {
-              throw new Error(`Unknown included column '${column}' on table '${tableName}'`)
-            }
-          }
           const keys = option.keys ?? []
           for (const key of keys) {
             if (typeof key !== "object" || key === null || !("kind" in key)) {
@@ -476,9 +464,6 @@ export const validateOptions = <Fields extends TableFieldMap>(
               const column = (key as { readonly column?: unknown }).column
               if (typeof column !== "string" || column.length === 0) {
                 throw new Error(`Index on table '${tableName}' requires column key columns`)
-              }
-              if (!knownColumns.has(column)) {
-                throw new Error(`Unknown index key column '${column}' on table '${tableName}'`)
               }
             } else if (kind === "expression") {
               if (!isDdlExpressionLike((key as { readonly expression?: unknown }).expression)) {

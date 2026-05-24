@@ -366,6 +366,36 @@ describe("table definitions", () => {
     )
   })
 
+  test("table definitions trust unknown option columns without runtime validation", () => {
+    const users = StdRoot.Table.make("unknown_option_column_users", {
+      id: StdRoot.Column.uuid(),
+      orgId: StdRoot.Column.uuid()
+    }).pipe(
+      StdRoot.Table.option(unsafeAny({
+        kind: "unique",
+        columns: ["missing"]
+      })),
+      StdRoot.Table.option(unsafeAny({
+        kind: "index",
+        columns: ["missing"],
+        include: ["missing"],
+        keys: [{ kind: "column", column: "missing" }]
+      }))
+    )
+
+    expect(users[StdRoot.Table.OptionsSymbol]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "unique", columns: ["missing"] }),
+        expect.objectContaining({
+          kind: "index",
+          columns: ["missing"],
+          include: ["missing"],
+          keys: [expect.objectContaining({ kind: "column", column: "missing" })]
+        })
+      ])
+    )
+  })
+
   test("operator expressions feed query selection and source tracking", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
