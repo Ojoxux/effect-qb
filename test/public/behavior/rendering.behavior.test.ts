@@ -184,6 +184,35 @@ describe("rendering behavior", () => {
     }
   })
 
+  test("standard renderer rejects joined mutation clauses", () => {
+    const users = Standard.Table.make("users", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey),
+      email: Standard.Column.text()
+    })
+    const posts = Standard.Table.make("posts", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey),
+      userId: Standard.Column.uuid(),
+      title: Standard.Column.text()
+    })
+    const joinedUpdate = Standard.Query.update(users, {
+      email: "author@example.com"
+    }).pipe(
+      Standard.Query.innerJoin(posts, Standard.Query.eq(posts.userId, users.id)),
+      Standard.Query.where(Standard.Query.eq(posts.title, "hello"))
+    )
+    const joinedDelete = Standard.Query.delete(users).pipe(
+      Standard.Query.innerJoin(posts, Standard.Query.eq(posts.userId, users.id)),
+      Standard.Query.where(Standard.Query.eq(posts.title, "hello"))
+    )
+
+    expect(() => Standard.Renderer.make().render(joinedUpdate)).toThrow(
+      "Unsupported standard joined mutation"
+    )
+    expect(() => Standard.Renderer.make().render(joinedDelete)).toThrow(
+      "Unsupported standard joined mutation"
+    )
+  })
+
   test("renderers reject excluded references outside insert conflict handlers", () => {
     const users = Standard.Table.make("users", {
       email: Standard.Column.text()

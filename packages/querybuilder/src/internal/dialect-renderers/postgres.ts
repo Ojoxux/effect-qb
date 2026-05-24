@@ -1622,6 +1622,9 @@ export const renderQueryAst = (
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targets = updateAst.targets ?? [targetSource]
       const fromSources = updateAst.fromSources ?? []
+      if (dialect.name === "standard" && (targets.length > 1 || fromSources.length > 0 || updateAst.joins.length > 0)) {
+        throw new Error("Unsupported standard joined mutation")
+      }
       if ((updateAst.set ?? []).length === 0) {
         throw new Error("update statements require at least one assignment")
       }
@@ -1694,6 +1697,9 @@ export const renderQueryAst = (
       const targetSource = deleteAst.target!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targets = deleteAst.targets ?? [targetSource]
+      if (dialect.name === "standard" && (targets.length > 1 || deleteAst.joins.length > 0)) {
+        throw new Error("Unsupported standard joined mutation")
+      }
       if (dialect.name === "mysql") {
         const modifiers = renderMysqlMutationLock(deleteAst.lock, "delete")
         const hasJoinedSources = deleteAst.joins.length > 0 || targets.length > 1
