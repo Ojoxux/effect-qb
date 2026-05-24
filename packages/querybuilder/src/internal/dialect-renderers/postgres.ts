@@ -1465,6 +1465,9 @@ export const renderQueryAst = (
         clauses.push(`offset ${renderExpression(ast.offset, state, dialect)}`)
       }
       if (ast.lock) {
+        if (dialect.name === "standard") {
+          throw new Error("Unsupported standard row locking")
+        }
         clauses.push(
           `${renderSelectLockMode(ast.lock.mode)}${ast.lock.nowait ? " nowait" : ""}${ast.lock.skipLocked ? " skip locked" : ""}`
         )

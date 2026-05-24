@@ -213,6 +213,22 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("standard renderer rejects row locking clauses", () => {
+    const users = Standard.Table.make("users", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey)
+    })
+    const plan = Standard.Query.select({
+      id: users.id
+    }).pipe(
+      Standard.Query.from(users),
+      Standard.Query.lock("update", { nowait: true })
+    )
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "Unsupported standard row locking"
+    )
+  })
+
   test("renderers reject excluded references outside insert conflict handlers", () => {
     const users = Standard.Table.make("users", {
       email: Standard.Column.text()
