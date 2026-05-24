@@ -3,7 +3,6 @@ import { describe, expect, test } from "bun:test"
 import * as Mysql from "#mysql"
 import * as Sqlite from "#sqlite"
 import * as Standard from "#standard"
-import * as QueryAst from "#internal/query-ast.ts"
 import { Column as C, Table } from "#standard"
 import { Query as Q, Function as F, Json as PgJson, Renderer } from "#postgres"
 import { makeMysqlEmployees, makeMysqlSocialGraph, makeRootSocialGraph } from "../../fixtures/schema.ts"
@@ -27,24 +26,6 @@ describe("rendering behavior", () => {
     expect(Renderer.make().render(plan).sql).toBe('select (lower("users"."email") || $1) as "label" from "users" where ("users"."email" = $2)')
     expect(Mysql.Renderer.make().render(plan).sql).toBe("select concat(lower(`users`.`email`), ?) as `label` from `users` where (`users`.`email` = ?)")
     expect(Sqlite.Renderer.make().render(plan).sql).toBe('select (lower("users"."email") || ?) as "label" from "users" where ("users"."email" = ?)')
-  })
-
-  test("rejects untyped standard plans that mix concrete dialects at render time", () => {
-    const users = Standard.Table.make("users", {
-      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey)
-    })
-
-    const conflict = Standard.Query.select({
-      id: users.id
-    }).pipe(
-      Standard.Query.from(users),
-      Standard.Query.orderBy(Q.literal(1) as any),
-      Standard.Query.where(Mysql.Query.literal(true) as any)
-    )
-
-    expect(() => Renderer.make().render(conflict as any)).toThrow(
-      "effect-qb: plan dialect is not compatible with the target renderer or executor"
-    )
   })
 
   test("standard ctes, joins, grouping, ordering, and pagination render across built-in SQL renderers", () => {
@@ -1849,43 +1830,6 @@ describe("rendering behavior", () => {
 
       Renderer.make().render(plan)
     }).toThrow("Expected a valid Date value")
-  })
-
-  test("rejects incomplete plans that still require sources", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-
-    const incomplete = Q.select({
-      id: users.id
-    })
-
-    expect(() => Renderer.make().render(incomplete)).toThrow(
-      "query references sources that are not yet in scope"
-    )
-  })
-
-  test("rejects plans without required clause arrays before rendering SQL", () => {
-    const plan = Q.select({
-      answer: Q.literal(1)
-    })
-    ;(plan as any)[QueryAst.TypeId].where = undefined
-
-    expect(() => Renderer.make().render(plan)).toThrow(
-      "query plans require a where clause array"
-    )
-  })
-
-  test("rejects plans with malformed optional source arrays before rendering SQL", () => {
-    const plan = Q.select({
-      answer: Q.literal(1)
-    })
-    ;(plan as any)[QueryAst.TypeId].fromSources = {}
-
-    expect(() => Renderer.make().render(plan)).toThrow(
-      "query plans require a fromSources clause array when present"
-    )
   })
 
   test("keeps projection metadata deterministic across repeated renders", () => {

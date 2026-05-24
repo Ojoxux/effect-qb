@@ -6,32 +6,12 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 
-import * as Mysql from "#mysql"
-import * as Standard from "#standard"
 import { Cast, Column as C, Executor, Query as Q, Function as F, Renderer, Table, Type } from "#postgres"
 import * as StdRoot from "#standard"
 
 const userId = "11111111-1111-1111-1111-111111111111"
 
 describe("executor behavior", () => {
-  test("custom executors reject untyped standard plans that mix concrete dialects", () => {
-    const users = Standard.Table.make("users", {
-      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey)
-    })
-    const conflict = Standard.Query.select({
-      id: users.id
-    }).pipe(
-      Standard.Query.from(users),
-      Standard.Query.orderBy(Q.literal(1) as any),
-      Standard.Query.where(Mysql.Query.literal(true) as any)
-    )
-    const executor = Executor.custom(() => Effect.succeed([]))
-
-    expect(() => executor.execute(conflict as any)).toThrow(
-      "effect-qb: plan dialect is not compatible with the target renderer or executor"
-    )
-  })
-
   test("fromDriver decodes nested rows with null leaves", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),

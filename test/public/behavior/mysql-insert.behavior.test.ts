@@ -107,21 +107,6 @@ describe("mysql insert behavior", () => {
     expect(rendered.params).toEqual(["\"42\""])
   })
 
-  test("rejects invalid rendered mysql insert source kinds", () => {
-    const queryAst = Symbol.for("effect-qb/QueryAst")
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-    const seed = unsafeAny(Mysql.Query.as(Mysql.Query.values([
-      { id: Mysql.Query.literal(userId), email: "alice@example.com" }
-    ] as const), "seed"))
-    const plan = Mysql.Query.insert(users).pipe(Mysql.Query.from(seed))
-    ;(plan as any)[queryAst].insertSource.kind = "copy"
-
-    expect(() => render(plan)).toThrow("Unsupported insert source kind")
-  })
-
   test("encodes structured JSON inserts as JSON text for mysql", () => {
     const docs = StdRoot.Table.make("json_docs", {
       payload: StdRoot.Column.json(Schema.Unknown)

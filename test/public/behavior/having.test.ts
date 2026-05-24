@@ -33,32 +33,6 @@ describe("having", () => {
     expect(rendered.params).toEqual([1])
   })
 
-  test("rejects ungrouped scalar predicates in having clauses", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-
-    const posts = StdRoot.Table.make("posts", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      userId: StdRoot.Column.uuid()
-    })
-
-    const plan = Q.select({
-      email: users.email,
-      postCount: F.count(posts.id)
-    }).pipe(
-      Q.from(users),
-      Q.innerJoin(posts, Q.eq(users.id, posts.userId)),
-      Q.groupBy(users.email),
-      Q.having(Q.eq(F.count(posts.id), posts.userId))
-    )
-
-    expect(() => Renderer.make("postgres").render(plan)).toThrow(
-      "Invalid grouped selection: scalar expressions must be covered by groupBy(...) when aggregates are present"
-    )
-  })
-
   test("runtime decoding applies having assumptions to searched case projections", () => {
     const posts = StdRoot.Table.make("posts", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),

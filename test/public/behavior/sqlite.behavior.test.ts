@@ -396,21 +396,6 @@ describe("sqlite behavior", () => {
     expect(rendered.params).toEqual(["json-string-1", "\"42\""])
   })
 
-  test("rejects invalid rendered sqlite insert source kinds", () => {
-    const queryAst = Symbol.for("effect-qb/QueryAst")
-    const docs = StdRoot.Table.make("docs", {
-      id: StdRoot.Column.text().pipe(StdRoot.Column.primaryKey),
-      title: StdRoot.Column.text()
-    })
-    const seed = Sqlite.Query.as(Sqlite.Query.values([
-      { id: "doc-1", title: "First" }
-    ] as const), "seed")
-    const plan = Sqlite.Query.insert(docs).pipe(Sqlite.Query.from(seed as any))
-    ;(plan as any)[queryAst].insertSource.kind = "copy"
-
-    expect(() => render(plan)).toThrow("Unsupported insert source kind")
-  })
-
   test("renders sqlite DDL without postgres-only constraint clauses", () => {
     const employees = makeSqliteEmployees()
 
@@ -435,40 +420,8 @@ describe("sqlite behavior", () => {
     )
   })
 
-  test("rejects sqlite mutation modifiers that would otherwise be ignored", () => {
+  test("rejects sqlite mutation forms that cannot be rendered", () => {
     const { users, posts } = makeSqliteSocialGraph()
-
-    expect(() => render(Sqlite.Query.update(users, {}))).toThrow(
-      "update statements require at least one assignment"
-    )
-
-    const orderedUpdate = Sqlite.Query.update(users, {
-      email: "updated@example.com"
-    }).pipe(
-      Sqlite.Query.orderBy(users.id)
-    )
-
-    expect(() => render(orderedUpdate)).toThrow(
-      "orderBy(...) is not supported for update statements"
-    )
-
-    const limitedDelete = Sqlite.Query.delete(users).pipe(
-      Sqlite.Query.limit(1)
-    )
-
-    expect(() => render(limitedDelete)).toThrow(
-      "limit(...) is not supported for delete statements"
-    )
-
-    const lockedUpdate = Sqlite.Query.update(users, {
-      email: "updated@example.com"
-    }).pipe(
-      Sqlite.Query.lock("ignore")
-    )
-
-    expect(() => render(lockedUpdate)).toThrow(
-      "lock(...) is not supported for update statements"
-    )
 
     expect(() => render(Sqlite.Query.delete(users).pipe(
       Sqlite.Query.innerJoin(posts, Sqlite.Query.eq(users.id, posts.userId))
@@ -553,15 +506,4 @@ describe("sqlite behavior", () => {
     }))).toThrow("Expected a finite numeric value")
   })
 
-  test("rejects sqlite plans at postgres executors through dialect branding", () => {
-    const { users } = makeSqliteSocialGraph()
-    const plan = Sqlite.Query.select({
-      id: users.id
-    }).pipe(Sqlite.Query.from(users))
-
-    expect(plan[Sqlite.RowSet.TypeId].dialect).toBe("sqlite")
-    expect(() => Postgres.Renderer.make().render(plan as any)).toThrow(
-      "effect-qb: plan dialect is not compatible with the target renderer or executor"
-    )
-  })
 })

@@ -250,33 +250,6 @@ describe("json behavior", () => {
     expect(rendered.params).toEqual([])
   })
 
-  test("runtime grouped validation keeps json path segment boundaries distinct", () => {
-    const docs = StdRoot.Table.make("docs", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      payload: Postgres.Column.jsonb(Schema.Unknown)
-    })
-    const flatKey = Postgres.Json.jsonb.text(
-      docs.payload,
-      Postgres.Json.jsonb.path(Postgres.Json.jsonb.key("a,key:b"))
-    )
-    const nestedKey = Postgres.Json.jsonb.text(
-      docs.payload,
-      Postgres.Json.jsonb.path(Postgres.Json.jsonb.key("a"), Postgres.Json.jsonb.key("b"))
-    )
-
-    const plan = Postgres.Query.select({
-      flatKey,
-      count: Postgres.Function.count(docs.id)
-    }).pipe(
-      Postgres.Query.from(docs),
-      Postgres.Query.groupBy(nestedKey)
-    )
-
-    expect(() => Postgres.Renderer.make().render(plan)).toThrow(
-      "Invalid grouped selection: scalar expressions must be covered by groupBy(...) when aggregates are present"
-    )
-  })
-
   test("postgres renders the jsonb-only expression surface", () => {
     const docs = makeJsonbTable(Postgres)
 

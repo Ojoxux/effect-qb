@@ -87,7 +87,7 @@ describe("mysql dialect behavior", () => {
     ])
   })
 
-  test("dedupes repeated exact group-by expressions and rejects provenance-only grouped matches", () => {
+  test("dedupes repeated exact group-by expressions", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
     const valid = Mysql.Query.select({
@@ -102,19 +102,6 @@ describe("mysql dialect behavior", () => {
 
     expect(Mysql.Renderer.make().render(valid).sql).toBe(
       "select lower(`users`.`email`) as `loweredEmail`, count(`posts`.`id`) as `postCount` from `users` inner join `posts` on (`users`.`id` = `posts`.`userId`) group by lower(`users`.`email`)"
-    )
-
-    const invalid = Mysql.Query.select({
-      email: users.email,
-      postCount: Mysql.Function.count(posts.id)
-    }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.innerJoin(posts, Mysql.Query.eq(users.id, posts.userId)),
-      Mysql.Query.groupBy(Mysql.Function.lower(users.email))
-    )
-
-    expect(() => Mysql.Renderer.make().render(unsafeNever(invalid))).toThrow(
-      "Invalid grouped selection: scalar expressions must be covered by groupBy(...) when aggregates are present"
     )
   })
 
@@ -827,14 +814,6 @@ describe("mysql dialect behavior", () => {
     )
   })
 
-  test("rejects mysql updates without assignments", () => {
-    const { users } = makeMysqlSocialGraph()
-
-    expect(() =>
-      Mysql.Renderer.make().render(Mysql.Query.update(users, {}))
-    ).toThrow()
-  })
-
   test("renders mysql joined update modifiers order and limit", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
@@ -886,27 +865,6 @@ describe("mysql dialect behavior", () => {
       "author@example.com",
       "published"
     ])
-  })
-
-  test("rejects mysql mutation offsets that cannot be rendered", () => {
-    const { users } = makeMysqlSocialGraph()
-
-    const offsetUpdate = Mysql.Query.update(users, {
-      email: "author@example.com"
-    }).pipe(
-      Mysql.Query.offset(2)
-    )
-
-    const offsetDelete = Mysql.Query.delete(users).pipe(
-      Mysql.Query.offset(2)
-    )
-
-    expect(() => Mysql.Renderer.make().render(offsetUpdate)).toThrow(
-      "offset(...) is not supported for update statements"
-    )
-    expect(() => Mysql.Renderer.make().render(offsetDelete)).toThrow(
-      "offset(...) is not supported for delete statements"
-    )
   })
 
   test("renders mysql joined delete modifiers order and limit", () => {

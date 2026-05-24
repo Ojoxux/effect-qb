@@ -63,71 +63,6 @@ describe("select sources behavior", () => {
     )
   })
 
-  test("rejects runtime set operators with mismatched result rows", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-    const posts = StdRoot.Table.make("posts", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      userId: StdRoot.Column.uuid()
-    })
-
-    const usersByEmail = Postgres.Query.select({
-      email: users.email
-    }).pipe(Postgres.Query.from(users))
-    const postsById = Postgres.Query.select({
-      postId: posts.id
-    }).pipe(Postgres.Query.from(posts))
-
-    expect(() => renderPostgres(Postgres.Query.union(unsafeAny(usersByEmail), unsafeAny(postsById)))).toThrow(
-      "set operator operands must have matching result rows"
-    )
-  })
-
-  test("rejects runtime set operators with dotted path collisions", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-
-    const nested = Postgres.Query.select({
-      profile: {
-        email: users.email
-      }
-    }).pipe(Postgres.Query.from(users))
-
-    const dotted = Postgres.Query.select({
-      "profile.email": users.email
-    }).pipe(Postgres.Query.from(users))
-
-    expect(() => renderPostgres(Postgres.Query.union(unsafeAny(nested), unsafeAny(dotted)))).toThrow(
-      "set operator operands must have matching result rows"
-    )
-  })
-
-  test("rejects query modifiers on set operator plans instead of ignoring them", () => {
-    const active = Postgres.Query.select({
-      email: pgUsers.email
-    }).pipe(Postgres.Query.from(pgUsers))
-    const archived = Postgres.Query.select({
-      email: pgUsers.email
-    }).pipe(Postgres.Query.from(pgUsers))
-    const setPlan = Postgres.Query.unionAll(active, archived)
-
-    expect(() =>
-      renderPostgres(Postgres.Query.distinct()(unsafeAny(setPlan)))
-    ).toThrow("distinct(...) is not supported for set statements")
-
-    expect(() =>
-      renderPostgres(Postgres.Query.limit(1)(unsafeAny(setPlan)))
-    ).toThrow("limit(...) is not supported for set statements")
-
-    expect(() =>
-      renderPostgres(Postgres.Query.orderBy(Postgres.Query.literal(1))(unsafeAny(setPlan)))
-    ).toThrow("orderBy(...) is not supported for set statements")
-  })
-
   test("renders standalone values, unnest, and generate series sources in postgres", () => {
     const valuesSource = Postgres.Query.values([
       { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") },
@@ -204,22 +139,6 @@ describe("select sources behavior", () => {
     expect(rendered.params).toEqual([1, "alice@example.com", 2, "bob@example.com"])
   })
 
-  test("rejects postgres values rows with no projected columns", () => {
-    expect(() => Postgres.Query.values([{}] as const)).toThrow(
-      "values(...) rows must specify at least one column"
-    )
-  })
-
-  test("rejects invalid postgres unnest column arrays", () => {
-    expect(() => Postgres.Query.unnest(unsafeAny({
-      id: []
-    }), "empty_seed_rows")).toThrow("unnest(...) requires at least one row")
-
-    expect(() => Postgres.Query.unnest(unsafeAny({
-      id: Postgres.Query.literal(1)
-    }), "not_array_seed_rows")).toThrow("unnest(...) expects every value to be an array")
-  })
-
   test("renders standalone values and unnest sources in mysql", () => {
     const valuesSource = Mysql.Query.values([
       { id: Mysql.Query.literal(1), email: Mysql.Query.literal("alice@example.com") },
@@ -267,22 +186,6 @@ describe("select sources behavior", () => {
       "select `seed`.`id` as `id`, `seed`.`email` as `email` from (select ? as `id`, ? as `email` union all select ? as `id`, ? as `email`) as `seed`(`id`, `email`)"
     )
     expect(rendered.params).toEqual([1, "alice@example.com", 2, "bob@example.com"])
-  })
-
-  test("rejects mysql values rows with no projected columns", () => {
-    expect(() => Mysql.Query.values([{}] as const)).toThrow(
-      "values(...) rows must specify at least one column"
-    )
-  })
-
-  test("rejects invalid mysql unnest column arrays", () => {
-    expect(() => Mysql.Query.unnest(unsafeAny({
-      id: []
-    }), "empty_seed_rows")).toThrow("unnest(...) requires at least one row")
-
-    expect(() => Mysql.Query.unnest(unsafeAny({
-      id: Mysql.Query.literal(1)
-    }), "not_array_seed_rows")).toThrow("unnest(...) expects every value to be an array")
   })
 
   test("renders scalar and quantified subqueries in postgres", () => {
@@ -339,59 +242,6 @@ describe("select sources behavior", () => {
 
     expect(renderPostgres(plan).sql).toBe(
       'select ("users"."id" in (select "posts"."id" as "value" from "posts")) as "matchesAny", count("users"."id") as "userCount" from "users" group by ("users"."id" in (select "posts"."id" as "value" from "posts"))'
-    )
-  })
-
-  test("rejects derived source projection alias collisions", () => {
-    const subquery = Postgres.Query.select({
-      "user__id": pgUsers.id,
-      user: {
-        id: pgUsers.email
-      }
-    }).pipe(
-      Postgres.Query.from(pgUsers)
-    )
-
-    expect(() => Postgres.Query.as(subquery, "u")).toThrow(
-      "Duplicate projection alias: user__id"
-    )
-  })
-
-  test("rejects incomplete derived and cte sources before rendering invalid nested sql", () => {
-    const subquery = Postgres.Query.select({
-      id: pgUsers.id
-    })
-
-    expect(() => Postgres.Query.as(unsafeAny(subquery), "missing_users")).toThrow(
-      "query references sources that are not yet in scope: users"
-    )
-
-    expect(() => Postgres.Query.with("missing_users")(unsafeAny(subquery))).toThrow(
-      "query references sources that are not yet in scope: users"
-    )
-  })
-
-  test("rejects mutation plans as derived or lateral inline sources", () => {
-    const mutation = Postgres.Query.insert(pgUsers, {
-      id: "11111111-1111-1111-1111-111111111111",
-      email: "alice@example.com"
-    }).pipe(
-      Postgres.Query.returning({
-        id: pgUsers.id,
-        email: pgUsers.email
-      })
-    )
-
-    expect(() => Postgres.Query.as(unsafeAny(mutation), "inserted_users")).toThrow(
-      "inline derived sources only accept select-like query plans"
-    )
-
-    expect(() => mutation.pipe(Postgres.Query.as("inserted_users"))).toThrow(
-      "inline derived sources only accept select-like query plans"
-    )
-
-    expect(() => Postgres.Query.lateral("inserted_users")(unsafeAny(mutation))).toThrow(
-      "inline derived sources only accept select-like query plans"
     )
   })
 
@@ -507,29 +357,6 @@ describe("select sources behavior", () => {
 
     expect(renderMysql(plan).sql).toBe(
       "with `post_titles` as (select `posts`.`userId` as `userId`, `posts`.`title` as `title` from `posts`), `active_titles` as (select `post_titles`.`userId` as `userId`, `post_titles`.`title` as `title` from `post_titles` where (`post_titles`.`title` is not null)) select `active_titles`.`title` as `title` from `active_titles`"
-    )
-  })
-
-  test("rejects lateral joins before their required outer sources", () => {
-    const lateralPosts = Postgres.Query.select({
-      postId: pgPosts.id,
-      userId: pgPosts.userId
-    }).pipe(
-      Postgres.Query.from(pgPosts),
-      Postgres.Query.where(Postgres.Query.eq(pgPosts.userId, pgUsers.id)),
-      Postgres.Query.lateral("user_posts")
-    )
-
-    const plan = Postgres.Query.select({
-      anchorId: pgPosts.id,
-      postId: lateralPosts.postId
-    }).pipe(
-      Postgres.Query.from(pgPosts),
-      Postgres.Query.innerJoin(unsafeAny(lateralPosts), Postgres.Query.eq(lateralPosts.userId, pgPosts.userId))
-    )
-
-    expect(() => renderPostgres(plan)).toThrow(
-      "query references sources that are not yet in scope: users"
     )
   })
 

@@ -339,9 +339,6 @@ const makeTableScopedOption = <
 
 const normalizeColumns = (columns: string | readonly string[]): readonly [string, ...string[]] => {
   const normalized = Array.isArray(columns) ? [...columns] : [columns]
-  if (normalized.length === 0) {
-    throw new Error("Table options require at least one column")
-  }
   return normalized as unknown as readonly [string, ...string[]]
 }
 

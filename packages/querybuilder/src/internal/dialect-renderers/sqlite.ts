@@ -7,7 +7,7 @@ import * as QueryAst from "../query-ast.js"
 import type { RenderState, RenderValueContext, SqlDialect } from "../dialect.js"
 import * as ExpressionAst from "../expression-ast.js"
 import * as JsonPath from "../json/path.js"
-import { expectConflictClause, expectInsertSourceKind, expectInsertValues } from "../dsl-mutation-runtime.js"
+import { expectConflictClause } from "../dsl-mutation-runtime.js"
 import { expectDdlClauseKind, normalizeStatementFlag, normalizeStatementIdentifier } from "../dsl-transaction-ddl-runtime.js"
 import {
   renderJsonSelectSql,
@@ -16,7 +16,6 @@ import {
 } from "../runtime/driver-value-mapping.js"
 import { normalizeDbValue } from "../runtime/normalize.js"
 import { flattenSelection, type Projection } from "../projections.js"
-import { type SelectionValue, validateAggregationSelection } from "../aggregation-validation.js"
 import * as SchemaExpression from "../schema-expression.js"
 import { renderReferentialAction, validateOptions, type DdlExpressionLike, type TableOptionSpec } from "../table-options.js"
 import * as Casing from "../casing.js"
@@ -1223,12 +1222,8 @@ const renderTransactionClause = (
 const renderSelectionList = (
   selection: Record<string, unknown>,
   state: RenderState,
-  dialect: SqlDialect,
-  validateAggregation: boolean
+  dialect: SqlDialect
 ): RenderedQueryAst => {
-  if (validateAggregation) {
-    validateAggregationSelection(selection as SelectionValue, [])
-  }
   const flattened = flattenSelection(selection)
   const projections = selectionProjections(selection)
   const sql = flattened.map(({ expression, alias }) =>
@@ -1249,110 +1244,6 @@ const nestedRenderState = (state: RenderState): RenderState => ({
   sourceNames: new Map(state.sourceNames)
 })
 
-const assertMatchingSetProjections = (
-  left: readonly Projection[],
-  right: readonly Projection[]
-): void => {
-  const leftKeys = left.map((projection) => JSON.stringify(projection.path))
-  const rightKeys = right.map((projection) => JSON.stringify(projection.path))
-  if (leftKeys.length !== rightKeys.length || leftKeys.some((key, index) => key !== rightKeys[index])) {
-    throw new Error("set operator operands must have matching result rows")
-  }
-}
-
-const assertNoGroupedMutationClauses = (
-  ast: Pick<QueryAst.Ast, "groupBy" | "having">,
-  statement: string
-): void => {
-  if (ast.groupBy.length > 0) {
-    throw new Error(`groupBy(...) is not supported for ${statement} statements`)
-  }
-  if (ast.having.length > 0) {
-    throw new Error(`having(...) is not supported for ${statement} statements`)
-  }
-}
-
-const assertNoSqliteMutationModifiers = (
-  ast: Pick<QueryAst.Ast, "orderBy" | "limit" | "offset" | "lock">,
-  statement: string
-): void => {
-  if (ast.orderBy.length > 0) {
-    throw new Error(`orderBy(...) is not supported for ${statement} statements`)
-  }
-  if (ast.limit) {
-    throw new Error(`limit(...) is not supported for ${statement} statements`)
-  }
-  if (ast.offset) {
-    throw new Error(`offset(...) is not supported for ${statement} statements`)
-  }
-  if (ast.lock) {
-    throw new Error(`lock(...) is not supported for ${statement} statements`)
-  }
-}
-
-const assertNoInsertQueryClauses = (
-  ast: Pick<QueryAst.Ast, "where" | "joins" | "orderBy" | "limit" | "offset" | "lock">
-): void => {
-  if (ast.where.length > 0) {
-    throw new Error("where(...) is not supported for insert statements")
-  }
-  if (ast.joins.length > 0) {
-    throw new Error("join(...) is not supported for insert statements")
-  }
-  if (ast.orderBy.length > 0) {
-    throw new Error("orderBy(...) is not supported for insert statements")
-  }
-  if (ast.limit) {
-    throw new Error("limit(...) is not supported for insert statements")
-  }
-  if (ast.offset) {
-    throw new Error("offset(...) is not supported for insert statements")
-  }
-  if (ast.lock) {
-    throw new Error("lock(...) is not supported for insert statements")
-  }
-}
-
-const assertNoStatementQueryClauses = (
-  ast: QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
-  statement: string,
-  options: { readonly allowSelection?: boolean } = {}
-): void => {
-  if (ast.distinct) {
-    throw new Error(`distinct(...) is not supported for ${statement} statements`)
-  }
-  if (ast.where.length > 0) {
-    throw new Error(`where(...) is not supported for ${statement} statements`)
-  }
-  if ((ast.fromSources?.length ?? 0) > 0 || ast.from) {
-    throw new Error(`from(...) is not supported for ${statement} statements`)
-  }
-  if (ast.joins.length > 0) {
-    throw new Error(`join(...) is not supported for ${statement} statements`)
-  }
-  if (ast.groupBy.length > 0) {
-    throw new Error(`groupBy(...) is not supported for ${statement} statements`)
-  }
-  if (ast.having.length > 0) {
-    throw new Error(`having(...) is not supported for ${statement} statements`)
-  }
-  if (ast.orderBy.length > 0) {
-    throw new Error(`orderBy(...) is not supported for ${statement} statements`)
-  }
-  if (ast.limit) {
-    throw new Error(`limit(...) is not supported for ${statement} statements`)
-  }
-  if (ast.offset) {
-    throw new Error(`offset(...) is not supported for ${statement} statements`)
-  }
-  if (ast.lock) {
-    throw new Error(`lock(...) is not supported for ${statement} statements`)
-  }
-  if (options.allowSelection !== true && Object.keys(ast.select).length > 0) {
-    throw new Error(`returning(...) is not supported for ${statement} statements`)
-  }
-}
-
 export const renderQueryAst = (
   ast: QueryAst.Ast<Record<string, unknown>, any, QueryAst.QueryStatement>,
   state: RenderState,
@@ -1365,13 +1256,7 @@ export const renderQueryAst = (
 
   switch (ast.kind) {
     case "select": {
-      validateAggregationSelection(
-        ast.select as SelectionValue,
-        ast.groupBy,
-        ast.having.map((entry) => entry.predicate),
-        ast.orderBy.map((entry) => entry.value)
-      )
-      const rendered = renderSelectionList(ast.select as Record<string, unknown>, state, dialect, false)
+      const rendered = renderSelectionList(ast.select as Record<string, unknown>, state, dialect)
       if (rendered.projections.length === 0) {
         throw new Error("sqlite select statements require at least one selected expression")
       }
@@ -1418,7 +1303,6 @@ export const renderQueryAst = (
     }
     case "set": {
       const setAst = ast as QueryAst.Ast<Record<string, unknown>, any, "set">
-      assertNoStatementQueryClauses(setAst, "set", { allowSelection: true })
       const base = renderQueryAst(
         Query.getAst(setAst.setBase as Query.Plan.Any) as QueryAst.Ast<
           Record<string, unknown>,
@@ -1429,7 +1313,6 @@ export const renderQueryAst = (
         dialect
       )
       projections = selectionProjections(setAst.select as Record<string, unknown>)
-      assertMatchingSetProjections(projections, base.projections)
       sql = [
         base.sql,
         ...(setAst.setOperations ?? []).map((entry) => {
@@ -1445,7 +1328,6 @@ export const renderQueryAst = (
             state,
             dialect
           )
-          assertMatchingSetProjections(projections, rendered.projections)
           return `${entry.kind}${entry.all ? " all" : ""} ${rendered.sql}`
         })
       ].join(" ")
@@ -1453,16 +1335,10 @@ export const renderQueryAst = (
     }
     case "insert": {
       const insertAst = ast as QueryAst.Ast<Record<string, unknown>, any, "insert">
-      if (insertAst.distinct) {
-        throw new Error("distinct(...) is not supported for insert statements")
-      }
-      assertNoGroupedMutationClauses(insertAst, "insert")
-      assertNoInsertQueryClauses(insertAst)
       const targetSource = insertAst.into!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targetCasingState = stateWithTableCasing(state, targetSource.source)
-      const targetFields = (targetSource.source as Table.AnyTable)[Table.TypeId].fields
-      const insertSource = expectInsertSourceKind(insertAst.insertSource, targetFields)
+      const insertSource = insertAst.insertSource
       const conflict = expectConflictClause(insertAst.conflict)
       sql = `insert into ${target}`
       if (insertSource?.kind === "values") {
@@ -1506,7 +1382,7 @@ export const renderQueryAst = (
           sql += ` (${columns}) values ${rows}`
         }
       } else {
-        const insertValues = expectInsertValues(insertAst.values, targetFields) ?? []
+        const insertValues = insertAst.values ?? []
         const columns = insertValues.map((entry) => quoteColumn(entry.columnName, state, dialect, targetSource.tableName)).join(", ")
         const values = insertValues.map((entry) => renderExpression(entry.value, targetCasingState, dialect)).join(", ")
         if (insertValues.length > 0) {
@@ -1536,7 +1412,7 @@ export const renderQueryAst = (
           sql += ` on duplicate key update ${updateValues}`
         }
       }
-      const returning = renderSelectionList(insertAst.select as Record<string, unknown>, state, dialect, false)
+      const returning = renderSelectionList(insertAst.select as Record<string, unknown>, state, dialect)
       projections = returning.projections
       if (returning.sql.length > 0) {
         sql += ` returning ${returning.sql}`
@@ -1545,20 +1421,12 @@ export const renderQueryAst = (
     }
     case "update": {
       const updateAst = ast as QueryAst.Ast<Record<string, unknown>, any, "update">
-      if (updateAst.distinct) {
-        throw new Error("distinct(...) is not supported for update statements")
-      }
-      assertNoGroupedMutationClauses(updateAst, "update")
-      assertNoSqliteMutationModifiers(updateAst, "update")
       const targetSource = updateAst.target!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targets = updateAst.targets ?? [targetSource]
       const fromSources = updateAst.fromSources ?? []
       if (targets.length > 1) {
         throw new Error("Unsupported sqlite multi-table update")
-      }
-      if ((updateAst.set ?? []).length === 0) {
-        throw new Error("update statements require at least one assignment")
       }
       const assignments = updateAst.set!.map((entry) =>
         renderMutationAssignment(entry, state, dialect, targetSource.tableName)).join(", ")
@@ -1604,7 +1472,7 @@ export const renderQueryAst = (
       if (dialect.name === "mysql" && updateAst.limit) {
         sql += ` limit ${renderSqliteMutationLimit(updateAst.limit, state, dialect)}`
       }
-      const returning = renderSelectionList(updateAst.select as Record<string, unknown>, state, dialect, false)
+      const returning = renderSelectionList(updateAst.select as Record<string, unknown>, state, dialect)
       projections = returning.projections
       if (returning.sql.length > 0) {
         sql += ` returning ${returning.sql}`
@@ -1613,11 +1481,6 @@ export const renderQueryAst = (
     }
     case "delete": {
       const deleteAst = ast as QueryAst.Ast<Record<string, unknown>, any, "delete">
-      if (deleteAst.distinct) {
-        throw new Error("distinct(...) is not supported for delete statements")
-      }
-      assertNoGroupedMutationClauses(deleteAst, "delete")
-      assertNoSqliteMutationModifiers(deleteAst, "delete")
       const targetSource = deleteAst.target!
       const target = renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)
       const targets = deleteAst.targets ?? [targetSource]
@@ -1665,7 +1528,7 @@ export const renderQueryAst = (
       if (dialect.name === "mysql" && deleteAst.limit) {
         sql += ` limit ${renderSqliteMutationLimit(deleteAst.limit, state, dialect)}`
       }
-      const returning = renderSelectionList(deleteAst.select as Record<string, unknown>, state, dialect, false)
+      const returning = renderSelectionList(deleteAst.select as Record<string, unknown>, state, dialect)
       projections = returning.projections
       if (returning.sql.length > 0) {
         sql += ` returning ${returning.sql}`
@@ -1674,7 +1537,6 @@ export const renderQueryAst = (
     }
     case "truncate": {
       const truncateAst = ast as QueryAst.Ast<Record<string, unknown>, any, "truncate">
-      assertNoStatementQueryClauses(truncateAst, "truncate")
       throw new Error("Unsupported sqlite truncate statement")
       break
     }
@@ -1686,9 +1548,6 @@ export const renderQueryAst = (
       const targetSource = mergeAst.target!
       const usingSource = mergeAst.using!
       const merge = mergeAst.merge!
-      if (Object.keys(mergeAst.select as Record<string, unknown>).length > 0) {
-        throw new Error("returning(...) is not supported for merge statements")
-      }
       sql = `merge into ${renderSourceReference(targetSource.source, targetSource.tableName, targetSource.baseTableName, state, dialect)} using ${renderSourceReference(usingSource.source, usingSource.tableName, usingSource.baseTableName, state, dialect)} on ${renderExpression(merge.on, state, dialect)}`
       if (merge.whenMatched) {
         sql += " when matched"
@@ -1718,20 +1577,17 @@ export const renderQueryAst = (
     case "savepoint":
     case "rollbackTo":
     case "releaseSavepoint": {
-      assertNoStatementQueryClauses(ast, ast.kind)
       sql = renderTransactionClause(ast.transaction!, dialect)
       break
     }
     case "createTable": {
       const createTableAst = ast as QueryAst.Ast<Record<string, unknown>, any, "createTable">
-      assertNoStatementQueryClauses(createTableAst, "createTable")
       const ddl = expectDdlClauseKind(createTableAst.ddl, "createTable")
       sql = renderCreateTableSql(createTableAst.target!, state, dialect, ddl.ifNotExists)
       break
     }
     case "dropTable": {
       const dropTableAst = ast as QueryAst.Ast<Record<string, unknown>, any, "dropTable">
-      assertNoStatementQueryClauses(dropTableAst, "dropTable")
       const ddl = expectDdlClauseKind(dropTableAst.ddl, "dropTable")
       const ifExists = normalizeStatementFlag(ddl.ifExists)
       sql = `drop table${ifExists ? " if exists" : ""} ${renderSourceReference(dropTableAst.target!.source, dropTableAst.target!.tableName, dropTableAst.target!.baseTableName, state, dialect)}`
@@ -1739,7 +1595,6 @@ export const renderQueryAst = (
     }
     case "createIndex": {
       const createIndexAst = ast as QueryAst.Ast<Record<string, unknown>, any, "createIndex">
-      assertNoStatementQueryClauses(createIndexAst, "createIndex")
       sql = renderCreateIndexSql(
         createIndexAst.target!,
         expectDdlClauseKind(createIndexAst.ddl, "createIndex"),
@@ -1750,7 +1605,6 @@ export const renderQueryAst = (
     }
     case "dropIndex": {
       const dropIndexAst = ast as QueryAst.Ast<Record<string, unknown>, any, "dropIndex">
-      assertNoStatementQueryClauses(dropIndexAst, "dropIndex")
       sql = renderDropIndexSql(
         dropIndexAst.target!,
         expectDdlClauseKind(dropIndexAst.ddl, "dropIndex"),

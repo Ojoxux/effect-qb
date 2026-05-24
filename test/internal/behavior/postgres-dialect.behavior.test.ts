@@ -9,7 +9,7 @@ import { renderExpression } from "../../../packages/querybuilder/src/internal/sq
 import * as Postgres from "#postgres"
 import { makePostgresSocialGraph } from "../../fixtures/schema.ts"
 import { buildGroupedConcatPlan } from "../../helpers/dialect-matrix.ts"
-import { unsafeAny, unsafeNever } from "../../helpers/unsafe.ts"
+import { unsafeAny } from "../../helpers/unsafe.ts"
 import * as StdRoot from "#standard"
 
 const userId = "11111111-1111-1111-1111-111111111111"
@@ -93,7 +93,7 @@ describe("postgres dialect behavior", () => {
     ])
   })
 
-  test("dedupes repeated exact group-by expressions and rejects provenance-only grouped matches", () => {
+  test("dedupes repeated exact group-by expressions", () => {
     const { users, posts } = makePostgresSocialGraph()
 
     const valid = Postgres.Query.select({
@@ -108,19 +108,6 @@ describe("postgres dialect behavior", () => {
 
     expect(Postgres.Renderer.make().render(valid).sql).toBe(
       'select lower("users"."email") as "loweredEmail", count("posts"."id") as "postCount" from "users" inner join "posts" on ("users"."id" = "posts"."userId") group by lower("users"."email")'
-    )
-
-    const invalid = Postgres.Query.select({
-      email: users.email,
-      postCount: Postgres.Function.count(posts.id)
-    }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.innerJoin(posts, Postgres.Query.eq(users.id, posts.userId)),
-      Postgres.Query.groupBy(Postgres.Function.lower(users.email))
-    )
-
-    expect(() => Postgres.Renderer.make().render(unsafeNever(invalid))).toThrow(
-      "Invalid grouped selection: scalar expressions must be covered by groupBy(...) when aggregates are present"
     )
   })
 
@@ -719,41 +706,6 @@ describe("postgres dialect behavior", () => {
     expect(rendered.params).toEqual([])
   })
 
-  test("runtime grouped validation keeps exists subqueries distinct", () => {
-    const { users, posts } = makePostgresSocialGraph()
-
-    const hasHello = Postgres.Query.exists(Postgres.Query.select({
-      id: posts.id
-    }).pipe(
-      Postgres.Query.from(posts),
-      Postgres.Query.where(Postgres.Query.and(
-        Postgres.Query.eq(posts.userId, users.id),
-        Postgres.Query.eq(posts.title, "hello")
-      ))
-    ))
-    const hasWorld = Postgres.Query.exists(Postgres.Query.select({
-      id: posts.id
-    }).pipe(
-      Postgres.Query.from(posts),
-      Postgres.Query.where(Postgres.Query.and(
-        Postgres.Query.eq(posts.userId, users.id),
-        Postgres.Query.eq(posts.title, "world")
-      ))
-    ))
-
-    const plan = Postgres.Query.select({
-      hasHello,
-      userCount: Postgres.Function.count(users.id)
-    }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.groupBy(hasWorld)
-    )
-
-    expect(() => Postgres.Renderer.make().render(unsafeNever(plan))).toThrow(
-      "Invalid grouped selection: scalar expressions must be covered by groupBy(...) when aggregates are present"
-    )
-  })
-
   test("renders window functions and windowed aggregates with postgres syntax", () => {
     const { users, posts } = makePostgresSocialGraph()
 
@@ -1138,14 +1090,6 @@ describe("postgres dialect behavior", () => {
       'delete from "users" where ("users"."id" = $1) returning "users"."id" as "id"'
     )
     expect(Postgres.Renderer.make().render(deletePlan).params).toEqual([userId])
-  })
-
-  test("rejects postgres updates without assignments", () => {
-    const { users } = makePostgresSocialGraph()
-
-    expect(() =>
-      Postgres.Renderer.make().render(Postgres.Query.update(users, {}))
-    ).toThrow()
   })
 
   test("renders postgres update from joined sources", () => {

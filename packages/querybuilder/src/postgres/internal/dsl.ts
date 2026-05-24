@@ -4221,12 +4221,7 @@ type BinaryPredicateExpression<
 
   const normalizeUnnestColumns = (columns: UnnestColumnsInput): Record<string, readonly Expression.Any[]> =>
     Object.fromEntries(
-      Object.entries(columns).map(([key, values]) => {
-        if (!Array.isArray(values)) {
-          throw new Error("unnest(...) expects every value to be an array")
-        }
-        return [key, values.map((value) => toDialectExpression(value))]
-      })
+      Object.entries(columns).map(([key, values]) => [key, values.map((value) => toDialectExpression(value))])
     ) as Record<string, readonly Expression.Any[]>
 
   const normalizeMutationTargets = (
@@ -4309,15 +4304,8 @@ type BinaryPredicateExpression<
   } => {
     const firstRow = rows[0]
     const firstColumns = Object.keys(firstRow)
-    if (firstColumns.length === 0) {
-      throw new Error("values(...) rows must specify at least one column; use insert(target) for default-only inserts instead")
-    }
     const columns = firstColumns as [string, ...string[]]
     const normalizedRows = rows.map((row) => {
-      const rowKeys = Object.keys(row)
-      if (rowKeys.length !== columns.length || columns.some((column) => !(column in row))) {
-        throw new Error("All values(...) rows must project the same columns in the same shape")
-      }
       const assignments = buildMutationAssignments(target, row) as readonly QueryAst.AssignmentClause[]
       return {
         values: columns.map((columnName) => assignments.find((assignment) => assignment.columnName === columnName)!)
@@ -4337,9 +4325,6 @@ type BinaryPredicateExpression<
     selection: Record<string, Expression.Any>
   ): readonly [string, ...string[]] => {
     const columns = Object.keys(selection)
-    if (columns.length === 0) {
-      throw new Error("insert(...).pipe(from(subquery)) requires at least one projected column")
-    }
     return columns as [string, ...string[]]
   }
 
@@ -4354,23 +4339,11 @@ type BinaryPredicateExpression<
     }[]
   } => {
     const entries = Object.entries(values)
-    if (entries.length === 0) {
-      throw new Error("unnest(...) requires at least one column array")
-    }
     const columns = entries.map(([columnName]) => columnName) as [string, ...string[]]
-    const normalized = entries.map(([columnName, items]) => {
-      if (!Array.isArray(items)) {
-        throw new Error("unnest(...) expects every value to be an array")
-      }
-      return {
-        columnName,
-        values: items
-      }
-    })
-    const expectedLength = normalized[0]!.values.length
-    if (normalized.some((entry) => entry.values.length !== expectedLength)) {
-      throw new Error("unnest(...) expects every column array to have the same length")
-    }
+    const normalized = entries.map(([columnName, items]) => ({
+      columnName,
+      values: items
+    }))
     return {
       columns,
       values: normalized

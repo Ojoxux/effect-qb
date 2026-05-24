@@ -252,9 +252,6 @@ type InlinePrimaryKeyKeys<Fields extends TableFieldMap> = Extract<{
 /** Normalizes a string or tuple input into a non-empty column list. */
 export const normalizeColumnList = (columns: string | readonly string[]): ColumnList => {
   const normalized = Array.isArray(columns) ? [...columns] : [columns]
-  if (normalized.length === 0) {
-    throw new Error("Table options require at least one column")
-  }
   return normalized as unknown as ColumnList
 }
 

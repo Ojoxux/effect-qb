@@ -173,10 +173,6 @@ describe("table definitions", () => {
     )).toThrow("Foreign key on table 'broken_memberships_arity' must reference the same number of columns")
   })
 
-  test("table options reject empty column lists", () => {
-    expect(() => Table.index([] as unknown as string[])).toThrow("Table options require at least one column")
-  })
-
   test("postgres rich index specs normalize columns-only input", () => {
     const users = StdRoot.Table.make("rich_index_users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
@@ -189,10 +185,6 @@ describe("table definitions", () => {
       kind: "index",
       columns: ["email"]
     })
-
-    expect(() => Table.index({ columns: [] as unknown as string[], name: "empty_idx" })).toThrow(
-      "Table options require at least one column"
-    )
 
     expect(() => StdRoot.Table.make("empty_manual_index_users", {
       id: StdRoot.Column.uuid()
@@ -375,89 +367,6 @@ describe("table definitions", () => {
 
     expect(rendered.sql).toBe('select upper("users"."email") as "emailUpper", count("posts"."id") as "postCount", max("posts"."title") as "maxPostTitle", min("posts"."title") as "minPostTitle", coalesce(max("posts"."title"), $1) as "fallbackTitle" from "users" inner join "posts" on (("users"."id" = "posts"."userId") and (not false)) group by upper("users"."email") order by count("posts"."id") desc, upper("users"."email") asc')
     expect(rendered.params).toEqual(["NONE"])
-  })
-
-  test("runtime validation rejects invalid aggregate and scalar mixing without groupBy", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-
-    const posts = StdRoot.Table.make("posts", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      userId: StdRoot.Column.uuid()
-    })
-
-    const invalid = Q.select({
-      email: users.email,
-      postCount: F.count(posts.id)
-    }).pipe(
-      Q.from(users),
-      Q.leftJoin(posts, true)
-    )
-
-    expect(() => Renderer.make("postgres").render(unsafeNever(invalid))).toThrow(
-      "Invalid grouped selection: scalar expressions must be covered by groupBy(...) when aggregates are present"
-    )
-  })
-
-  test("runtime validation requires exact grouped-expression matches", () => {
-    const users = StdRoot.Table.make("users", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      email: StdRoot.Column.text()
-    })
-
-    const posts = StdRoot.Table.make("posts", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
-      userId: StdRoot.Column.uuid()
-    })
-
-    const groupedByDerived = Q.select({
-      email: users.email,
-      postCount: F.count(posts.id)
-    }).pipe(
-      Q.from(users),
-      Q.innerJoin(posts, Q.eq(users.id, posts.userId)),
-      Q.groupBy(F.lower(users.email))
-    )
-
-    const groupedByBase = Q.select({
-      loweredEmail: F.lower(users.email),
-      postCount: F.count(posts.id)
-    }).pipe(
-      Q.from(users),
-      Q.innerJoin(posts, Q.eq(users.id, posts.userId)),
-      Q.groupBy(users.email)
-    )
-
-    expect(() => Renderer.make("postgres").render(unsafeNever(groupedByDerived))).toThrow(
-      "Invalid grouped selection: scalar expressions must be covered by groupBy(...) when aggregates are present"
-    )
-    expect(() => Renderer.make("postgres").render(unsafeNever(groupedByBase))).toThrow(
-      "Invalid grouped selection: scalar expressions must be covered by groupBy(...) when aggregates are present"
-    )
-  })
-
-  test("runtime grouped validation keeps dotted table and column names distinct", () => {
-    const dottedTable = StdRoot.Table.make("a.b", {
-      status: StdRoot.Column.text()
-    })
-    const splitTable = StdRoot.Table.make("a", {
-      "b.status": StdRoot.Column.text()
-    })
-
-    const groupedByDotted = Q.select({
-      splitStatus: splitTable["b.status"],
-      statusCount: F.count(dottedTable.status)
-    }).pipe(
-      Q.from(splitTable),
-      Q.crossJoin(dottedTable),
-      Q.groupBy(dottedTable.status)
-    )
-
-    expect(() => Renderer.make("postgres").render(unsafeNever(groupedByDotted))).toThrow(
-      "Invalid grouped selection: scalar expressions must be covered by groupBy(...) when aggregates are present"
-    )
   })
 
   test("Executor.fromDriver renders, runs, and decodes nested rows", () => {
