@@ -272,7 +272,11 @@ export const toTableModel = (table: Table.AnyTable): TableModel => {
     schemaName,
     name: tableName,
     columns,
-    options: options.map((option) => mapOption(option, casing, expressionState)),
+    options: options.map((option) =>
+      typeof option === "object" && option !== null && "kind" in option
+        ? mapOption(option, casing, expressionState)
+        : option as TableOptionSpec
+    ),
     table
   }
 }

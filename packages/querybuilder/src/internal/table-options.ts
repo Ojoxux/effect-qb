@@ -387,9 +387,12 @@ export const resolvePrimaryKeyColumns = <Fields extends TableFieldMap>(
   const inline = Object.entries(fields)
     .filter(([, column]) => column.metadata.primaryKey)
     .map(([key]) => key) as (keyof Fields & string)[]
-  const explicit = declaredOptions
-    .filter((option) => option.kind === "primaryKey")
-    .map((option) => option.columns)
+  const explicit = declaredOptions.flatMap((option) => {
+    if (typeof option !== "object" || option === null || !("kind" in option) || option.kind !== "primaryKey") {
+      return []
+    }
+    return [option.columns]
+  })
   if (explicit.length > 1) {
     throw new Error("Only one primary key declaration is allowed")
   }
@@ -418,10 +421,9 @@ export const validateOptions = <Fields extends TableFieldMap>(
     throw new Error(`Table '${tableName}' options require an array`)
   }
   const tableOptions = options as readonly TableOptionSpec[]
-  const knownColumns = new Set(Object.keys(fields))
   for (const option of tableOptions) {
     if (typeof option !== "object" || option === null || !("kind" in option)) {
-      throw new Error(`Table '${tableName}' options require option metadata objects`)
+      continue
     }
     switch (option.kind) {
       case "index":

@@ -543,6 +543,18 @@ describe("table definitions", () => {
     )
   })
 
+  test("table definitions trust malformed option entries without runtime validation", () => {
+    const users = StdRoot.Table.make("malformed_option_entry_users", {
+      id: StdRoot.Column.uuid()
+    }).pipe(
+      StdRoot.Table.option(unsafeAny(null))
+    )
+
+    expect(users[StdRoot.Table.OptionsSymbol]).toEqual(
+      expect.arrayContaining([null])
+    )
+  })
+
   test("table definitions trust malformed check option metadata without runtime validation", () => {
     const users = StdRoot.Table.make("malformed_check_option_users", {
       id: StdRoot.Column.uuid()
