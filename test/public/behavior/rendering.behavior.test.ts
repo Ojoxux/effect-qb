@@ -130,6 +130,34 @@ describe("rendering behavior", () => {
     expect(Sqlite.Renderer.make().render(delete_).sql).toBe('delete from "users" where ("users"."id" = ?)')
   })
 
+  test("standard renderer rejects mutation returning projections", () => {
+    const users = Standard.Table.make("users", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey),
+      email: Standard.Column.text()
+    })
+    const id = "11111111-1111-1111-1111-111111111111"
+    const plans = [
+      Standard.Query.returning({ id: users.id })(Standard.Query.insert(users, {
+        id,
+        email: "alice@example.com"
+      })),
+      Standard.Query.returning({ id: users.id })(Standard.Query.where(Standard.Query.eq(users.id, id))(
+        Standard.Query.update(users, {
+          email: "updated@example.com"
+        })
+      )),
+      Standard.Query.returning({ id: users.id })(Standard.Query.where(Standard.Query.eq(users.id, id))(
+        Standard.Query.delete(users)
+      ))
+    ]
+
+    for (const plan of plans) {
+      expect(() => Standard.Renderer.make().render(plan)).toThrow(
+        "Unsupported standard returning"
+      )
+    }
+  })
+
   test("standard renderer rejects regular-expression predicates", () => {
     const users = Standard.Table.make("users", {
       email: Standard.Column.text()

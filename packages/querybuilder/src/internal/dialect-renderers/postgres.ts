@@ -1378,6 +1378,15 @@ const assertNoStatementQueryClauses = (
   }
 }
 
+const assertSupportedMutationReturning = (
+  dialect: SqlDialect,
+  selection: Record<string, unknown>
+): void => {
+  if (dialect.name === "standard" && Object.keys(selection).length > 0) {
+    throw new Error("Unsupported standard returning")
+  }
+}
+
 const validateDistinctOnOrdering = (
   distinctOn: readonly Expression.Any[] | undefined,
   orderBy: readonly QueryAst.OrderByClause[]
@@ -1579,6 +1588,7 @@ export const renderQueryAst = (
           sql += ` on duplicate key update ${updateValues}`
         }
       }
+      assertSupportedMutationReturning(dialect, insertAst.select as Record<string, unknown>)
       const returning = renderSelectionList(insertAst.select as Record<string, unknown>, state, dialect, false)
       projections = returning.projections
       if (returning.sql.length > 0) {
@@ -1651,6 +1661,7 @@ export const renderQueryAst = (
       if (dialect.name === "mysql" && updateAst.limit) {
         sql += ` limit ${renderExpression(updateAst.limit, state, dialect)}`
       }
+      assertSupportedMutationReturning(dialect, updateAst.select as Record<string, unknown>)
       const returning = renderSelectionList(updateAst.select as Record<string, unknown>, state, dialect, false)
       projections = returning.projections
       if (returning.sql.length > 0) {
@@ -1713,6 +1724,7 @@ export const renderQueryAst = (
       if (dialect.name === "mysql" && deleteAst.limit) {
         sql += ` limit ${renderExpression(deleteAst.limit, state, dialect)}`
       }
+      assertSupportedMutationReturning(dialect, deleteAst.select as Record<string, unknown>)
       const returning = renderSelectionList(deleteAst.select as Record<string, unknown>, state, dialect, false)
       projections = returning.projections
       if (returning.sql.length > 0) {
