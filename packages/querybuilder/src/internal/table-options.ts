@@ -514,9 +514,6 @@ export const validateOptions = <Fields extends TableFieldMap>(
               throw new Error(`Unknown included column '${column}' on table '${tableName}'`)
             }
           }
-          if (option.keys !== undefined && !Array.isArray(option.keys)) {
-            throw new Error(`Index on table '${tableName}' requires keys to be an array`)
-          }
           const keys = option.keys ?? []
           for (const key of keys) {
             if (typeof key !== "object" || key === null || !("kind" in key)) {

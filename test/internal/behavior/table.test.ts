@@ -267,6 +267,17 @@ describe("table definitions", () => {
       kind: "index",
       columns: []
     })
+
+    const nullKeysIndexUsers = StdRoot.Table.make("null_keys_index_users", {
+      id: StdRoot.Column.uuid()
+    }).pipe(
+      StdRoot.Table.option(unsafeAny({ kind: "index", keys: null }))
+    )
+    const nullKeysIndex = nullKeysIndexUsers[StdRoot.Table.OptionsSymbol].find((option) => option.kind === "index")
+    expect(nullKeysIndex).toMatchObject({
+      kind: "index",
+      keys: null
+    })
   })
 
   test("class tables trust type-level primary-key option constraints without runtime validation", () => {
