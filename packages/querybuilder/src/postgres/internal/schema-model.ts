@@ -138,6 +138,8 @@ const mapOption = (
         predicate: option.predicate === undefined ? undefined : mapDdlExpression(option.predicate, expressionState),
         keys: option.keys === undefined
           ? undefined
+          : option.keys.length === 0
+            ? option.keys
           : [
               mapIndexKey(option.keys[0], casing, expressionState),
               ...option.keys.slice(1).map((key) => mapIndexKey(key, casing, expressionState))
