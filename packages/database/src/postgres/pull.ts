@@ -1301,6 +1301,13 @@ const normalizedIndexKeys = (
   return []
 }
 
+const normalizedIndexInclude = (
+  option: Extract<TableOptionSpec, { readonly kind: "index" }>
+): readonly string[] =>
+  Array.isArray(option.include)
+    ? option.include.filter((column): column is string => typeof column === "string")
+    : []
+
 const indexShapeSignature = (option: Extract<TableOptionSpec, { readonly kind: "index" }>): string => {
   const keys = normalizedIndexKeys(option)
   return JSON.stringify({
@@ -1687,11 +1694,12 @@ const renderIndexOption = (
   context: RenderContext
 ): string => {
   const normalizedKeys = normalizedIndexKeys(option)
+  const includeColumns = normalizedIndexInclude(option)
   const simple =
     option.name === undefined &&
     option.unique === undefined &&
     option.method === undefined &&
-    option.include === undefined &&
+    includeColumns.length === 0 &&
     option.predicate === undefined &&
     option.keys === undefined &&
     Array.isArray(option.columns)
@@ -1714,8 +1722,8 @@ const renderIndexOption = (
   if (option.method) {
     parts.push(`method: ${renderStringLiteral(option.method)}`)
   }
-  if (option.include && option.include.length > 0) {
-    parts.push(`include: [${option.include.map(renderStringLiteral).join(", ")}]`)
+  if (includeColumns.length > 0) {
+    parts.push(`include: [${includeColumns.map(renderStringLiteral).join(", ")}]`)
   }
   if (option.predicate) {
     parts.push(`predicate: ${renderTableScopedDdlExpressionCode(table, renderDdlExpressionSql(option.predicate), context)}`)
@@ -1859,7 +1867,7 @@ const renderInlineColumnOption = (
       const simple =
         option.name === undefined &&
         option.method === undefined &&
-        (option.include === undefined || option.include.length === 0) &&
+        normalizedIndexInclude(option).length === 0 &&
         option.predicate === undefined &&
         inlineColumn.order === undefined &&
         inlineColumn.nulls === undefined &&
@@ -1875,8 +1883,9 @@ const renderInlineColumnOption = (
       if (option.method !== undefined) {
         parts.push(`method: ${renderStringLiteral(option.method)}`)
       }
-      if (option.include !== undefined && option.include.length > 0) {
-        parts.push(`include: [${option.include.map(renderStringLiteral).join(", ")}]`)
+      const includeColumns = normalizedIndexInclude(option)
+      if (includeColumns.length > 0) {
+        parts.push(`include: [${includeColumns.map(renderStringLiteral).join(", ")}]`)
       }
       if (inlineColumn.order !== undefined) {
         parts.push(`order: ${renderStringLiteral(inlineColumn.order)}`)
