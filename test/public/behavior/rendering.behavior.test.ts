@@ -732,6 +732,34 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("rejects grouped function calls without a function name before rendering SQL", () => {
+    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
+    const users = Standard.Table.make("users", {
+      email: Standard.Column.text()
+    })
+    const value = Standard.Function.call("lower", users.email)
+    const plan = Standard.Query.select({
+      value
+    }).pipe(
+      Standard.Query.from(users),
+      Standard.Query.groupBy(value)
+    )
+    ;(value as any)[expressionAst].name = undefined
+
+    expect(() => Standard.Renderer.make().render(plan)).toThrow(
+      "function calls require a non-empty function name"
+    )
+    expect(() => Renderer.make().render(plan)).toThrow(
+      "function calls require a non-empty function name"
+    )
+    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
+      "function calls require a non-empty function name"
+    )
+    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
+      "function calls require a non-empty function name"
+    )
+  })
+
   test("rejects function calls without an argument array before rendering SQL", () => {
     const expressionAst = Symbol.for("effect-qb/ExpressionAst")
     const value = Standard.Function.call("lower", Standard.Query.literal("ALICE"))

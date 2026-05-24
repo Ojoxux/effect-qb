@@ -95,6 +95,13 @@ const escapeGroupingText = (value: string): string =>
     .replace(/=/g, "\\=")
     .replace(/>/g, "\\>")
 
+const functionCallNameGroupingKey = (name: unknown): string => {
+  if (typeof name !== "string" || name.trim().length === 0) {
+    throw new Error("function calls require a non-empty function name")
+  }
+  return escapeGroupingText(name)
+}
+
 const collationGroupingKey = (collation: unknown): string => {
   if (!Array.isArray(collation) || collation.length === 0 || collation.some((segment) => typeof segment !== "string" || segment.length === 0)) {
     throw new Error("collate(...) requires at least one collation identifier")
@@ -165,7 +172,7 @@ export const groupingKeyOfExpression = (expression: Expression.Any): string => {
     case "collate":
       return `collate(${requiredExpressionGroupingKey("collate", ast.value)},${collationGroupingKey(ast.collation)})`
     case "function":
-      return `function(${escapeGroupingText(ast.name)},${functionCallArgsGroupingKey(ast.args)})`
+      return `function(${functionCallNameGroupingKey(ast.name)},${functionCallArgsGroupingKey(ast.args)})`
     case "isNull":
     case "isNotNull":
     case "not":
