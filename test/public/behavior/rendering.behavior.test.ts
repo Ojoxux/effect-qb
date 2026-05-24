@@ -91,6 +91,43 @@ describe("rendering behavior", () => {
     )
   })
 
+  test("standard insert, update, and delete render across built-in SQL renderers", () => {
+    const users = Standard.Table.make("users", {
+      id: Standard.Column.uuid().pipe(Standard.Column.primaryKey),
+      email: Standard.Column.text(),
+      bio: Standard.Column.text().pipe(Standard.Column.nullable)
+    })
+    const id = "11111111-1111-1111-1111-111111111111"
+    const insert = Standard.Query.insert(users, {
+      id,
+      email: "alice@example.com",
+      bio: null
+    })
+    const update = Standard.Query.update(users, {
+      email: "updated@example.com"
+    }).pipe(
+      Standard.Query.where(Standard.Query.eq(users.id, id))
+    )
+    const delete_ = Standard.Query.delete(users).pipe(
+      Standard.Query.where(Standard.Query.eq(users.id, id))
+    )
+
+    expect(Standard.Renderer.make().render(insert).sql).toBe('insert into "users" ("id", "email", "bio") values (?, ?, null)')
+    expect(Renderer.make().render(insert).sql).toBe('insert into "users" ("id", "email", "bio") values ($1, $2, null)')
+    expect(Mysql.Renderer.make().render(insert).sql).toBe("insert into `users` (`id`, `email`, `bio`) values (?, ?, null)")
+    expect(Sqlite.Renderer.make().render(insert).sql).toBe('insert into "users" ("id", "email", "bio") values (?, ?, null)')
+
+    expect(Standard.Renderer.make().render(update).sql).toBe('update "users" set "email" = ? where ("users"."id" = ?)')
+    expect(Renderer.make().render(update).sql).toBe('update "users" set "email" = $1 where ("users"."id" = $2)')
+    expect(Mysql.Renderer.make().render(update).sql).toBe("update `users` set `email` = ? where (`users`.`id` = ?)")
+    expect(Sqlite.Renderer.make().render(update).sql).toBe('update "users" set "email" = ? where ("users"."id" = ?)')
+
+    expect(Standard.Renderer.make().render(delete_).sql).toBe('delete from "users" where ("users"."id" = ?)')
+    expect(Renderer.make().render(delete_).sql).toBe('delete from "users" where ("users"."id" = $1)')
+    expect(Mysql.Renderer.make().render(delete_).sql).toBe("delete from `users` where (`users`.`id` = ?)")
+    expect(Sqlite.Renderer.make().render(delete_).sql).toBe('delete from "users" where ("users"."id" = ?)')
+  })
+
   test("postgres renders clause combinations with stable parameter ordering", () => {
     const { users, posts } = makeRootSocialGraph()
 
