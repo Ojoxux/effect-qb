@@ -125,8 +125,8 @@ bun install
 
 Available entrypoints:
 
+- `effect-qb`
 - `effect-qb/postgres`
-- `effect-qb/standard`
 - `effect-qb/mysql`
 - `effect-qb/sqlite`
 
@@ -134,7 +134,7 @@ Use `effect-qb/postgres` when you want explicit Postgres branding throughout the
 
 That entrypoint also exposes `Postgres.Function` for typed SQL functions and JSON helpers.
 
-Use `effect-qb/standard` when a query should remain portable across the built-in engines. Plans built entirely from `Std.*` carry the `"standard"` dialect tag and can be rendered by the standard, Postgres, MySQL, or SQLite renderers.
+Use `effect-qb` when a query should remain portable across the built-in engines. Plans built entirely from `Std.*` carry the `"standard"` dialect tag and can be rendered by the standard, Postgres, MySQL, or SQLite renderers. `effect-qb/standard` remains available as an explicit portable subpath.
 
 Use `effect-qb/mysql` when you want the MySQL-specific DSL, renderer, executor, datatypes, and errors. It also exposes `Mysql.Function` for typed SQL functions and JSON helpers.
 
@@ -143,7 +143,7 @@ Use `effect-qb/sqlite` when you want the SQLite-specific DSL, renderer, executor
 ## Writing Portable Queries
 
 ```ts
-import * as Std from "effect-qb/standard"
+import * as Std from "effect-qb"
 
 const users = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),

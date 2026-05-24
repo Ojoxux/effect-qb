@@ -3,7 +3,7 @@
 // Code fences: 145-159
 
 // README.md:145-159
-import * as Std from "effect-qb/standard"
+import * as Std from "effect-qb"
 
 const users = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),

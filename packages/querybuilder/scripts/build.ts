@@ -21,6 +21,7 @@ const main = async () => {
     "external",
     "--root",
     "src",
+    "src/index.ts",
     "src/standard.ts",
     "src/postgres.ts",
     "src/postgres/metadata.ts",

@@ -1,9 +1,9 @@
 # Standard SQL Namespace
 
-`effect-qb/standard` is for query plans that should stay portable across the built-in SQL engines.
+`effect-qb` is the default import path for query plans that should stay portable across the built-in SQL engines. `effect-qb/standard` remains available as an explicit portable subpath.
 
 ```ts
-import * as Std from "effect-qb/standard"
+import * as Std from "effect-qb"
 
 const users = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),
