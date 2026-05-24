@@ -52,6 +52,16 @@ Pg.Table.primaryKey({ columns: ["id"] as const, name: "" })
 Pg.Table.unique({ columns: ["role"] as const, name: "" })
 // @ts-expect-error postgres index option names must be non-empty
 Pg.Table.index({ columns: ["role"] as const, name: "" })
+// @ts-expect-error postgres index methods must be non-empty
+Pg.Table.index({ columns: ["role"] as const, method: "" })
+// @ts-expect-error postgres index included columns must be non-empty
+Pg.Table.index({ columns: ["role"] as const, include: [""] as const })
+// @ts-expect-error postgres index key columns must be non-empty
+Pg.Table.index({ keys: [{ column: "" }] as const })
+// @ts-expect-error postgres index operator classes must be non-empty
+Pg.Table.index({ keys: [{ column: "role", operatorClass: "" }] as const })
+// @ts-expect-error postgres index collations must be non-empty
+Pg.Table.index({ keys: [{ column: "role", collation: "" }] as const })
 // @ts-expect-error postgres foreign key option names must be non-empty
 Pg.Table.foreignKey({ columns: "orgId", target: () => orgs, referencedColumns: "id", name: "" })
 // @ts-expect-error postgres check constraint names must be non-empty

@@ -338,6 +338,44 @@ type NonEmptyOptionNameInput<Spec> = Spec extends { readonly name: infer Name ex
   ? BaseTable.NonEmptyStringInput<Name> extends never ? never : unknown
   : unknown
 
+type NonEmptyStringArrayInput<Values extends readonly string[]> =
+  [Extract<Values[number], "">] extends [never] ? unknown : never
+
+type NonEmptyIndexMethodInput<Spec> = Spec extends { readonly method: infer Method extends string }
+  ? BaseTable.NonEmptyStringInput<Method> extends never ? never : unknown
+  : unknown
+
+type NonEmptyIndexIncludeInput<Spec> = Spec extends { readonly include: infer Include extends readonly string[] }
+  ? NonEmptyStringArrayInput<Include>
+  : unknown
+
+type EmptyIndexKeyColumn<Key> = Key extends { readonly column: infer Column extends string }
+  ? BaseTable.NonEmptyStringInput<Column> extends never ? Key : never
+  : never
+
+type EmptyIndexKeyOperatorClass<Key> = Key extends { readonly operatorClass: infer OperatorClass extends string }
+  ? BaseTable.NonEmptyStringInput<OperatorClass> extends never ? Key : never
+  : never
+
+type EmptyIndexKeyCollation<Key> = Key extends { readonly collation: infer Collation extends string }
+  ? BaseTable.NonEmptyStringInput<Collation> extends never ? Key : never
+  : never
+
+type InvalidIndexKeyMetadata<Key> =
+  | EmptyIndexKeyColumn<Key>
+  | EmptyIndexKeyOperatorClass<Key>
+  | EmptyIndexKeyCollation<Key>
+
+type NonEmptyIndexKeysInput<Spec> = Spec extends { readonly keys: infer Keys extends readonly RichIndexKeyInput[] }
+  ? [InvalidIndexKeyMetadata<Keys[number]>] extends [never] ? unknown : never
+  : unknown
+
+type NonEmptyIndexMetadataInput<Spec> =
+  & NonEmptyOptionNameInput<Spec>
+  & NonEmptyIndexMethodInput<Spec>
+  & NonEmptyIndexIncludeInput<Spec>
+  & NonEmptyIndexKeysInput<Spec>
+
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 
@@ -441,10 +479,10 @@ export const index: {
   <Table extends SchemaTable, const Columns extends string | readonly string[], const Spec extends Omit<RichIndexInput<Columns>, "predicate"> & {
       readonly predicate: TableExpressionFactory<Table>
   }>(
-    spec: Spec & RichIndexColumnsConstraint<Spec> & NonEmptyOptionNameInput<Spec>
+    spec: Spec & RichIndexColumnsConstraint<Spec> & NonEmptyIndexMetadataInput<Spec>
   ): TableScopedOptionBuilder<Table, RichIndexOptionSpec<Spec>>
   <const Columns extends string | readonly string[], const Spec extends RichIndexInput<Columns>>(
-    spec: Spec & RichIndexColumnsConstraint<Spec> & NonEmptyOptionNameInput<Spec>
+    spec: Spec & RichIndexColumnsConstraint<Spec> & NonEmptyIndexMetadataInput<Spec>
   ): BaseTable.TableOption<RichIndexOptionSpec<Spec>>
 } = ((input: unknown) =>
   isObject(input) && ("columns" in input || "keys" in input || "name" in input || "unique" in input || "method" in input || "include" in input || "predicate" in input)
