@@ -310,6 +310,9 @@ const renderCreateTableSql = (
   ifNotExists: unknown
 ): string => {
   const normalizedIfNotExists = normalizeStatementFlag(ifNotExists)
+  if (dialect.name !== "postgres" && normalizedIfNotExists) {
+    throw new Error(`Unsupported ${dialect.name} create table options`)
+  }
   const table = targetSource.source as Table.AnyTable
   const tableCasing = casingForTable(table, state)
   const fields = table[Table.TypeId].fields
@@ -1803,6 +1806,9 @@ export const renderQueryAst = (
       assertNoStatementQueryClauses(dropTableAst, "dropTable")
       const ddl = expectDdlClauseKind(dropTableAst.ddl, "dropTable")
       const ifExists = normalizeStatementFlag(ddl.ifExists)
+      if (dialect.name !== "postgres" && ifExists) {
+        throw new Error(`Unsupported ${dialect.name} drop table options`)
+      }
       sql = `drop table${ifExists ? " if exists" : ""} ${renderSourceReference(dropTableAst.target!.source, dropTableAst.target!.tableName, dropTableAst.target!.baseTableName, state, dialect)}`
       break
     }

@@ -111,6 +111,20 @@ describe("ddl rendering behavior", () => {
     ).toThrow("Unsupported standard drop index options")
   })
 
+  test("standard table DDL rejects unsupported existence modifiers", () => {
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      email: StdRoot.Column.text()
+    })
+
+    expect(() =>
+      Standard.Renderer.make().render(Standard.Query.createTable(users, { ifNotExists: true }))
+    ).toThrow("Unsupported standard create table options")
+    expect(() =>
+      Standard.Renderer.make().render(Standard.Query.dropTable(users, { ifExists: true }))
+    ).toThrow("Unsupported standard drop table options")
+  })
+
   test("generated column expressions use table-level casing", () => {
     const users = StdRoot.Table.make("UserAccounts", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
