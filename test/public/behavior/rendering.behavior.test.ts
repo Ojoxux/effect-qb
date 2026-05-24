@@ -1600,6 +1600,20 @@ describe("rendering behavior", () => {
     }))).toThrow("Expected a valid Date value")
   })
 
+  test("rejects invalid Date predicates before deriving predicate facts", () => {
+    const users = Table.make("users", {
+      id: C.uuid().pipe(C.primaryKey),
+      createdAt: C.timestamp()
+    })
+
+    expect(() => {
+      Q.select({ id: users.id }).pipe(
+        Q.from(users),
+        Q.where(Q.eq(users.createdAt, new Date("not a date")))
+      )
+    }).toThrow("Expected a valid Date value")
+  })
+
   test("rejects grouped invalid Date literals before rendering SQL", () => {
     expect(() => {
       const value = Q.literal(new Date("not a date"))

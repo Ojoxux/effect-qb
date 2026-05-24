@@ -474,6 +474,9 @@ const valueKeyOfLiteral = (value: unknown): string => {
     return "null"
   }
   if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      throw new Error("Expected a valid Date value")
+    }
     return `date:${value.toISOString()}`
   }
   return "unknown"
