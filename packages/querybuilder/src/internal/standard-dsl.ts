@@ -10,6 +10,7 @@ import type {
   CollationIdentifierInput,
   LiteralStringInput,
   NonEmptyStringInput,
+  SafeSqlIdentifierInput,
   SafeSqlIdentifierPathInput
 } from "./table-options.js"
 import type { CastTargetError, OperandCompatibilityError } from "./coercion/errors.js"
@@ -810,6 +811,35 @@ type DialectExpressionArray<
 > = DialectExpressionTuple<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb> extends infer Tuple extends readonly Expression.Any[]
   ? Tuple
   : never
+
+type ExtractFunctionFieldInput<
+  Value extends ExpressionInput
+> = Value extends string
+  ? SafeSqlIdentifierInput<Value>
+  : Value extends { readonly [ExpressionAst.TypeId]: ExpressionAst.LiteralNode<infer Field extends string> }
+    ? SafeSqlIdentifierInput<Field> extends never ? never : Value
+  : never
+
+type GenericFunctionNameInput<Name extends string> =
+  Name extends "current_date" | "extract" ? never : SafeSqlIdentifierPathInput<Name>
+
+type FunctionCallApi = {
+  (name: "current_date"): Expression.Any
+  <Field extends string, Source extends ExpressionInput>(
+    name: "extract",
+    field: SafeSqlIdentifierInput<Field>,
+    source: Source
+  ): Expression.Any
+  <Field extends Expression.Any, Source extends ExpressionInput>(
+    name: "extract",
+    field: Field & ExtractFunctionFieldInput<Field>,
+    source: Source
+  ): Expression.Any
+  <Name extends string, Args extends readonly ExpressionInput[]>(
+    name: GenericFunctionNameInput<Name>,
+    ...args: Args
+  ): Expression.Any
+}
 
 /** Normalized expression tuple for generic string operator inputs. */
 type DialectStringExpressionTuple<
@@ -3808,12 +3838,9 @@ type BinaryPredicateExpression<
     >
   }
 
-  const call = <
-    Name extends string,
-    Args extends readonly ExpressionInput[]
-  >(
-    name: SafeSqlIdentifierPathInput<Name>,
-    ...args: Args
+  const call: FunctionCallApi = (
+    name: string,
+    ...args: readonly ExpressionInput[]
   ): Expression.Any => {
     const expressions = args.map((value) => toDialectExpression(value)) as readonly Expression.Any[]
     return makeExpression({

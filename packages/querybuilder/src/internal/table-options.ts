@@ -240,6 +240,11 @@ export type SafeSqlIdentifierPathInput<Value extends string> =
         : SafeSqlIdentifierPathInput<Tail> extends never ? never : Value
       : SafeSqlIdentifier<Value> extends never ? never : Value
 
+export type SafeSqlIdentifierInput<Value extends string> =
+  string extends Value
+    ? never
+    : SafeSqlIdentifier<Value> extends never ? never : Value
+
 type LiteralStringTupleInput<Values extends readonly string[]> = {
   readonly [K in keyof Values]: Values[K] extends string ? LiteralStringInput<Values[K]> : never
 } & Values

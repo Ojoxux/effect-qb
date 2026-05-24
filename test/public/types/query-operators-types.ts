@@ -85,6 +85,21 @@ F.call("", users.email)
 F.call("lower); drop table users; --", users.email)
 // dotted function names are supported when every segment is safe
 F.call("pg_catalog.lower", users.email)
+// @ts-expect-error standard current_date calls do not accept arguments
+Std.Function.call("current_date", users.email)
+// @ts-expect-error postgres current_date calls do not accept arguments
+Postgres.Function.call("current_date", users.email)
+// @ts-expect-error mysql current_date calls do not accept arguments
+Mysql.Function.call("current_date", users.email)
+// @ts-expect-error sqlite current_date calls do not accept arguments
+Sqlite.Function.call("current_date", users.email)
+// @ts-expect-error extract calls require field and source arguments
+F.call("extract", Q.literal("year"))
+// @ts-expect-error extract calls require exactly field and source arguments
+F.call("extract", Q.literal("year"), Q.literal(new Date("2024-01-02T03:04:05.000Z")), Q.literal(1))
+// @ts-expect-error extract fields must be safe SQL identifiers
+F.call("extract", Q.literal("year from now()); drop table users; --"), Q.literal(new Date("2024-01-02T03:04:05.000Z")))
+F.call("extract", Q.literal("year"), Q.literal(new Date("2024-01-02T03:04:05.000Z")))
 
 declare const dynamicCollation: string
 // @ts-expect-error standard collation identifiers must be literal strings

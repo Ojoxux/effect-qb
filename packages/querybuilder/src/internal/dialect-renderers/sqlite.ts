@@ -769,11 +769,6 @@ const renderJsonOpaquePath = (
   throw new Error("Unsupported SQL/JSON path input")
 }
 
-const safeIdentifierPattern = /^[A-Za-z_][A-Za-z0-9_]*$/
-
-const isSafeSqlIdentifier = (value: string): boolean =>
-  safeIdentifierPattern.test(value)
-
 const renderFunctionName = (name: unknown): string => {
   return name as string
 }
@@ -781,11 +776,8 @@ const renderFunctionName = (name: unknown): string => {
 const renderExtractField = (field: Expression.Any): string => {
   const ast = (field as Expression.Any & {
     readonly [ExpressionAst.TypeId]: ExpressionAst.Any
-  })[ExpressionAst.TypeId]
-  if (ast.kind === "literal" && typeof ast.value === "string" && isSafeSqlIdentifier(ast.value)) {
-    return ast.value
-  }
-  throw new Error("extract(...) field must be a safe SQL identifier")
+  })[ExpressionAst.TypeId] as ExpressionAst.LiteralNode<string>
+  return ast.value
 }
 
 const renderFunctionCall = (
@@ -798,12 +790,6 @@ const renderFunctionCall = (
   const functionArgs = args as readonly Expression.Any[]
   if (functionName === "array") {
     return `ARRAY[${functionArgs.map((arg) => renderExpression(arg, state, dialect)).join(", ")}]`
-  }
-  if (functionName === "current_date" && functionArgs.length > 0) {
-    throw new Error("current_date does not accept arguments")
-  }
-  if (functionName === "extract" && functionArgs.length !== 2) {
-    throw new Error("extract(...) requires exactly field and source arguments")
   }
   if (functionName === "extract") {
     const field = functionArgs[0]!

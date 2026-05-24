@@ -441,48 +441,6 @@ describe("rendering behavior", () => {
     )
   })
 
-  test("rejects current date function arguments before rendering SQL", () => {
-    const expressionAst = Symbol.for("effect-qb/ExpressionAst")
-    const today = Standard.Function.currentDate()
-    ;(today as any)[expressionAst].args = [Standard.Query.literal(1)]
-    const plan = Standard.Query.select({
-      today
-    })
-
-    expect(() => Standard.Renderer.make().render(plan)).toThrow(
-      "current_date does not accept arguments"
-    )
-    expect(() => Renderer.make().render(plan)).toThrow(
-      "current_date does not accept arguments"
-    )
-    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
-      "current_date does not accept arguments"
-    )
-    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
-      "current_date does not accept arguments"
-    )
-  })
-
-  test("rejects extract function calls with the wrong arity before rendering SQL", () => {
-    const extracted = Standard.Function.call("extract", Standard.Query.literal("year"))
-    const plan = Standard.Query.select({
-      extracted
-    })
-
-    expect(() => Standard.Renderer.make().render(plan)).toThrow(
-      "extract(...) requires exactly field and source arguments"
-    )
-    expect(() => Renderer.make().render(plan)).toThrow(
-      "extract(...) requires exactly field and source arguments"
-    )
-    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
-      "extract(...) requires exactly field and source arguments"
-    )
-    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
-      "extract(...) requires exactly field and source arguments"
-    )
-  })
-
   test("renders safe extract fields as SQL field syntax", () => {
     const timestamp = new Date("2024-01-02T03:04:05.000Z")
     const extracted = Standard.Function.call(
@@ -510,30 +468,6 @@ describe("rendering behavior", () => {
       sql: 'select extract(year from ?) as "extracted"',
       params: [timestamp]
     })
-  })
-
-  test("rejects unsafe extract fields before rendering SQL", () => {
-    const extracted = Standard.Function.call(
-      "extract",
-      Standard.Query.literal("year from now()); drop table users; --"),
-      Standard.Query.literal(new Date("2024-01-02T03:04:05.000Z"))
-    )
-    const plan = Standard.Query.select({
-      extracted
-    })
-
-    expect(() => Standard.Renderer.make().render(plan)).toThrow(
-      "extract(...) field must be a safe SQL identifier"
-    )
-    expect(() => Renderer.make().render(plan)).toThrow(
-      "extract(...) field must be a safe SQL identifier"
-    )
-    expect(() => Mysql.Renderer.make().render(plan)).toThrow(
-      "extract(...) field must be a safe SQL identifier"
-    )
-    expect(() => Sqlite.Renderer.make().render(plan)).toThrow(
-      "extract(...) field must be a safe SQL identifier"
-    )
   })
 
   test("rejects json key predicates without string keys before rendering SQL", () => {
