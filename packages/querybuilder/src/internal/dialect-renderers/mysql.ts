@@ -331,7 +331,9 @@ const renderCreateTableSql = (
         if (option.deferrable || option.initiallyDeferred) {
           throw new Error("Unsupported mysql foreign key constraint options")
         }
-        const reference = option.references()
+        const reference = typeof option.references === "function"
+          ? option.references()
+          : option.references
         definitions.push(
           `${option.name ? `constraint ${dialect.quoteIdentifier(Casing.applyCategory(tableCasing, "constraints", option.name))} ` : ""}foreign key (${option.columns.map((column) => quoteColumn(column, state, dialect, targetSource.tableName)).join(", ")}) references ${renderReferenceTable(reference, state, dialect)} (${reference.columns.map((column) => quoteReferenceColumn(column, reference, state, dialect)).join(", ")})${option.onDelete !== undefined ? ` on delete ${renderReferentialAction(option.onDelete)}` : ""}${option.onUpdate !== undefined ? ` on update ${renderReferentialAction(option.onUpdate)}` : ""}${option.deferrable ? ` deferrable${option.initiallyDeferred ? " initially deferred" : ""}` : ""}`
         )

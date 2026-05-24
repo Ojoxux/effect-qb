@@ -501,6 +501,35 @@ describe("ddl rendering behavior", () => {
     ).toThrow("Foreign key on table 'users' requires referenced columns to be an array")
   })
 
+  test("foreign key renderers accept direct reference payload metadata", () => {
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      orgId: StdRoot.Column.uuid()
+    })
+    ;(users as any)[StdRoot.Table.OptionsSymbol] = [
+      ...(users as any)[StdRoot.Table.OptionsSymbol],
+      {
+        kind: "foreignKey",
+        columns: ["orgId"],
+        references: {
+          tableName: "orgs",
+          columns: ["id"],
+          knownColumns: ["id"]
+        }
+      }
+    ]
+
+    expect(Postgres.Renderer.make().render(Postgres.Query.createTable(users)).sql).toContain(
+      'references "orgs" ("id")'
+    )
+    expect(Mysql.Renderer.make().render(Mysql.Query.createTable(users)).sql).toContain(
+      "references `orgs` (`id`)"
+    )
+    expect(Sqlite.Renderer.make().render(Sqlite.Query.createTable(users)).sql).toContain(
+      'references "orgs" ("id")'
+    )
+  })
+
   test("rejects malformed check constraints before rendering DDL", () => {
     const postgresUsers = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
