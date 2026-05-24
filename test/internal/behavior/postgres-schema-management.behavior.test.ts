@@ -281,6 +281,18 @@ describe("postgres schema management", () => {
         { kind: "column", column: {} }
       ]
     })
+
+    ;(users as any)[StdRoot.Table.OptionsSymbol] = [{
+      kind: "index",
+      keys: {}
+    }]
+
+    const malformedObjectModel = toTableModel(users as unknown as Parameters<typeof toTableModel>[0])
+    const malformedObjectIndex = malformedObjectModel.options.find((option) => option.kind === "index")
+    expect(malformedObjectIndex).toMatchObject({
+      kind: "index",
+      keys: {}
+    })
   })
 
   test("source table models preserve empty index key arrays without runtime validation", () => {

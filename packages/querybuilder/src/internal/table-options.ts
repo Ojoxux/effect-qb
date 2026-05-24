@@ -419,7 +419,7 @@ export const validateOptions = <Fields extends TableFieldMap>(
       case "unique":
       case "foreignKey": {
         if (option.kind === "index") {
-          const keys = option.keys ?? []
+          const keys = Array.isArray(option.keys) ? option.keys : []
           for (const key of keys) {
             if (typeof key !== "object" || key === null || !("kind" in key)) {
               continue

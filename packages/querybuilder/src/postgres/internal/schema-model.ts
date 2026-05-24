@@ -169,12 +169,14 @@ const mapOption = (
             : option.predicate,
         keys: option.keys === undefined
           ? undefined
-          : option.keys.length === 0
-            ? option.keys
-          : [
-              mapIndexKey(option.keys[0], casing, expressionState),
-              ...option.keys.slice(1).map((key) => mapIndexKey(key, casing, expressionState))
-            ]
+          : Array.isArray(option.keys)
+            ? option.keys.length === 0
+              ? option.keys
+              : [
+                  mapIndexKey(option.keys[0], casing, expressionState),
+                  ...option.keys.slice(1).map((key) => mapIndexKey(key, casing, expressionState))
+                ]
+            : option.keys
       }
     case "primaryKey":
       return {
