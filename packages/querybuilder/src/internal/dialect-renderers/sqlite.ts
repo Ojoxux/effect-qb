@@ -985,11 +985,12 @@ const selectionProjections = (selection: Record<string, unknown>): readonly Proj
 const renderMutationAssignment = (
   entry: QueryAst.AssignmentClause,
   state: RenderState,
-  dialect: SqlDialect
+  dialect: SqlDialect,
+  targetTableName?: string
 ): string => {
   const column = entry.tableName && dialect.name === "sqlite"
     ? `${dialect.quoteIdentifier(casedTableReferenceName(entry.tableName, state))}.${quoteColumn(entry.columnName, state, dialect, entry.tableName)}`
-    : quoteColumn(entry.columnName, state, dialect)
+    : quoteColumn(entry.columnName, state, dialect, targetTableName)
   return `${column} = ${renderExpression(entry.value, state, dialect)}`
 }
 
@@ -1387,7 +1388,7 @@ export const renderQueryAst = (
         throw new Error("update statements require at least one assignment")
       }
       const assignments = updateAst.set!.map((entry) =>
-        renderMutationAssignment(entry, state, dialect)).join(", ")
+        renderMutationAssignment(entry, state, dialect, targetSource.tableName)).join(", ")
       if (dialect.name === "mysql") {
         const modifiers = ""
         const extraSources = renderFromSources(fromSources, state, dialect)

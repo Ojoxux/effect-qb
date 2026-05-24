@@ -116,6 +116,37 @@ describe("casing rendering behavior", () => {
     )
   })
 
+  test("mutation casing maps update assignment identifiers", () => {
+    const users = StdRoot.Table.make("UserAccounts", {
+      id: Column.uuid().pipe(Column.primaryKey),
+      displayName: Column.text()
+    }).pipe(
+      Casing.withCasing({
+        tables: "snake_case",
+        columns: "snake_case"
+      })
+    )
+
+    const id = "11111111-1111-1111-1111-111111111111"
+    const mysqlPlan = Mysql.Query.update(users, {
+      displayName: "Alice"
+    }).pipe(
+      Mysql.Query.where(Mysql.Query.eq(users.id, id))
+    )
+    const sqlitePlan = Sqlite.Query.update(users, {
+      displayName: "Alice"
+    }).pipe(
+      Sqlite.Query.where(Sqlite.Query.eq(users.id, id))
+    )
+
+    expect(Mysql.Renderer.make().render(mysqlPlan).sql).toBe(
+      "update `user_accounts` set `display_name` = ? where (`user_accounts`.`id` = ?)"
+    )
+    expect(Sqlite.Renderer.make().render(sqlitePlan).sql).toBe(
+      'update "user_accounts" set "display_name" = ? where ("user_accounts"."id" = ?)'
+    )
+  })
+
   test("mysql delete target casing maps joined delete identifiers", () => {
     const users = StdRoot.Table.make("UserAccounts", {
       id: Column.uuid().pipe(Column.primaryKey),
