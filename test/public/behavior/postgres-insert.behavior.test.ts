@@ -395,6 +395,39 @@ describe("postgres insert behavior", () => {
     expect(() => render(invalidTargetPlan)).toThrow("Unsupported conflict target kind")
   })
 
+  test("rejects malformed postgres conflict constraint names before rendering SQL", () => {
+    const queryAst = Symbol.for("effect-qb/QueryAst")
+    const users = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
+      email: StdRoot.Column.text()
+    })
+
+    expect(() => Postgres.Query.onConflict(unsafeAny({
+      constraint: 123
+    }), {
+      update: {
+        email: Postgres.Query.excluded(users.email)
+      }
+    })(Postgres.Query.insert(users, {
+      id: userId,
+      email: "alice@example.com"
+    }))).toThrow("conflict constraint targets require a non-empty string")
+
+    const plan = Postgres.Query.onConflict({
+      constraint: "users_email_key"
+    }, {
+      update: {
+        email: Postgres.Query.excluded(users.email)
+      }
+    })(Postgres.Query.insert(users, {
+      id: userId,
+      email: "alice@example.com"
+    }))
+    ;(plan as any)[queryAst].conflict.target.name = 123
+
+    expect(() => render(plan)).toThrow("conflict constraint targets require a non-empty string")
+  })
+
   test("rejects conflict column targets without column arrays before rendering SQL", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
     const users = StdRoot.Table.make("users", {

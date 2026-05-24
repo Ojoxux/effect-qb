@@ -112,7 +112,7 @@ export const expectConflictClause = <
   Conflict extends {
     readonly kind: string
     readonly action: string
-    readonly target?: { readonly kind: string; readonly columns?: unknown }
+    readonly target?: { readonly kind: string; readonly columns?: unknown; readonly name?: unknown }
   } | undefined
 >(
   conflict: Conflict
@@ -135,6 +135,12 @@ export const expectConflictClause = <
   }
   if (conflict.target?.kind === "columns" && !Array.isArray(conflict.target.columns)) {
     throw new Error("conflict column targets require a column array")
+  }
+  if (
+    conflict.target?.kind === "constraint" &&
+    (typeof conflict.target.name !== "string" || conflict.target.name.length === 0)
+  ) {
+    throw new Error("conflict constraint targets require a non-empty string")
   }
   return conflict
 }
@@ -347,7 +353,11 @@ export const makeDslMutationRuntime = (ctx: DslMutationRuntimeContext) => {
         throw new Error(`onConflict(...) is not supported for ${currentQuery.statement} statements`)
       }
       const insertTarget = currentAst.into!.source
-      const conflictTarget = ctx.buildConflictTarget(insertTarget, target)
+      const conflictTarget = expectConflictClause({
+        kind: "conflict",
+        action: "doNothing",
+        target: ctx.buildConflictTarget(insertTarget, target)
+      }).target
       const updateAssignments = options.update
         ? ctx.buildMutationAssignments(insertTarget, options.update)
         : []
