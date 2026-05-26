@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 426-470
+// Code fences: 426-485
 
-// README.md:426-470
+// README.md:426-485
 import * as Schema from "effect/Schema"
 import { Column, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
@@ -38,12 +38,27 @@ const updateWithId: UserUpdate = {
   id: "550e8400-e29b-41d4-a716-446655440000"
 }
 
+const selectSchema = Table.selectSchema(users)
 const insertSchema = Table.insertSchema(users)
-type UserInsertFromSchema = Schema.Schema.Type<typeof insertSchema>
+const updateSchema = Table.updateSchema(users)
+const parsedInsert = Schema.decodeUnknownSync(insertSchema)({
+  email: "ada@example.com"
+})
+const parsedUpdate = Schema.decodeUnknownSync(updateSchema)({
+  displayName: null
+})
 
+type UserSelectFromSchema = Schema.Schema.Type<typeof selectSchema>
+type UserInsertFromSchema = Schema.Schema.Type<typeof insertSchema>
+type UserUpdateFromSchema = Schema.Schema.Type<typeof updateSchema>
+
+type _UserSelectFromSchema = UserSelectFromSchema
 type _UserInsertFromSchema = UserInsertFromSchema
+type _UserUpdateFromSchema = UserUpdateFromSchema
 void insertUser
 void updateUser
+void parsedInsert
+void parsedUpdate
 void insertWithId
 void updateWithId
 

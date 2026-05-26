@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 940-974
+// Code fences: 996-1030
 
-// README.md:940-974
+// README.md:996-1030
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
@@ -32,7 +32,7 @@ const events = Table.make("events", {
 
 const eventKinds = Query.select({
   id: events.id,
-  kind: Pg.Json.jsonb.text(events.payload, Pg.Json.jsonb.key("kind"))
+  kind: Pg.Jsonb.text(events.payload, Pg.Jsonb.key("kind"))
 }).pipe(Query.from(events))
 
 Pg.Renderer.make().render(eventKinds)

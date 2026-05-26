@@ -184,7 +184,7 @@ dialects is rejected at type level.
 A plan that only uses `effect-qb` root modules has the standard dialect tag.
 Standard plans can render through Postgres, MySQL, and SQLite renderers.
 
-If a plan uses `Pg.Column.jsonb(...)`, `Pg.Json.jsonb.*`, `Pg.Table.index(...)`,
+If a plan uses `Pg.Column.jsonb(...)`, `Pg.Jsonb.*`, `Pg.Table.index(...)`,
 or another Postgres-specific helper, it becomes a Postgres plan. Render and
 execute that plan with the Postgres renderer or executor.
 
@@ -459,12 +459,27 @@ const updateWithId: UserUpdate = {
   id: "550e8400-e29b-41d4-a716-446655440000"
 }
 
+const selectSchema = Table.selectSchema(users)
 const insertSchema = Table.insertSchema(users)
-type UserInsertFromSchema = Schema.Schema.Type<typeof insertSchema>
+const updateSchema = Table.updateSchema(users)
+const parsedInsert = Schema.decodeUnknownSync(insertSchema)({
+  email: "ada@example.com"
+})
+const parsedUpdate = Schema.decodeUnknownSync(updateSchema)({
+  displayName: null
+})
 
+type UserSelectFromSchema = Schema.Schema.Type<typeof selectSchema>
+type UserInsertFromSchema = Schema.Schema.Type<typeof insertSchema>
+type UserUpdateFromSchema = Schema.Schema.Type<typeof updateSchema>
+
+type _UserSelectFromSchema = UserSelectFromSchema
 type _UserInsertFromSchema = UserInsertFromSchema
+type _UserUpdateFromSchema = UserUpdateFromSchema
 void insertUser
 void updateUser
+void parsedInsert
+void parsedUpdate
 void insertWithId
 void updateWithId
 ```
@@ -552,7 +567,7 @@ const events = Table.make("events", {
   payload: Pg.Column.jsonb(payloadSchema)
 })
 
-const kind = Pg.Json.jsonb.text(events.payload, Pg.Json.jsonb.key("kind"))
+const kind = Pg.Jsonb.text(events.payload, Pg.Jsonb.key("kind"))
 
 const createdEvents = Query.select({
   payload: events.payload,
@@ -580,6 +595,47 @@ These refinements are implemented by the predicate implication layer. It tracks
 which column and JSON-path facts are guaranteed, which optional sources have
 been promoted, and which row shapes are impossible under the current
 assumptions.
+
+### JSON Schema Compatibility
+
+JSON columns carry their Effect Schema type through JSON helper expressions.
+Mutation payloads must still satisfy the target column schema, so deleting a
+required key is rejected before SQL rendering.
+
+```ts
+import * as Schema from "effect/Schema"
+import { Column, Table } from "effect-qb"
+import * as Pg from "effect-qb/postgres"
+
+const payloadSchema = Schema.Struct({
+  profile: Schema.Struct({
+    address: Schema.Struct({
+      city: Schema.String,
+      postcode: Schema.NullOr(Schema.String)
+    }),
+    tags: Schema.Array(Schema.String)
+  }),
+  note: Schema.NullOr(Schema.String)
+})
+
+const docs = Table.make("docs", {
+  id: Column.uuid().pipe(Column.primaryKey),
+  payload: Pg.Column.jsonb(payloadSchema)
+})
+
+const cityPath = Pg.Jsonb.path(
+  Pg.Jsonb.key("profile"),
+  Pg.Jsonb.key("address"),
+  Pg.Jsonb.key("city")
+)
+
+const missingRequiredCity = Pg.Jsonb.delete(docs.payload, cityPath)
+
+Pg.Query.update(docs, {
+  // @ts-expect-error payload no longer satisfies payloadSchema
+  payload: missingRequiredCity
+})
+```
 
 ### Source Completeness and Aliases
 
@@ -659,7 +715,7 @@ const docs = Table.make("docs", {
 })
 
 const postgresOnly = Query.select({
-  kind: Pg.Json.jsonb.text(docs.payload, Pg.Json.jsonb.key("kind"))
+  kind: Pg.Jsonb.text(docs.payload, Pg.Jsonb.key("kind"))
 }).pipe(Query.from(docs))
 
 Pg.Renderer.make().render(postgresOnly)
@@ -967,7 +1023,7 @@ const events = Table.make("events", {
 
 const eventKinds = Query.select({
   id: events.id,
-  kind: Pg.Json.jsonb.text(events.payload, Pg.Json.jsonb.key("kind"))
+  kind: Pg.Jsonb.text(events.payload, Pg.Jsonb.key("kind"))
 }).pipe(Query.from(events))
 
 Pg.Renderer.make().render(eventKinds)
@@ -1026,7 +1082,7 @@ const docs = Table.make("docs", {
 
 const readDocs = Query.select({
   id: docs.id,
-  title: My.Json.json.text(docs.payload, My.Json.json.key("title"))
+  title: My.Json.text(docs.payload, My.Json.key("title"))
 }).pipe(Query.from(docs))
 
 My.Renderer.make().render(readDocs)
@@ -1058,9 +1114,9 @@ const docs = Table.make("docs", {
 
 const readDocs = Query.select({
   id: docs.id,
-  city: Sq.Json.json.text(
+  city: Sq.Json.text(
     docs.payload,
-    Sq.Json.json.path(Sq.Json.json.key("profile"), Sq.Json.json.key("city"))
+    Sq.Json.path(Sq.Json.key("profile"), Sq.Json.key("city"))
   )
 }).pipe(Query.from(docs))
 
@@ -1136,12 +1192,12 @@ const docs = Table.make("docs", {
   }))
 })
 
-const city = Pg.Json.jsonb.text(
+const city = Pg.Jsonb.text(
   docs.payload,
-  Pg.Json.jsonb.path(
-    Pg.Json.jsonb.key("profile"),
-    Pg.Json.jsonb.key("address"),
-    Pg.Json.jsonb.key("city")
+  Pg.Jsonb.path(
+    Pg.Jsonb.key("profile"),
+    Pg.Jsonb.key("address"),
+    Pg.Jsonb.key("city")
   )
 )
 
