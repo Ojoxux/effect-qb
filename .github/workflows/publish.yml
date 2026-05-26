@@ -74,7 +74,7 @@ jobs:
 
       - name: Publish querybuilder to npm
         working-directory: packages/querybuilder
-        run: bun publish --access public
+        run: bunx npm publish --access public
 
       - name: Publish database to npm
         working-directory: packages/database
