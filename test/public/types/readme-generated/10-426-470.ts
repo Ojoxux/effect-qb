@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 887-931
+// Code fences: 426-470
 
-// README.md:887-931
+// README.md:426-470
 import * as Schema from "effect/Schema"
 import { Column, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
@@ -27,14 +27,14 @@ const updateUser: UserUpdate = {
   displayName: null
 }
 
-// @ts-expect-error generated primary keys are not insert payload fields
 const insertWithId: UserInsert = {
+  // @ts-expect-error generated primary keys are not insert payload fields
   id: "550e8400-e29b-41d4-a716-446655440000",
   email: "ada@example.com"
 }
 
-// @ts-expect-error primary keys are not update payload fields
 const updateWithId: UserUpdate = {
+  // @ts-expect-error primary keys are not update payload fields
   id: "550e8400-e29b-41d4-a716-446655440000"
 }
 
