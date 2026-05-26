@@ -1329,6 +1329,14 @@ const normalizedPredicateSql = (predicate: unknown): string | null => {
   }
 }
 
+const normalizedIndexExpressionSql = (expression: unknown): string | null => {
+  try {
+    return normalizeDdlExpressionSql(expression as never)
+  } catch {
+    return null
+  }
+}
+
 const indexShapeSignature = (option: Extract<TableOptionSpec, { readonly kind: "index" }>): string => {
   const keys = normalizedIndexKeys(option)
   return JSON.stringify({
@@ -1337,23 +1345,32 @@ const indexShapeSignature = (option: Extract<TableOptionSpec, { readonly kind: "
     method: option.method ?? null,
     include: normalizedIndexInclude(option),
     predicate: normalizedPredicateSql(option.predicate),
-    keys: keys.map((key) => key.kind === "column"
-      ? {
+    keys: keys
+      .map((key) => {
+        if (key.kind === "column") {
+          return {
+            kind: key.kind,
+            column: key.column,
+            order: key.order ?? null,
+            nulls: key.nulls ?? null,
+            operatorClass: key.operatorClass ?? null,
+            collation: key.collation ?? null
+          }
+        }
+        const expression = normalizedIndexExpressionSql(key.expression)
+        if (expression === null) {
+          return null
+        }
+        return {
           kind: key.kind,
-          column: key.column,
+          expression,
           order: key.order ?? null,
           nulls: key.nulls ?? null,
           operatorClass: key.operatorClass ?? null,
           collation: key.collation ?? null
         }
-      : {
-          kind: key.kind,
-          expression: normalizeDdlExpressionSql(key.expression),
-          order: key.order ?? null,
-          nulls: key.nulls ?? null,
-          operatorClass: key.operatorClass ?? null,
-          collation: key.collation ?? null
-        })
+      })
+      .filter((key): key is NonNullable<typeof key> => key !== null)
   })
 }
 
@@ -1704,10 +1721,16 @@ const renderIndexKey = (
   key: IndexKeySpec,
   table: TableModel,
   context: RenderContext
-): string =>
-  key.kind === "column"
-    ? `{ column: ${renderStringLiteral(key.column)}${key.order ? `, order: ${renderStringLiteral(key.order)}` : ""}${key.nulls ? `, nulls: ${renderStringLiteral(key.nulls)}` : ""}${key.operatorClass ? `, operatorClass: ${renderStringLiteral(key.operatorClass)}` : ""}${key.collation ? `, collation: ${renderStringLiteral(key.collation)}` : ""} }`
-    : `{ expression: ${renderDdlExpressionCode(renderDdlExpressionSql(key.expression), renderExpressionContext(table, context))}${key.order ? `, order: ${renderStringLiteral(key.order)}` : ""}${key.nulls ? `, nulls: ${renderStringLiteral(key.nulls)}` : ""}${key.operatorClass ? `, operatorClass: ${renderStringLiteral(key.operatorClass)}` : ""}${key.collation ? `, collation: ${renderStringLiteral(key.collation)}` : ""} }`
+): string | undefined => {
+  if (key.kind === "column") {
+    return `{ column: ${renderStringLiteral(key.column)}${key.order ? `, order: ${renderStringLiteral(key.order)}` : ""}${key.nulls ? `, nulls: ${renderStringLiteral(key.nulls)}` : ""}${key.operatorClass ? `, operatorClass: ${renderStringLiteral(key.operatorClass)}` : ""}${key.collation ? `, collation: ${renderStringLiteral(key.collation)}` : ""} }`
+  }
+  const normalizedExpression = normalizedIndexExpressionSql(key.expression)
+  if (normalizedExpression === null) {
+    return undefined
+  }
+  return `{ expression: ${renderDdlExpressionCode(normalizedExpression, renderExpressionContext(table, context))}${key.order ? `, order: ${renderStringLiteral(key.order)}` : ""}${key.nulls ? `, nulls: ${renderStringLiteral(key.nulls)}` : ""}${key.operatorClass ? `, operatorClass: ${renderStringLiteral(key.operatorClass)}` : ""}${key.collation ? `, collation: ${renderStringLiteral(key.collation)}` : ""} }`
+}
 
 const renderIndexOption = (
   table: TableModel,
@@ -1731,8 +1754,11 @@ const renderIndexOption = (
   if (Array.isArray(option.columns)) {
     parts.push(`columns: ${renderStringTuple(option.columns)}`)
   }
-  if (normalizedKeys.length > 0) {
-    parts.push(`keys: [${normalizedKeys.map((key) => renderIndexKey(key, table, context)).join(", ")}]`)
+  const renderedKeys = normalizedKeys
+    .map((key) => renderIndexKey(key, table, context))
+    .filter((key): key is string => key !== undefined)
+  if (renderedKeys.length > 0) {
+    parts.push(`keys: [${renderedKeys.join(", ")}]`)
   }
   if (option.name) {
     parts.push(`name: ${renderStringLiteral(option.name)}`)
@@ -2425,7 +2451,11 @@ const countTableReferences = (
       }
       for (const key of normalizedIndexKeys(option)) {
         if (key.kind === "expression") {
-          collectExpressionReferences(renderDdlExpressionSql(key.expression), {
+          const normalizedExpression = normalizedIndexExpressionSql(key.expression)
+          if (normalizedExpression === null) {
+            continue
+          }
+          collectExpressionReferences(normalizedExpression, {
             fallbackSchemaName: table.schemaName,
             enumUsageByKey,
             sequenceUsageByKey,

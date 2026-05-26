@@ -154,6 +154,14 @@ const normalizedPredicateSql = (predicate: unknown): string | null => {
   }
 }
 
+const normalizedIndexExpressionSql = (expression: unknown): string | null => {
+  try {
+    return normalizeDdlExpressionSql(expression as never)
+  } catch {
+    return null
+  }
+}
+
 const constraintSignature = (
   table: TableModel,
   option: Exclude<TableOptionSpec, { readonly kind: "index" }>
@@ -212,23 +220,32 @@ const indexSignature = (
     method: option.method ?? null,
     include: option.include ?? [],
     predicate: normalizedPredicateSql(option.predicate),
-    keys: indexKeysOf(option).map((key) => key.kind === "column"
-      ? {
+    keys: indexKeysOf(option)
+      .map((key) => {
+        if (key.kind === "column") {
+          return {
+            kind: key.kind,
+            column: key.column,
+            order: key.order ?? null,
+            nulls: key.nulls ?? null,
+            operatorClass: key.operatorClass ?? null,
+            collation: key.collation ?? null
+          }
+        }
+        const expression = normalizedIndexExpressionSql(key.expression)
+        if (expression === null) {
+          return null
+        }
+        return {
           kind: key.kind,
-          column: key.column,
+          expression,
           order: key.order ?? null,
           nulls: key.nulls ?? null,
           operatorClass: key.operatorClass ?? null,
           collation: key.collation ?? null
         }
-      : {
-          kind: key.kind,
-          expression: normalizeDdlExpressionSql(key.expression),
-          order: key.order ?? null,
-          nulls: key.nulls ?? null,
-          operatorClass: key.operatorClass ?? null,
-          collation: key.collation ?? null
       })
+      .filter((key): key is NonNullable<typeof key> => key !== null)
   })
 
 const constraintShapeSignature = (
@@ -282,23 +299,32 @@ const indexShapeSignature = (
     method: option.method ?? null,
     include: option.include ?? [],
     predicate: normalizedPredicateSql(option.predicate),
-    keys: indexKeysOf(option).map((key) => key.kind === "column"
-      ? {
+    keys: indexKeysOf(option)
+      .map((key) => {
+        if (key.kind === "column") {
+          return {
+            kind: key.kind,
+            column: key.column,
+            order: key.order ?? null,
+            nulls: key.nulls ?? null,
+            operatorClass: key.operatorClass ?? null,
+            collation: key.collation ?? null
+          }
+        }
+        const expression = normalizedIndexExpressionSql(key.expression)
+        if (expression === null) {
+          return null
+        }
+        return {
           kind: key.kind,
-          column: key.column,
+          expression,
           order: key.order ?? null,
           nulls: key.nulls ?? null,
           operatorClass: key.operatorClass ?? null,
           collation: key.collation ?? null
         }
-      : {
-          kind: key.kind,
-          expression: normalizeDdlExpressionSql(key.expression),
-          order: key.order ?? null,
-          nulls: key.nulls ?? null,
-          operatorClass: key.operatorClass ?? null,
-          collation: key.collation ?? null
       })
+      .filter((key): key is NonNullable<typeof key> => key !== null)
   })
 
 const tableShapeSignature = (table: TableModel): string =>

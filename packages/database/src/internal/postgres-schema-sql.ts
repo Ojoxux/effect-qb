@@ -261,6 +261,14 @@ const isRenderableDdlExpression = (value: unknown): boolean => {
   }
 }
 
+const normalizedIndexExpressionSql = (expression: unknown): string | null => {
+  try {
+    return SchemaExpression.renderDdlExpressionSql(expression as never)
+  } catch {
+    return null
+  }
+}
+
 const renderOptionalIndexPredicate = (predicate: unknown): string => {
   if (predicate === undefined) {
     return ""
@@ -285,12 +293,23 @@ export const renderIndexDefinition = (
     keys.map((key) => key.kind === "column" ? key.column : "expr"),
     option.unique ?? false
   )
-  const renderedKeys = keys.map((key) => {
-    const base = key.kind === "column"
-      ? quote(key.column)
-      : `(${SchemaExpression.renderDdlExpressionSql(key.expression)})`
-    return `${base}${key.collation ? ` collate ${qualifyIdentifier(key.collation)}` : ""}${key.operatorClass ? ` ${qualifyIdentifier(key.operatorClass)}` : ""}${renderIndexOrder(key.order)}${renderIndexNulls(key.nulls)}`
-  }).join(", ")
+  const renderedKeys = keys
+    .map((key) => {
+      const base = key.kind === "column"
+        ? quote(key.column)
+        : (() => {
+            const normalizedExpression = normalizedIndexExpressionSql(key.expression)
+            return normalizedExpression === null
+              ? undefined
+              : `(${normalizedExpression})`
+          })()
+      if (base === undefined) {
+        return undefined
+      }
+      return `${base}${key.collation ? ` collate ${qualifyIdentifier(key.collation)}` : ""}${key.operatorClass ? ` ${qualifyIdentifier(key.operatorClass)}` : ""}${renderIndexOrder(key.order)}${renderIndexNulls(key.nulls)}`
+    })
+    .filter((key): key is string => key !== undefined)
+    .join(", ")
   return `create${option.unique ? " unique" : ""} index ${quote(name)} on ${qualify(table.schemaName, table.name)}${renderIndexMethod(option.method)} (${renderedKeys})${includeColumns.length > 0 ? ` include (${includeColumns.map(quote).join(", ")})` : ""}${renderOptionalIndexPredicate(option.predicate)}`
 }
 

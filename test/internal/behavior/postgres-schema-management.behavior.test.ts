@@ -746,6 +746,41 @@ describe("postgres schema management", () => {
     )
   })
 
+  test("schema diff planning tolerates malformed index expression metadata", () => {
+    const sourceUsers = StdRoot.Table.make("users", {
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
+    })
+    const sourceUsersModel = toTableModel(sourceUsers as unknown as Parameters<typeof toTableModel>[0])
+    ;(sourceUsersModel as any).options = [
+      ...(sourceUsersModel as any).options,
+      {
+        kind: "index",
+        keys: [{ kind: "expression", expression: {} }]
+      }
+    ]
+
+    const source: SchemaModel = {
+      dialect: "postgres",
+      enums: [],
+      tables: [sourceUsersModel]
+    }
+    const database: SchemaModel = {
+      dialect: "postgres",
+      enums: [],
+      tables: []
+    }
+
+    expect(() => planPostgresSchemaDiff(source, database)).not.toThrow()
+    expect(planPostgresSchemaDiff(source, database).changes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: "createTable",
+          key: "public.users"
+        })
+      ])
+    )
+  })
+
   test("schema diff planning tolerates malformed check predicate metadata", () => {
     const sourceUsers = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
@@ -969,6 +1004,48 @@ describe("postgres schema management", () => {
           kind: "index",
           columns: ["id"],
           predicate: {}
+        }
+      ]
+
+      const discovered: DiscoveredSourceSchema = {
+        declarations: [],
+        bindings: [],
+        model: {
+          dialect: "postgres",
+          enums: [],
+          tables: []
+        }
+      }
+      const database: SchemaModel = {
+        dialect: "postgres",
+        enums: [],
+        tables: [usersModel]
+      }
+
+      await expect(planPostgresPull(tempDir, { include: ["**/*.ts"] }, discovered, database)).resolves.toMatchObject({
+        updates: [
+          expect.objectContaining({
+            filePath: join(tempDir, "public.schema.ts")
+          })
+        ]
+      })
+    } finally {
+      await rm(tempDir, { recursive: true, force: true })
+    }
+  })
+
+  test("pull planning tolerates malformed index expression metadata in database additions", async () => {
+    const tempDir = await mkdtemp(join(process.cwd(), ".tmp-pull-malformed-index-expression-"))
+    try {
+      const users = StdRoot.Table.make("users", {
+        id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
+      })
+      const usersModel = toTableModel(users as unknown as Parameters<typeof toTableModel>[0])
+      ;(usersModel as any).options = [
+        ...(usersModel as any).options,
+        {
+          kind: "index",
+          keys: [{ kind: "expression", expression: {} }]
         }
       ]
 
