@@ -1013,14 +1013,13 @@ describe("mysql dialect behavior", () => {
   })
 
   test("renders schema-qualified mysql tables in queries and ddl", () => {
-    const analytics = StdRoot.Table.schema("analytics")
-    const users = analytics.table("users", {
+    const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
-    })
-    const events = analytics.table("events", {
+    }, "analytics")
+    const events = StdRoot.Table.make("events", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       userId: StdRoot.Column.uuid().pipe(StdRoot.Column.references(() => users.id))
-    })
+    }, "analytics")
 
     const plan = Mysql.Query.select({
       eventId: events.id

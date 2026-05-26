@@ -7,7 +7,6 @@ export type Options = InternalCasing.Options
 
 export interface TableFactory {
   readonly table: typeof Table.make
-  readonly schema: typeof Table.schema
   readonly [InternalCasing.TypeId]: InternalCasing.State
   readonly withCasing: (options: Options) => TableFactory
 }
@@ -30,28 +29,18 @@ export const withCasing = (options: Options) =>
     return (value as Exclude<CasingTarget, BaseTable.TableDefinition<any, any, any, any, any>>).withCasing(options) as Value
   }
 
-export const casing = (options: Options): TableFactory => {
+export const make = (options: Options): TableFactory => {
   const withFactoryCasing = withCasing(options)
   const table = ((name: string, fields: any, schemaName?: string) =>
     schemaName === undefined
       ? Table.make(name, fields).pipe(withFactoryCasing)
       : Table.make(name, fields, schemaName).pipe(withFactoryCasing)) as typeof Table.make
-  const schema = ((schemaName: string) => {
-    const namespace = Table.schema(schemaName)
-    const schemaTable = ((name: string, fields: any, ...declaredOptions: any[]) =>
-      namespace.table(name, fields, ...declaredOptions).pipe(withFactoryCasing)) as typeof namespace.table
-    return {
-      ...namespace,
-      table: schemaTable
-    }
-  }) as typeof Table.schema
   const factory = {
     table,
-    schema,
     [InternalCasing.TypeId]: {
       casing: options
     },
-    withCasing: (override: Options) => casing(InternalCasing.merge(options, override) ?? {})
+    withCasing: (override: Options) => make(InternalCasing.merge(options, override) ?? {})
   }
   return factory
 }

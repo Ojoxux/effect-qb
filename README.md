@@ -280,23 +280,86 @@ columns, timestamp variants, and custom typed casts/references.
 Use `Casing` when model identifiers and physical database identifiers do not
 use the same naming convention.
 
-Casing can be configured at the renderer level, or attached to tables and
-Postgres schema factories.
+Casing is usually a renderer concern: pipe `Casing.withCasing(...)` into a
+built-in renderer to map physical table, column, schema, index, constraint,
+type, and sequence names without changing model keys.
 
 ```ts
-import * as Schema from "effect/Schema"
 import { Casing, Column, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
-const Snake = Casing.casing({
+const users = Table.make("UserAccounts", {
+  id: Column.uuid().pipe(Column.primaryKey),
+  createdAt: Column.datetime(),
+  displayName: Column.text()
+})
+
+const readUsers = Query.select({
+  createdAt: users.createdAt
+}).pipe(
+  Query.from(users),
+  Query.where(Query.eq(users.displayName, "Ada"))
+)
+
+const renderer = Pg.Renderer.make().pipe(
+  Casing.withCasing({
+    tables: "snake_case",
+    columns: "snake_case"
+  })
+)
+
+const rendered = renderer.render(readUsers)
+void rendered
+```
+
+<details>
+<summary>Override casing for one table</summary>
+
+```ts
+import { Casing, Column, Table } from "effect-qb"
+
+const users = Table.make("UserAccounts", {
+  id: Column.uuid().pipe(Column.primaryKey),
+  createdAt: Column.datetime()
+}).pipe(
+  Casing.withCasing({
+    tables: "snake_case",
+    columns: "snake_case"
+  })
+)
+
+void users
+```
+
+</details>
+
+<details>
+<summary>Create a casing-aware table factory</summary>
+
+```ts
+import { Casing, Column } from "effect-qb"
+
+const Snake = Casing.make({
   tables: "snake_case",
   columns: "snake_case"
 })
 
-const users = Snake.table("Users", {
+const users = Snake.table("UserAccounts", {
   id: Column.uuid().pipe(Column.primaryKey),
   createdAt: Column.datetime()
 })
+
+void users
+```
+
+</details>
+
+<details>
+<summary>Apply casing to a Postgres schema factory</summary>
+
+```ts
+import { Casing, Column } from "effect-qb"
+import * as Pg from "effect-qb/postgres"
 
 const Analytics = Pg.Schema.make("analytics").pipe(
   Casing.withCasing({
@@ -307,26 +370,18 @@ const Analytics = Pg.Schema.make("analytics").pipe(
   })
 )
 
-const events = Table.make("Events", {
+const events = Analytics.table("Events", {
   id: Column.uuid().pipe(Column.primaryKey),
-  createdAt: Column.datetime(),
-  meta: Pg.Column.jsonb(Schema.Struct({
-    kind: Schema.String
-  }))
-}).pipe(
-  Casing.withCasing({ columns: "snake_case" }),
-  Analytics.withSchema
-)
+  createdAt: Column.datetime()
+})
 
-const readEvents = Query.select({
-  id: events.id,
-  kind: Pg.Json.jsonb.text(events.meta, Pg.Json.jsonb.key("kind"))
-}).pipe(Query.from(events))
-
-Pg.Renderer.make().render(readEvents)
-
-void users
+void events
 ```
+
+</details>
+
+<details>
+<summary>Casing categories and styles</summary>
 
 Casing categories:
 
@@ -347,6 +402,8 @@ Built-in casing styles:
 - `"kebab-case"`
 - `"SCREAMING_SNAKE_CASE"`
 - `(name: string) => string`
+
+</details>
 
 ## Query Lifecycle
 

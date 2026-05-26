@@ -108,7 +108,6 @@ These notes were prepared without reading any existing `README.md` file. They us
 
 ### Refined Outline
 - `Table.make`.
-- `Table.schema`.
 - `Table.Class` for class-style definitions.
 - Inline column modifiers.
 - Table-level options.
@@ -116,7 +115,6 @@ These notes were prepared without reading any existing `README.md` file. They us
 
 ### Source-Backed Details
 - `Table.make(name, fields, schemaName?)`.
-- `Table.schema(schemaName).table(...)`.
 - `Table.Class<Self>("users")({...})` exists and is tested.
 - Table helpers: `primaryKey`, `unique`, `index`, `foreignKey`, `check`, `alias`.
 - Schema helpers: `selectSchema`, `insertSchema`, `updateSchema`, and `table.schemas`.
@@ -132,15 +130,16 @@ These notes were prepared without reading any existing `README.md` file. They us
 
 ### Refined Outline
 - Why logical names differ from physical identifiers.
-- `Casing.withCasing(...)` for table/schema namespace overrides.
-- `Casing.casing(...)` for table factories.
+- `Casing.withCasing(...)` for renderer-level casing.
+- `Casing.withCasing(...)` for table/Postgres schema factory overrides.
+- `Casing.make(...)` for table factories.
 - Categories: schemas, tables, columns, indexes, constraints, types, sequences.
 - Override/merge behavior.
 
 ### Source-Backed Details
 - Public root exports `Casing`.
-- `Casing.withCasing(options)` accepts tables and casing-aware namespaces.
-- `Casing.casing(options)` returns a factory with `table`, `schema`, and `withCasing`.
+- `Casing.withCasing(options)` accepts built-in renderers, tables, and casing-aware Postgres schema factories.
+- `Casing.make(options)` returns a factory with `table` and `withCasing`.
 - Tests prove table/column/index/constraint casing affects DDL and metadata.
 
 ### Progressive Disclosure

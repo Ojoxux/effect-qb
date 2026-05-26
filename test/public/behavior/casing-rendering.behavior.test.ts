@@ -34,6 +34,13 @@ describe("casing rendering behavior", () => {
     expect(rendered.projections).toEqual([
       { path: ["createdAt"], alias: "createdAt" }
     ])
+
+    expect(Pg.Renderer.make().pipe(
+      Casing.withCasing({
+        tables: "snake_case",
+        columns: "snake_case"
+      })
+    ).render(plan).sql).toBe(rendered.sql)
   })
 
   test("mysql and sqlite renderer casing maps physical identifiers without changing model keys", () => {
@@ -291,10 +298,18 @@ describe("casing rendering behavior", () => {
     }).render(plan).sql).toBe(
       'select "user_accounts"."createdAt" as "createdAt" from "user_accounts"'
     )
+    expect(Pg.Renderer.make().pipe(
+      Casing.withCasing({
+        tables: "snake_case",
+        columns: "snake_case"
+      })
+    ).render(plan).sql).toBe(
+      'select "user_accounts"."createdAt" as "createdAt" from "user_accounts"'
+    )
   })
 
   test("casing table factories create cased tables", () => {
-    const Snake = Casing.casing({
+    const Snake = Casing.make({
       tables: "snake_case",
       columns: "snake_case"
     })

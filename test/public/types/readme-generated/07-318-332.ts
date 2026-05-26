@@ -1,11 +1,11 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 762-776
+// Code fences: 318-332
 
-// README.md:762-776
+// README.md:318-332
 import { Casing, Column, Table } from "effect-qb"
 
-const users = Table.make("Users", {
+const users = Table.make("UserAccounts", {
   id: Column.uuid().pipe(Column.primaryKey),
   createdAt: Column.datetime()
 }).pipe(

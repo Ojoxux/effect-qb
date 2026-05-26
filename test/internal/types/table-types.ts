@@ -596,12 +596,11 @@ const mysqlOrgs = Std.Table.make("mysql_orgs", {
   id: Mysql.Column.custom(Schema.UUID, Mysql.Datatypes.mysqlDatatypes.uuid()),
   name: Mysql.Column.custom(Schema.String, Mysql.Datatypes.mysqlDatatypes.text())
 })
-const mysqlSchema = Std.Table.schema("tenant")
-const mysqlSchemaTablePrimaryKey = mysqlSchema.table("mysql_schema_table_primary_key", {
+const mysqlSchemaTablePrimaryKey = Std.Table.make("mysql_schema_table_primary_key", {
   id: Std.Column.uuid(),
   slug: Std.Column.text(),
   name: Std.Column.text()
-}, Std.Table.primaryKey(["id", "slug"] as const))
+}, "tenant").pipe(Std.Table.primaryKey(["id", "slug"] as const))
 type MysqlSchemaTablePrimaryKeyUpdate = Std.Table.UpdateOf<typeof mysqlSchemaTablePrimaryKey>
 const mysqlSchemaTablePrimaryKeyUpdate: MysqlSchemaTablePrimaryKeyUpdate = { name: "updated" }
 // @ts-expect-error mysql schema table primary key options should update the derived update schema
@@ -612,7 +611,7 @@ void badMysqlSchemaTablePrimaryKeyUpdate
 
 const badMysqlSchemaTableIndexOption = Std.Table.index("missing")
 // @ts-expect-error mysql schema-scoped table option columns must exist on the declared table
-const badMysqlSchemaTableOptionColumn = mysqlSchema.table("bad_mysql_schema_table_option_column", { id: Std.Column.uuid() }, badMysqlSchemaTableIndexOption)
+const badMysqlSchemaTableOptionColumn = Std.Table.make("bad_mysql_schema_table_option_column", { id: Std.Column.uuid() }, "tenant").pipe(badMysqlSchemaTableIndexOption)
 void badMysqlSchemaTableOptionColumn
 
 // @ts-expect-error mysql foreign key local columns must exist on the source table

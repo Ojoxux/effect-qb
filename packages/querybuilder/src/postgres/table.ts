@@ -48,33 +48,6 @@ type PrimaryKeyOfTable<Table extends BaseTable.AnyTable> = Table[typeof BaseTabl
 
 type SchemaNameOfTable<Table extends BaseTable.AnyTable> = Table[typeof BaseTable.TypeId]["schemaName"]
 
-type ApplySchemaTableOptions<
-  Name extends string,
-  Fields extends DialectFieldMap,
-  PrimaryKeyColumns extends keyof Fields & string,
-  SchemaName extends string,
-  Options extends BaseTable.DeclaredTableOptions
-> = BaseTable.ApplyDeclaredOptions<
-  BaseTable.TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>,
-  Options
-> extends BaseTable.TableDefinition<any, any, infer AppliedPrimaryKeyColumns extends keyof Fields & string, "schema", any>
-  ? TableDefinition<Name, Fields, AppliedPrimaryKeyColumns, "schema", SchemaName>
-  : TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>
-
-export type TableSchemaNamespace<SchemaName extends string> = {
-  readonly schemaName: SchemaName
-  readonly table: <
-    Name extends string,
-    Fields extends DialectFieldMap,
-    const Options extends BaseTable.DeclaredTableOptions,
-    PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>
-  >(
-    name: BaseTable.NonEmptyStringInput<Name>,
-    fields: Fields & BaseTable.NonEmptyFieldMap<Fields>,
-    ...options: Options & BaseTable.ValidateDeclaredOptions<BaseTable.TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
-  ) => ApplySchemaTableOptions<Name, Fields, PrimaryKeyColumns, SchemaName, Options>
-}
-
 export type TableOption = BaseTable.TableOption
 export type DdlExpressionLike = BaseTable.DdlExpressionLike
 export type IndexKey = BaseTable.IndexKeySpec
@@ -110,34 +83,6 @@ export const make = <
   schemaName: BaseTable.NonEmptySchemaNameInput<SchemaName> = "public" as BaseTable.NonEmptySchemaNameInput<SchemaName>
 ): TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName> =>
   BaseTable.make<Name, Fields, SchemaName>(name, fields, schemaName) as TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName>
-
-export const schema = <SchemaName extends string>(
-  schemaName: BaseTable.NonEmptyStringInput<SchemaName>
-): TableSchemaNamespace<SchemaName> => {
-  const table = <
-    Name extends string,
-    Fields extends DialectFieldMap,
-    const Options extends BaseTable.DeclaredTableOptions,
-    PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>
-  >(
-    name: BaseTable.NonEmptyStringInput<Name>,
-    fields: Fields & BaseTable.NonEmptyFieldMap<Fields>,
-    ...declaredOptions: Options & BaseTable.ValidateDeclaredOptions<BaseTable.TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
-  ) =>
-    (BaseTable.schema(schemaName).table as (
-      name: BaseTable.NonEmptyStringInput<Name>,
-      fields: Fields & BaseTable.NonEmptyFieldMap<Fields>,
-      ...options: BaseTable.DeclaredTableOptions
-    ) => BaseTable.TableDefinition<any, any, any, "schema", any>)(
-      name,
-      fields,
-      ...declaredOptions
-    ) as ApplySchemaTableOptions<Name, Fields, PrimaryKeyColumns, SchemaName, Options>
-  return {
-    schemaName,
-    table
-  } as TableSchemaNamespace<SchemaName>
-}
 
 export const alias = <
   Table extends AnyTable,

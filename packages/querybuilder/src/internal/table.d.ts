@@ -59,11 +59,6 @@ interface TableState<Name extends string, Fields extends TableFieldMap, PrimaryK
     readonly primaryKey: readonly PrimaryKeyColumns[];
     readonly kind: Kind;
 }
-/** Namespace-scoped table builder. */
-export interface TableSchemaNamespace<SchemaName extends string> {
-    readonly schemaName: SchemaName;
-    readonly table: <Name extends string, Fields extends TableFieldMap, PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>>(name: Name, fields: Fields, ...options: DeclaredTableOptions) => TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>;
-}
 export type DeclaredTableOptions = readonly TableOptionBuilderLike[];
 export type { DdlExpressionLike, IndexKeySpec, NormalizeColumns, ReferentialAction } from "./table-options.js";
 export type NonEmptySchemaNameInput<Value extends string | undefined> = Value extends string ? NonEmptyStringInput<Value> : Value;
@@ -106,10 +101,6 @@ export declare const option: <Spec extends TableOptionSpec>(spec: Spec) => Table
 export declare const optionFromTable: <Spec extends TableOptionSpec>(spec: Spec, resolve: (table: TableDefinition<any, any, any, "schema", any>) => Spec) => TableOption<Spec>;
 /** Creates a table definition from a name and field map. */
 export declare function make<Name extends string, Fields extends TableFieldMap, const SchemaName extends string | undefined = DefaultSchemaName>(name: NonEmptyStringInput<Name>, fields: Fields, schemaName?: NonEmptySchemaNameInput<SchemaName>): TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName>;
-/**
- * Creates a namespace-scoped builder for a concrete SQL schema/database.
- */
-export declare const schema: <SchemaName extends string>(schemaName: SchemaName) => TableSchemaNamespace<SchemaName>;
 /**
  * Creates an aliased source from an existing table definition.
  *

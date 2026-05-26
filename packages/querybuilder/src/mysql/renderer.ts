@@ -1,5 +1,7 @@
+import { pipeArguments, type Pipeable } from "effect/Pipeable"
+
 import * as CoreRenderer from "../internal/renderer.js"
-import type * as Casing from "../internal/casing.js"
+import * as Casing from "../internal/casing.js"
 import type * as Expression from "../internal/scalar.js"
 import type { MysqlDatatypeFamily, MysqlDatatypeKind } from "./datatypes/spec.js"
 import { renderMysqlPlan } from "./internal/renderer.js"
@@ -9,7 +11,10 @@ export type RenderedQuery<Row> = CoreRenderer.RenderedQuery<Row, "mysql">
 /** Extracts the row type carried by a MySQL rendered query. */
 export type RowOf<Value extends RenderedQuery<any>> = CoreRenderer.RowOf<Value>
 /** MySQL-specialized renderer contract. */
-export type Renderer = CoreRenderer.Renderer<"mysql">
+export type Renderer = CoreRenderer.Renderer<"mysql"> & Pipeable & {
+  readonly [Casing.TypeId]: Casing.State
+  readonly withCasing: (options: Casing.Options) => Renderer
+}
 
 export type ValueMappings = Expression.DriverValueMappingsFor<MysqlDatatypeKind | "uuid", MysqlDatatypeFamily | "uuid">
 
@@ -21,9 +26,26 @@ export interface MakeOptions {
 export { TypeId } from "../internal/renderer.js"
 export type { Projection } from "../internal/renderer.js"
 
+const RendererProto = {
+  pipe(this: Pipeable) {
+    return pipeArguments(this, arguments)
+  }
+}
+
 /** Creates the built-in MySQL renderer. */
-export const make = (options: MakeOptions = {}): Renderer =>
-  CoreRenderer.makeTrusted("mysql", (plan) => renderMysqlPlan(plan, options))
+export const make = (options: MakeOptions = {}): Renderer => {
+  const renderer = CoreRenderer.makeTrusted("mysql", (plan) => renderMysqlPlan(plan, options))
+  return Object.assign(Object.create(RendererProto), renderer, {
+    [Casing.TypeId]: {
+      casing: options.casing
+    },
+    withCasing: (override: Casing.Options) =>
+      make({
+        ...options,
+        casing: Casing.merge(options.casing, override)
+      })
+  }) as Renderer
+}
 
 /** Shared built-in MySQL renderer instance. */
 export const mysql = make()

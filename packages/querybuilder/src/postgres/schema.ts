@@ -5,7 +5,7 @@ import type { AnyColumnDefinition } from "../internal/column-state.js"
 import * as Casing from "../internal/casing.js"
 import * as BaseTable from "../internal/table.js"
 import type { TableFieldMap } from "../internal/schema-derivation.js"
-import { schema as makeTableSchemaNamespace } from "../standard/table.js"
+import { make as makeTable } from "../standard/table.js"
 import { enumType, sequence, type EnumDefinition, type SequenceDefinition } from "./schema-management.js"
 
 type InlinePrimaryKeyKeys<Fields extends TableFieldMap> = Extract<{
@@ -85,11 +85,13 @@ export const make = <SchemaName extends string>(
   options: { readonly casing?: Casing.Options } = {}
 ): SchemaNamespace<SchemaName> => {
   const physicalSchemaName = Casing.applyCategory(options.casing, "schemas", schemaName)
-  const tableNamespace = makeTableSchemaNamespace(schemaName)
   const namespace = Object.create(SchemaProto)
   namespace.schemaName = schemaName
   namespace.table = ((name: string, fields: any, ...declaredOptions: any[]) => {
-    const table = tableNamespace.table(name, fields, ...declaredOptions)
+    let table = makeTable(name, fields, schemaName)
+    for (const option of declaredOptions) {
+      table = option(table)
+    }
     return options.casing === undefined ? table : BaseTable.withCasing(table as any, options.casing)
   }) as SchemaNamespace<SchemaName>["table"]
   namespace.enum = <

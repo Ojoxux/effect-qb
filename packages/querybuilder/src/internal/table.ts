@@ -190,21 +190,6 @@ interface TableState<
   readonly casing?: Casing.Options
 }
 
-/** Namespace-scoped table builder. */
-export interface TableSchemaNamespace<SchemaName extends string> {
-  readonly schemaName: SchemaName
-  readonly table: <
-    Name extends string,
-    Fields extends TableFieldMap,
-    const Options extends DeclaredTableOptions,
-    PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>
-  >(
-    name: NonEmptyStringInput<Name>,
-    fields: Fields & NonEmptyFieldMap<Fields>,
-    ...options: Options & ValidateDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
-  ) => ApplyDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
-}
-
 export type DeclaredTableOptions = readonly TableOptionBuilderLike[]
 export type { DdlExpressionLike, IndexKeySpec, LiteralStringInput, MatchingColumnArityInput, NonEmptyColumnInput, NonEmptyStringInput, NormalizeColumns, ReferentialAction } from "./table-options.js"
 export type { NonEmptyFieldMap }
@@ -758,40 +743,6 @@ export const withSchema = <
     Table[typeof TypeId]["kind"],
     SchemaName
   >
-}
-
-/**
- * Creates a namespace-scoped builder for a concrete SQL schema/database.
- */
-export const schema = <SchemaName extends string>(
-  schemaName: NonEmptyStringInput<SchemaName>
-): TableSchemaNamespace<SchemaName> => {
-  const table = <
-    Name extends string,
-    Fields extends TableFieldMap,
-    const Options extends DeclaredTableOptions,
-    PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>
-  >(
-    name: NonEmptyStringInput<Name>,
-    fields: Fields & NonEmptyFieldMap<Fields>,
-    ...options: Options & ValidateDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
-  ): ApplyDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options> =>
-    applyDeclaredOptions(
-      makeTable(
-        name as Name,
-        fields,
-        [],
-        name,
-        "schema",
-        schemaName,
-        "explicit"
-      ) as TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>,
-      options as Options
-    ) as ApplyDeclaredOptions<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Options>
-  return {
-    schemaName,
-    table
-  } as TableSchemaNamespace<SchemaName>
 }
 
 /**

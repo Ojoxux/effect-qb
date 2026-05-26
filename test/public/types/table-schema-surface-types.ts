@@ -12,6 +12,7 @@ type IsExact<A, B> =
       ? true
       : false
     : false
+type _AssertNoPortableTableSchemaFactory = Assert<IsExact<Extract<"schema", keyof typeof Std.Table>, never>>
 
 const postgresUsers = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey, Std.Column.generated(Postgres.Query.literal("generated-user-id"))),
@@ -54,8 +55,6 @@ Std.Table.alias(postgresUsers, "")
 declare const dynamicTableAlias: string
 // @ts-expect-error table aliases must be literal strings
 Std.Table.alias(postgresUsers, dynamicTableAlias)
-// @ts-expect-error schema namespace names must be non-empty
-Std.Table.schema("")
 // @ts-expect-error postgres schema namespace names must be non-empty
 Postgres.Schema.make("")
 // @ts-expect-error postgres enum names must be non-empty
