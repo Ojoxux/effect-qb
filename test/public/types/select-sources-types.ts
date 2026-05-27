@@ -83,9 +83,7 @@ StdRoot.Query.values([
 const valuesPlan = StdRoot.Query.select({
   id: valuesSource.id,
   email: valuesSource.email
-}).pipe(
-  StdRoot.Query.from(valuesSource)
-)
+})
 
 type ValuesRow = Q.ResultRow<typeof valuesPlan>
 type ValuesStatement = Q.StatementOfPlan<typeof valuesPlan>
@@ -109,8 +107,7 @@ const filteredValuesPlan = StdRoot.Query.select({
   id: nullableValuesSource.id,
   bio: nullableValuesSource.bio
 }).pipe(
-  StdRoot.Query.where(StdRoot.Query.isNotNull(nullableValuesSource.bio)),
-  StdRoot.Query.from(nullableValuesSource)
+  StdRoot.Query.where(StdRoot.Query.isNotNull(nullableValuesSource.bio))
 )
 
 type FilteredValuesRow = Q.ResultRow<typeof filteredValuesPlan>
@@ -168,9 +165,7 @@ void emptyUnnestRows
 const unnestPlan = StdRoot.Query.select({
   id: unnestSource.id,
   email: unnestSource.email
-}).pipe(
-  StdRoot.Query.from(unnestSource)
-)
+})
 
 type UnnestRow = Q.ResultRow<typeof unnestPlan>
 type UnnestStatement = Q.StatementOfPlan<typeof unnestPlan>
@@ -279,9 +274,7 @@ const mysqlValuesSource = StdRoot.Query.values([
 const mysqlValuesPlan = StdRoot.Query.select({
   id: mysqlValuesSource.id,
   email: mysqlValuesSource.email
-}).pipe(
-  StdRoot.Query.from(mysqlValuesSource)
-)
+})
 
 type MysqlValuesRow = StdRoot.Query.ResultRow<typeof mysqlValuesPlan>
 type MysqlValuesStatement = StdRoot.Query.StatementOfPlan<typeof mysqlValuesPlan>
@@ -330,9 +323,7 @@ void emptyMysqlUnnestRows
 const mysqlUnnestPlan = StdRoot.Query.select({
   id: mysqlUnnestSource.id,
   email: mysqlUnnestSource.email
-}).pipe(
-  StdRoot.Query.from(mysqlUnnestSource)
-)
+})
 
 type MysqlUnnestRow = StdRoot.Query.ResultRow<typeof mysqlUnnestPlan>
 type MysqlUnnestStatement = StdRoot.Query.StatementOfPlan<typeof mysqlUnnestPlan>
@@ -345,15 +336,6 @@ void badMysqlUnnestId
 void mysqlUnnestId
 void mysqlUnnestEmail
 
-const mysqlSeries = StdRoot.Query.generateSeries(1, 3)
-
-type MysqlSeriesError = BrandedErrorOf<typeof mysqlSeries>
-type MysqlSeriesHint = BrandedHintOf<typeof mysqlSeries>
-const mysqlSeriesError: MysqlSeriesError = "effect-qb: generateSeries(...) is only supported by the postgres dialect"
-const mysqlSeriesHint: MysqlSeriesHint = "Use postgres.Query.generateSeries(...) or emulate a series with a recursive CTE"
-void mysqlSeriesError
-void mysqlSeriesHint
-
 void unionAllPlan
 void intersectAllPlan
 void exceptAllPlan
@@ -363,4 +345,3 @@ void seriesPlan
 void scalarPlan
 void mysqlValuesPlan
 void mysqlUnnestPlan
-void mysqlSeries

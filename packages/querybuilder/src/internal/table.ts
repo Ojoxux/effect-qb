@@ -722,7 +722,7 @@ export function make<
 export function make<
   Name extends string,
   Fields extends TableFieldMap,
-  const SchemaName extends string | undefined
+  const SchemaName extends string
 >(
   name: NonEmptyStringInput<Name>,
   fields: Fields & NonEmptyFieldMap<Fields>,

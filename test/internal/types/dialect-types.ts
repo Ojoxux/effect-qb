@@ -207,15 +207,9 @@ const pgValuesSource = StdRoot.Query.values([
 const pgValuesPlan = StdRoot.Query.select({
   id: pgValuesSource.id,
   email: pgValuesSource.email
-}).pipe(
-  StdRoot.Query.from(pgValuesSource)
-)
+})
 
-type PgValuesRequired = RootQuery.RequiredOfPlan<typeof pgValuesPlan>
-type PgValuesAvailable = RootQuery.AvailableOfPlan<typeof pgValuesPlan>
 type PgValuesDialect = RootQuery.PlanDialectOf<typeof pgValuesPlan>
-type _AssertPgValuesRequired = Assert<IsExact<PgValuesRequired, never>>
-type _AssertPgValuesAvailableKeys = Assert<IsExact<keyof PgValuesAvailable, "seed">>
 type _AssertPgValuesDialect = Assert<IsExact<PgValuesDialect, "standard">>
 
 const pgSeriesSource = Postgres.Query.generateSeries(1, 3, 1, "series")

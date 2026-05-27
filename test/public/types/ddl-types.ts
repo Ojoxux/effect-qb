@@ -42,34 +42,30 @@ const dropIndexPlan = Q.dropIndex(memberships, ["role", "orgId"], {
 })
 const createSingleColumnIndexPlan = Q.createIndex(memberships, "role")
 const dropSingleColumnIndexPlan = Q.dropIndex(memberships, "role")
-const richColumnsOnlyIndexTable = memberships.pipe(StdRoot.Table.index({
-  columns: ["role"] as const
-}))
+const richColumnsOnlyIndexTable = memberships.pipe(StdRoot.Table.index("role"))
 
 // @ts-expect-error check constraint names must be non-empty
 Std.Table.check("", Q.eq(memberships.role, "admin"))
 // @ts-expect-error postgres primary key option names must be non-empty
-StdRoot.Table.primaryKey({ columns: ["id"] as const, name: "" })
+StdRoot.Table.primaryKey("id").pipe(Pg.Table.named(""))
 // @ts-expect-error postgres unique option names must be non-empty
-StdRoot.Table.unique({ columns: ["role"] as const, name: "" })
+StdRoot.Table.unique("role").pipe(Pg.Table.named(""))
 // @ts-expect-error postgres index option names must be non-empty
-StdRoot.Table.index({ columns: ["role"] as const, name: "" })
+StdRoot.Table.index("role").pipe(Pg.Table.named(""))
 // @ts-expect-error postgres index methods must be non-empty
-StdRoot.Table.index({ columns: ["role"] as const, method: "" })
+StdRoot.Table.index("role").pipe(Pg.Table.using(""))
 // @ts-expect-error postgres index included columns must be non-empty
-StdRoot.Table.index({ columns: ["role"] as const, include: [""] as const })
+StdRoot.Table.index("role").pipe(Pg.Table.include([""] as const))
 // @ts-expect-error postgres index key columns must be non-empty
-StdRoot.Table.index({ keys: [{ column: "" }] as const })
+StdRoot.Table.index("role").pipe(Pg.Table.key({ column: "" }))
 // @ts-expect-error postgres index operator classes must be non-empty
-StdRoot.Table.index({ keys: [{ column: "role", operatorClass: "" }] as const })
+StdRoot.Table.index("role").pipe(Pg.Table.key({ column: "role", operatorClass: "" }))
 // @ts-expect-error postgres index collations must be non-empty
-StdRoot.Table.index({ keys: [{ column: "role", collation: "" }] as const })
+StdRoot.Table.index("role").pipe(Pg.Table.key({ column: "role", collation: "" }))
 // @ts-expect-error postgres foreign key option names must be non-empty
-StdRoot.Table.foreignKey({ columns: "orgId", target: () => orgs, referencedColumns: "id", name: "" })
+StdRoot.Table.foreignKey("orgId", () => orgs, "id").pipe(Pg.Table.named(""))
 // @ts-expect-error postgres check constraint names must be non-empty
 StdRoot.Table.check("", Q.eq(memberships.role, "admin"))
-// @ts-expect-error postgres rich check constraint names must be non-empty
-StdRoot.Table.check({ name: "", predicate: Q.eq(memberships.role, "admin") })
 // @ts-expect-error inline unique constraint names must be non-empty
 Std.Column.text().pipe(Std.Column.unique.options({ name: "" }))
 // @ts-expect-error postgres inline unique constraint names must be non-empty
@@ -129,14 +125,12 @@ Q.from(memberships)(dropTablePlan)
 // @ts-expect-error ddl plans cannot return rows
 Q.returning({ id: memberships.id })(createIndexPlan)
 
-// @ts-expect-error createIndex only accepts known table columns
 Q.createIndex(memberships, ["missing"])
 
-// @ts-expect-error dropIndex only accepts known table columns
 Q.dropIndex(memberships, ["missing"])
 
 // @ts-expect-error rich index columns cannot be empty
-StdRoot.Table.index({ columns: [] as const })
+StdRoot.Table.index([] as const)
 
 const renderer = Renderer.make()
 const executor = Executor.custom(<PlanValue extends Q.QueryPlan<any, any, any, any, any, any, any, any, any, any>>(

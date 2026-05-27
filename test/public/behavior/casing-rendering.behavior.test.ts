@@ -36,11 +36,33 @@ describe("casing rendering behavior", () => {
     ])
 
     expect(Pg.Renderer.make().pipe(
-      Casing.withCasing({
-        tables: "snake_case",
-        columns: "snake_case"
-      })
+      Casing.withCasing("snake_case")
     ).render(plan).sql).toBe(rendered.sql)
+  })
+
+  test("casing style shorthand applies to all identifier categories", () => {
+    const Snake = Casing.make("snake_case")
+    const users = Snake.table("UserAccounts", {
+      id: Column.uuid().pipe(Column.primaryKey),
+      createdAt: Column.datetime(),
+      displayName: Column.text()
+    }).pipe(
+      StdRoot.Table.index("displayName").pipe(Pg.Table.named("DisplayNameLookup"))
+    )
+
+    const plan = StdRoot.Query.createIndex(users, ["displayName"] as const, {
+      name: "DisplayNameLookup",
+      ifNotExists: true
+    })
+
+    expect(Pg.Renderer.make().render(plan).sql).toBe(
+      'create index if not exists "display_name_lookup" on "user_accounts" ("display_name")'
+    )
+    expect(Pg.Renderer.make().pipe(Casing.withCasing("snake_case")).render(
+      StdRoot.Query.select({ createdAt: users.createdAt }).pipe(StdRoot.Query.from(users))
+    ).sql).toBe(
+      'select "user_accounts"."created_at" as "createdAt" from "user_accounts"'
+    )
   })
 
   test("mysql and sqlite renderer casing maps physical identifiers without changing model keys", () => {

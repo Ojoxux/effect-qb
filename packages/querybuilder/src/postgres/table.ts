@@ -54,6 +54,30 @@ type InvalidIndexKeyMetadata<Key> =
 type NonEmptyIndexKeyInput<Key> =
   [InvalidIndexKeyMetadata<Key>] extends [never] ? unknown : never
 
+type NormalizedIndexKey<Key> = Key extends { readonly expression: infer Expression extends BaseTable.DdlExpressionLike }
+  ? {
+      readonly kind: "expression"
+      readonly expression: Expression
+      readonly order: Key extends { readonly order: infer Order extends "asc" | "desc" } ? Order : undefined
+      readonly nulls: Key extends { readonly nulls: infer Nulls extends "first" | "last" } ? Nulls : undefined
+      readonly operatorClass: Key extends { readonly operatorClass: infer OperatorClass extends string } ? OperatorClass : undefined
+      readonly collation: Key extends { readonly collation: infer Collation extends string } ? Collation : undefined
+    }
+  : Key extends { readonly column: infer Column extends string }
+    ? {
+        readonly kind: "column"
+        readonly column: Column
+        readonly order: Key extends { readonly order: infer Order extends "asc" | "desc" } ? Order : undefined
+        readonly nulls: Key extends { readonly nulls: infer Nulls extends "first" | "last" } ? Nulls : undefined
+        readonly operatorClass: Key extends { readonly operatorClass: infer OperatorClass extends string } ? OperatorClass : undefined
+        readonly collation: Key extends { readonly collation: infer Collation extends string } ? Collation : undefined
+      }
+    : never
+
+type NormalizedIndexKeys<Keys extends readonly [IndexKeyInput, ...IndexKeyInput[]]> = {
+  readonly [Index in keyof Keys]: NormalizedIndexKey<Keys[Index]>
+} & readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]]
+
 const mapOption = <Next extends TableOptionSpec>(
   next: Next
 ): BaseTable.TableOption<Next> =>
@@ -163,13 +187,13 @@ export const key = <const Key extends IndexKeyInput>(
   key: Key & NonEmptyIndexKeyInput<Key>
 ) =>
   <Spec extends IndexSpec>(option: BaseTable.TableOption<Spec>): BaseTable.TableOption<Spec & {
-    readonly keys: readonly [BaseTable.IndexKeySpec]
+    readonly keys: readonly [NormalizedIndexKey<Key>]
   }> =>
     mapOption({
       ...option.option,
       columns: undefined,
       keys: [normalizeIndexKey(key)]
-    } as Spec & { readonly keys: readonly [BaseTable.IndexKeySpec] })
+    } as unknown as Spec & { readonly keys: readonly [NormalizedIndexKey<Key>] })
 
 /** Replaces standard index columns with Postgres index keys. */
 export const keys = <const Keys extends readonly [IndexKeyInput, ...IndexKeyInput[]]>(
@@ -178,13 +202,13 @@ export const keys = <const Keys extends readonly [IndexKeyInput, ...IndexKeyInpu
   }
 ) =>
   <Spec extends IndexSpec>(option: BaseTable.TableOption<Spec>): BaseTable.TableOption<Spec & {
-    readonly keys: readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]]
+    readonly keys: NormalizedIndexKeys<Keys>
   }> =>
     mapOption({
       ...option.option,
       columns: undefined,
       keys: [normalizeIndexKey(keys[0]), ...keys.slice(1).map(normalizeIndexKey)]
-    } as Spec & { readonly keys: readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]] })
+    } as Spec & { readonly keys: NormalizedIndexKeys<Keys> })
 
 /** Adds an ON DELETE action to a standard foreign-key option. */
 export const onDelete = (action: BaseTable.ReferentialAction) =>

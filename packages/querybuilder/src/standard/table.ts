@@ -16,14 +16,14 @@ export type TableDefinition<
   Fields extends DialectFieldMap,
   PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>,
   Kind extends "schema" | "alias" = "schema",
-  SchemaName extends string | undefined = undefined
+  SchemaName extends string = "public"
 > = BaseTable.TableDefinition<Name, Fields, PrimaryKeyColumns, Kind, SchemaName>
 
 export type TableClassStatic<
   Name extends string,
   Fields extends DialectFieldMap,
   PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>,
-  SchemaName extends string | undefined = undefined
+  SchemaName extends string = "public"
 > = BaseTable.TableClassStatic<Name, Fields, PrimaryKeyColumns, SchemaName>
 
 export type AnyTable = BaseTable.AnyTable<Dialect>
@@ -34,7 +34,8 @@ type FieldsOfTable<Table extends BaseTable.AnyTable> = Table[typeof BaseTable.Ty
 
 type PrimaryKeyOfTable<Table extends BaseTable.AnyTable> = Table[typeof BaseTable.TypeId]["primaryKey"][number]
 
-type SchemaNameOfTable<Table extends BaseTable.AnyTable> = Table[typeof BaseTable.TypeId]["schemaName"]
+type SchemaNameOfTable<Table extends BaseTable.AnyTable> =
+  Table[typeof BaseTable.TypeId]["schemaName"] extends infer SchemaName extends string ? SchemaName : "public"
 
 export type TableOption = BaseTable.TableOption
 
@@ -43,16 +44,31 @@ export const OptionsSymbol = BaseTable.OptionsSymbol
 export const options = BaseTable.options
 export const option = BaseTable.option
 
-export const make = <
+export function make<
+  Name extends string,
+  Fields extends DialectFieldMap
+>(
+  name: BaseTable.NonEmptyStringInput<Name>,
+  fields: Fields & BaseTable.NonEmptyFieldMap<Fields>
+): TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", "public">
+export function make<
   Name extends string,
   Fields extends DialectFieldMap,
-  const SchemaName extends string | undefined = undefined
+  const SchemaName extends string
 >(
   name: BaseTable.NonEmptyStringInput<Name>,
   fields: Fields & BaseTable.NonEmptyFieldMap<Fields>,
-  schemaName: BaseTable.NonEmptySchemaNameInput<SchemaName> = undefined as BaseTable.NonEmptySchemaNameInput<SchemaName>
-): TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName> =>
-  BaseTable.make<Name, Fields, SchemaName>(name, fields, schemaName) as TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName>
+  schemaName: BaseTable.NonEmptySchemaNameInput<SchemaName>
+): TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName>
+export function make(
+  name: string,
+  fields: DialectFieldMap,
+  schemaName?: string
+): TableDefinition<string, DialectFieldMap, string, "schema", string> {
+  return arguments.length >= 3
+    ? BaseTable.make(name, fields, schemaName as string) as TableDefinition<string, DialectFieldMap, string, "schema", string>
+    : BaseTable.make(name, fields) as TableDefinition<string, DialectFieldMap, string, "schema", string>
+}
 
 export const alias = <
   Table extends AnyTable,
@@ -84,7 +100,7 @@ type ClassApi = {
     name: string,
     schemaName: ""
   ): never
-  <Self = never, const SchemaName extends string | undefined = undefined, const Name extends string = string>(
+  <Self = never, const SchemaName extends string = "public", const Name extends string = string>(
     name: BaseTable.NonEmptyStringInput<Name>,
     schemaName?: BaseTable.NonEmptySchemaNameInput<SchemaName>
   ): <

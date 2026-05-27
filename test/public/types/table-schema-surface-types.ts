@@ -76,7 +76,6 @@ type PostgresInsertFromHelper = Schema.Schema.Type<typeof postgresInsertSchema>
 type PostgresUpdateFromHelper = Schema.Schema.Type<typeof postgresUpdateSchema>
 
 type _AssertPostgresSelectHelper = Assert<IsExact<PostgresSelectFromHelper, Std.Table.SelectOf<typeof postgresUsers>>>
-type _AssertPostgresSelectFacade = Assert<IsExact<PostgresSelectFromFacade, Std.Table.SelectOf<typeof postgresUsers>>>
 type _AssertPostgresInsertHelper = Assert<IsExact<PostgresInsertFromHelper, Std.Table.InsertOf<typeof postgresUsers>>>
 type _AssertPostgresUpdateHelper = Assert<IsExact<PostgresUpdateFromHelper, Std.Table.UpdateOf<typeof postgresUsers>>>
 

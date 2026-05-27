@@ -6,6 +6,8 @@ const Snake = Casing.make({
   columns: "snake_case"
 })
 
+const SnakeShorthand = Casing.make("snake_case")
+
 const snakeUsers = Snake.table("UserAccounts", {
   id: Column.uuid().pipe(Column.primaryKey),
   createdAt: Column.datetime(),
@@ -41,6 +43,18 @@ Table.make("UserAccounts", {
   createdAt: Column.datetime()
 }).pipe(
   Casing.withCasing({ columns: "snake_case" })
+)
+
+SnakeShorthand.table("ShorthandUsers", {
+  id: Column.uuid().pipe(Column.primaryKey),
+  createdAt: Column.datetime()
+})
+
+Table.make("ShorthandAccounts", {
+  id: Column.uuid().pipe(Column.primaryKey),
+  createdAt: Column.datetime()
+}).pipe(
+  Casing.withCasing("snake_case")
 )
 
 // @ts-expect-error casing pipes only apply to tables, schema factories, or renderers

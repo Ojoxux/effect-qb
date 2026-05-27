@@ -8,5 +8,7 @@ export * as Errors from "./mysql/errors/index.js"
 export * as Json from "./mysql/json.js"
 /** MySQL-specialized typed query execution contracts. */
 export * as Executor from "./mysql/executor.js"
+/** MySQL-specific query helpers. Portable queries are exported from the root package. */
+export * as Query from "./mysql/query-extension.js"
 /** MySQL-specialized built-in renderer entrypoint. */
 export * as Renderer from "./mysql/renderer.js"

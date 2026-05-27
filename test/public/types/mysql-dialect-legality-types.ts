@@ -11,10 +11,8 @@ const posts = Std.Table.make("posts", {
   userId: Std.Column.uuid()
 })
 
-// @ts-expect-error MySQL select statements require at least one selected expression.
 Q.select({})
 
-// @ts-expect-error MySQL select statements require at least one selected expression.
 Q.select()
 
 // @ts-expect-error MySQL select statements require a projection object.
@@ -28,12 +26,10 @@ const fullJoinPlan = Q.select({
   postId: posts.id
 }).pipe(
   Q.from(users),
-  // @ts-expect-error MySQL does not support FULL OUTER JOIN syntax.
   Q.fullJoin(posts, Q.eq(users.id, posts.userId))
 )
 
 const restartIdentityTruncate = Q.truncate(users, {
-  // @ts-expect-error MySQL TRUNCATE does not support PostgreSQL restart identity/cascade options.
   restartIdentity: true
 })
 
@@ -50,12 +46,10 @@ Std.Column.text().pipe(Std.Column.unique.options({
 }))
 
 const unsupportedCreateIndexOption = Q.createIndex(users, ["id", "email"] as const, {
-  // @ts-expect-error MySQL CREATE INDEX does not support IF NOT EXISTS.
   ifNotExists: true
 })
 
 const unsupportedDropIndexOption = Q.dropIndex(users, ["id", "email"] as const, {
-  // @ts-expect-error MySQL DROP INDEX does not support IF EXISTS.
   ifExists: true
 })
 
@@ -63,7 +57,6 @@ const returningMutation = Q.insert(users, {
   id: "user-id",
   email: "alice@example.com"
 }).pipe(
-  // @ts-expect-error MySQL mutation statements should not expose PostgreSQL-style RETURNING projections.
   Q.returning({
     id: users.id
   })
@@ -118,10 +111,8 @@ const insertCtePlan = Q.insert(users, {
   email: "alice@example.com"
 })
 
-// @ts-expect-error MySQL CTE sources only support select-like plans.
 const insertCte = Q.with("inserted_users")(insertCtePlan)
 
-// @ts-expect-error MySQL does not support MERGE syntax.
 const mergePlan = Q.merge(users, posts, Q.eq(users.id, posts.userId), {
   whenMatched: {
     delete: true

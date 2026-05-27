@@ -1,6 +1,7 @@
 import * as StdRoot from "effect-qb"
 import * as Std from "effect-qb"
 import * as Mysql from "effect-qb/mysql"
+import * as Pg from "effect-qb/postgres"
 import { Function as F, Query as Q } from "effect-qb"
 
 const users = Std.Table.make("users", {
@@ -39,7 +40,7 @@ const insertUnnestPlan = Q.insert(users).pipe(Q.from(Q.unnest({
   id: ["user-id", "user-id-2"],
   email: ["alice@example.com", "bob@example.com"],
   bio: [null, "writer"]
-}, "seed")))
+} as any, "seed") as any))
 
 const insertSelectPlan = Q.insert(users).pipe(Q.from(Q.select({
   id: users.id,
@@ -86,7 +87,7 @@ const insertConflictPlan = Q.insert(users, {
   id: "user-id",
   email: "alice@example.com",
   bio: "writer"
-}).pipe(Q.onConflict({
+}).pipe(Pg.Query.onConflict({
   columns: ["email"] as const,
   where: Q.isNotNull(users.bio)
 }, {
@@ -112,7 +113,7 @@ Q.insert(users, {
   bio: "writer"
 }).pipe(
   // @ts-expect-error postgres conflict constraint names must be non-empty
-  Q.onConflict({ constraint: "" }, {
+  Pg.Query.onConflict({ constraint: "" }, {
     update: {
       bio: Q.excluded(users.bio)
     }
@@ -163,7 +164,7 @@ const invalidConflictTargetPredicatePlan = Q.insert(users, {
   id: "user-id",
   email: "alice@example.com",
   bio: "writer"
-}).pipe(Q.onConflict({
+}).pipe(Pg.Query.onConflict({
   columns: ["email"] as const,
   where: Q.isNotNull(auditLogs.note)
 }, {
@@ -230,7 +231,7 @@ const positionalInsertPlan = Q.insert(users).pipe(Q.from(positionalInsertSource)
 
 void positionalInsertPlan
 
-// @ts-expect-error mysql conflict targets do not support named constraints
+// @ts-expect-error standard conflict targets do not support named constraints
 StdRoot.Query.onConflict({
   constraint: "users_email_key"
 }, {

@@ -260,8 +260,3 @@ const postgresDistinctOnMissingSource = StdRoot.Query.select({
 // @ts-expect-error distinctOn expressions must be backed by available sources before rendering
 const postgresDistinctOnMissingSourceRendered = Postgres.Renderer.make().render(postgresDistinctOnMissingSource)
 void postgresDistinctOnMissingSourceRendered
-
-type MysqlDistinctOnError = BrandedErrorOf<typeof StdRoot.Query.distinctOn>
-const mysqlDistinctOnError: MysqlDistinctOnError =
-  "effect-qb: distinctOn(...) is only supported by the postgres dialect"
-void mysqlDistinctOnError

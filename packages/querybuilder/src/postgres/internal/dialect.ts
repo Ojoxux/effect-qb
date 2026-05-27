@@ -30,7 +30,7 @@ export const postgresDialect: SqlDialect<"postgres"> = {
   quoteIdentifier,
   renderLiteral,
   renderTableReference(tableName, baseTableName, schemaName) {
-    const renderedBase = schemaName
+    const renderedBase = schemaName && schemaName !== "public"
       ? `${quoteIdentifier(schemaName)}.${quoteIdentifier(baseTableName)}`
       : quoteIdentifier(baseTableName)
     return tableName === baseTableName

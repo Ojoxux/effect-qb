@@ -4,11 +4,12 @@ import * as Table from "./standard/table.js"
 
 export type Style = InternalCasing.Style
 export type Options = InternalCasing.Options
+export type Input = Options | Style
 
 export interface TableFactory {
   readonly table: typeof Table.make
   readonly [InternalCasing.TypeId]: InternalCasing.State
-  readonly withCasing: (options: Options) => TableFactory
+  readonly withCasing: (options: Input) => TableFactory
 }
 
 type CasingTarget =
@@ -21,16 +22,36 @@ type CasingTarget =
 const isTable = (value: unknown): value is BaseTable.TableDefinition<any, any, any, any, any> =>
   typeof value === "object" && value !== null && BaseTable.TypeId in value
 
-export const withCasing = (options: Options) =>
-  <Value extends CasingTarget>(value: Value): Value => {
-    if (isTable(value)) {
-      return BaseTable.withCasing(value, options) as Value
-    }
-    return (value as Exclude<CasingTarget, BaseTable.TableDefinition<any, any, any, any, any>>).withCasing(options) as Value
-  }
+const allCategories = (style: Style): Options => ({
+  tables: style,
+  columns: style,
+  schemas: style,
+  indexes: style,
+  constraints: style,
+  types: style,
+  sequences: style
+})
 
-export const make = (options: Options): TableFactory => {
-  const withFactoryCasing = withCasing(options)
+const normalize = (input: Input): Options =>
+  typeof input === "string" || typeof input === "function" ? allCategories(input) : input
+
+export function withCasing(options: Style): <Value extends CasingTarget>(value: Value) => Value
+export function withCasing(options: Options): <Value extends CasingTarget>(value: Value) => Value
+export function withCasing(options: Input) {
+  return <Value extends CasingTarget>(value: Value): Value => {
+    const normalized = normalize(options)
+    if (isTable(value)) {
+      return BaseTable.withCasing(value, normalized) as Value
+    }
+    return (value as Exclude<CasingTarget, BaseTable.TableDefinition<any, any, any, any, any>>).withCasing(normalized) as Value
+  }
+}
+
+export function make(options: Style): TableFactory
+export function make(options: Options): TableFactory
+export function make(options: Input): TableFactory {
+  const normalized = normalize(options)
+  const withFactoryCasing = withCasing(normalized)
   const table = ((name: string, fields: any, schemaName?: string) =>
     schemaName === undefined
       ? Table.make(name, fields).pipe(withFactoryCasing)
@@ -38,9 +59,9 @@ export const make = (options: Options): TableFactory => {
   const factory = {
     table,
     [InternalCasing.TypeId]: {
-      casing: options
+      casing: normalized
     },
-    withCasing: (override: Options) => make(InternalCasing.merge(options, override) ?? {})
+    withCasing: (override: Input) => make(InternalCasing.merge(normalized, normalize(override)) ?? {})
   }
   return factory
 }

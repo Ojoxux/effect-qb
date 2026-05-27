@@ -8,5 +8,7 @@ export * as Errors from "./sqlite/errors/index.js"
 export * as Json from "./sqlite/json.js"
 /** SQLite-specialized typed query execution contracts. */
 export * as Executor from "./sqlite/executor.js"
+/** SQLite-specific query helpers. Portable queries are exported from the root package. */
+export * as Query from "./sqlite/query-extension.js"
 /** SQLite-specialized built-in renderer entrypoint. */
 export * as Renderer from "./sqlite/renderer.js"

@@ -34,8 +34,8 @@ type LocalTimestampRuntime = StdRoot.Scalar.RuntimeOf<typeof localTimestamp>
 type NowRuntime = StdRoot.Scalar.RuntimeOf<typeof now>
 
 type _AssertCurrentDate = Assert<IsExact<CurrentDateRuntime, StdRoot.Scalar.LocalDateString>>
-type _AssertCurrentTime = Assert<IsExact<CurrentTimeRuntime, StdRoot.Scalar.OffsetTimeString>>
-type _AssertCurrentTimestamp = Assert<IsExact<CurrentTimestampRuntime, StdRoot.Scalar.InstantString>>
+type _AssertCurrentTime = Assert<IsExact<CurrentTimeRuntime, StdRoot.Scalar.LocalTimeString>>
+type _AssertCurrentTimestamp = Assert<IsExact<CurrentTimestampRuntime, StdRoot.Scalar.LocalDateTimeString>>
 type _AssertLocalTime = Assert<IsExact<LocalTimeRuntime, StdRoot.Scalar.LocalTimeString>>
 type _AssertLocalTimestamp = Assert<IsExact<LocalTimestampRuntime, StdRoot.Scalar.LocalDateTimeString>>
 type _AssertNow = Assert<IsExact<NowRuntime, StdRoot.Scalar.InstantString>>

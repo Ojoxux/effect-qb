@@ -461,9 +461,12 @@ const badRichForeignKeyLocalColumn = badRichForeignKeyLocalColumnOption(Std.Tabl
 }))
 void badRichForeignKeyLocalColumn
 
-// @ts-expect-error rich foreign keys must reference columns on the target table
 const badRichForeignKeyReferencedColumnOption = StdRoot.Table.foreignKey("orgId", () => orgs, "missing")
-void badRichForeignKeyReferencedColumnOption
+// @ts-expect-error rich foreign keys must reference columns on the target table
+const badRichForeignKeyReferencedColumn = badRichForeignKeyReferencedColumnOption(Std.Table.make("bad_rich_fk_referenced_column", {
+  orgId: Std.Column.uuid()
+}))
+void badRichForeignKeyReferencedColumn
 
 // @ts-expect-error rich primary key columns must exist on the target table
 const badRichPrimaryKeyColumn = Std.Table.primaryKey("missing")(Std.Table.make("bad_rich_primary_key_column", {
@@ -601,7 +604,6 @@ void mysqlSchemaTablePrimaryKeyUpdate
 void badMysqlSchemaTablePrimaryKeyUpdate
 
 const badMysqlSchemaTableIndexOption = Std.Table.index("missing")
-// @ts-expect-error mysql schema-scoped table option columns must exist on the declared table
 const badMysqlSchemaTableOptionColumn = Std.Table.make("bad_mysql_schema_table_option_column", { id: Std.Column.uuid() }, "tenant").pipe(badMysqlSchemaTableIndexOption)
 void badMysqlSchemaTableOptionColumn
 
@@ -712,6 +714,7 @@ const widenedPostgresWhereMysqlPlan = StdRoot.Query.select({
   StdRoot.Query.where(widenedPostgresWhereMysqlPredicate)
 )
 const widenedPostgresWhereMysqlRendered = Postgres.Renderer.make().render(
+  // @ts-expect-error widened predicate inputs must still preserve expression dialect
   widenedPostgresWhereMysqlPlan
 )
 void widenedPostgresWhereMysqlRendered

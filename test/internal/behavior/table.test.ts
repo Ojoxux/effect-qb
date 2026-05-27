@@ -88,7 +88,7 @@ describe("table definitions", () => {
     expect(analytics.schemaName).toBe("analytics")
     expect(events[StdRoot.Table.TypeId].schemaName).toBe("analytics")
     expect(events[StdRoot.Table.TypeId].baseName).toBe("events")
-    expect(users[StdRoot.Table.TypeId].schemaName).toBeUndefined()
+    expect(users[StdRoot.Table.TypeId].schemaName).toBe("public")
   })
 
   test("class tables expose inherited static columns and schemas", () => {
@@ -123,7 +123,8 @@ describe("table definitions", () => {
     }
     expect(foreignKey.references()).toEqual({
       tableName: "orgs",
-      schemaName: undefined,
+      schemaName: "public",
+      casing: undefined,
       columns: ["id"]
     })
   })
@@ -155,7 +156,8 @@ describe("table definitions", () => {
 
     expect(foreignKey.references()).toEqual({
       tableName: "orgs",
-      schemaName: undefined,
+      schemaName: "public",
+      casing: undefined,
       columns: ["id"],
       knownColumns: ["id", "slug"]
     })
@@ -171,7 +173,8 @@ describe("table definitions", () => {
     }
     expect(brokenForeignKey.references()).toEqual({
       tableName: "orgs",
-      schemaName: undefined,
+      schemaName: "public",
+      casing: undefined,
       columns: ["missing"],
       knownColumns: ["id", "slug"]
     })

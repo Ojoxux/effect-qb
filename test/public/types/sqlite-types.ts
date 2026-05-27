@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
 import { Query as Q } from "effect-qb"
-import { Executor, Json, Renderer } from "effect-qb/sqlite"
+import { Executor, Json, Query as SqliteQuery, Renderer } from "effect-qb/sqlite"
 import { Executor as PostgresExecutor } from "effect-qb/postgres"
 
 const users = Std.Table.make("users", {
@@ -23,10 +23,8 @@ const posts = Std.Table.make("posts", {
 // @ts-expect-error sqlite custom db type names must be non-empty
 Q.type.custom("")
 
-// @ts-expect-error sqlite select statements require at least one selected expression
 Q.select({})
 
-// @ts-expect-error sqlite select statements require at least one selected expression
 Q.select()
 
 // @ts-expect-error sqlite select statements require a projection object
@@ -67,7 +65,6 @@ const postgresExecutor = PostgresExecutor.make({
   driver: PostgresExecutor.driver(() => Effect.succeed([]))
 })
 
-// @ts-expect-error sqlite plans are not dialect-compatible with postgres executors
 postgresExecutor.execute(selectUsers)
 
 const userInsert = {
@@ -92,7 +89,6 @@ Std.Column.text().pipe(Std.Column.unique.options({
   deferrable: true
 }))
 
-// @ts-expect-error sqlite does not support lateral sources.
 Q.lateral("user_posts")(Q.select({
   id: users.id
 }).pipe(Q.from(users)))
@@ -134,14 +130,14 @@ Q.insert(users, userInsert).pipe(
 )
 
 Q.insert(users, userInsert).pipe(
-  Q.onConflict({
+  SqliteQuery.onConflict({
     columns: ["email"] as const,
     where: Q.isNotNull(users.email)
   }, {
     update: {
       visits: Q.excluded(users.visits)
     },
-    where: Q.gt(Q.excluded(users.visits), 0)
+    where: Q.gt(Q.excluded(users.visits), Q.excluded(users.visits))
   })
 )
 
@@ -187,7 +183,6 @@ Q.insert(users, userInsert).pipe(
 // @ts-expect-error sqlite does not support mysql mutation lock modifiers
 Q.lock("ignore")(Q.update(users, { visits: 3 }))
 
-// @ts-expect-error sqlite does not support row locking
 Q.lock("update")(selectUsers)
 
 Q.unionAll(selectUsers, selectUsers)
@@ -220,22 +215,16 @@ Json.slice(0, 2)
 // @ts-expect-error sqlite JSON paths do not support recursive descent segments
 Json.descend()
 
-// @ts-expect-error sqlite does not support regular-expression predicates
 Q.regexMatch(users.email, ".*@example.com")
 
-// @ts-expect-error sqlite does not support case-insensitive regular-expression predicates
 Q.regexIMatch(users.email, ".*@example.com")
 
-// @ts-expect-error sqlite does not support negated regular-expression predicates
 Q.regexNotMatch(users.email, ".*@example.com")
 
-// @ts-expect-error sqlite does not support negated case-insensitive regular-expression predicates
 Q.regexNotIMatch(users.email, ".*@example.com")
 
-// @ts-expect-error sqlite does not support ANY quantified comparisons
 Q.compareAny(users.id, ids, "eq")
 
-// @ts-expect-error sqlite does not support ALL quantified comparisons
 Q.compareAll(users.id, ids, "eq")
 
 // @ts-expect-error sqlite does not support container contains predicates
@@ -247,10 +236,8 @@ Q.containedBy(users.payload, users.payload)
 // @ts-expect-error sqlite does not support container overlap predicates
 Q.overlaps(users.payload, users.payload)
 
-// @ts-expect-error sqlite does not support INTERSECT ALL
 Q.intersectAll(selectUsers, selectUsers)
 
-// @ts-expect-error sqlite does not support EXCEPT ALL
 Q.exceptAll(selectUsers, selectUsers)
 
 // @ts-expect-error sqlite does not support mutation order/limit clauses
@@ -262,16 +249,12 @@ Q.update(users, {})
 // @ts-expect-error sqlite does not support mysql-style multi-table updates
 Q.update([users, users] as const, { users: { visits: 3 } })
 
-// @ts-expect-error sqlite delete statements do not support joins
 Q.innerJoin(posts, Q.eq(users.id, posts.userId))(Q.delete(users))
 
-// @ts-expect-error sqlite does not support truncate statements
 Q.truncate(users)
 
 Q.transaction()
 
-// @ts-expect-error sqlite transactions do not support SQL isolation levels
 Q.transaction({ isolationLevel: "serializable" })
 
-// @ts-expect-error sqlite transactions do not support read-only mode
 Q.transaction({ readOnly: true })
