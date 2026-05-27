@@ -20,6 +20,9 @@ export type ValueMappings = Expression.DriverValueMappingsFor<MysqlDatatypeKind 
 
 export interface MakeOptions {
   readonly valueMappings?: ValueMappings
+}
+
+interface RendererState extends MakeOptions {
   readonly casing?: Casing.Options
 }
 
@@ -33,19 +36,23 @@ const RendererProto = {
 }
 
 /** Creates the built-in MySQL renderer. */
-export const make = (options: MakeOptions = {}): Renderer => {
-  const renderer = CoreRenderer.makeTrusted("mysql", (plan) => renderMysqlPlan(plan, options))
+const makeWithState = (state: RendererState = {}): Renderer => {
+  const renderer = CoreRenderer.makeTrusted("mysql", (plan) => renderMysqlPlan(plan, state))
   return Object.assign(Object.create(RendererProto), renderer, {
     [Casing.TypeId]: {
-      casing: options.casing
+      casing: state.casing
     },
     withCasing: (override: Casing.Options) =>
-      make({
-        ...options,
-        casing: Casing.merge(options.casing, override)
+      makeWithState({
+        ...state,
+        casing: Casing.merge(state.casing, override)
       })
   }) as Renderer
 }
+
+/** Creates the built-in MySQL renderer. */
+export const make = (options: MakeOptions = {}): Renderer =>
+  makeWithState({ valueMappings: options.valueMappings })
 
 /** Shared built-in MySQL renderer instance. */
 export const mysql = make()

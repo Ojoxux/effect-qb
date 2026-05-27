@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 818-837
+// Code fences: 812-831
 
-// README.md:818-837
+// README.md:812-831
 import { Scalar } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 

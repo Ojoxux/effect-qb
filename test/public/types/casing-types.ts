@@ -1,5 +1,7 @@
-import { Casing, Column, Query, Table } from "effect-qb"
+import { Casing, Column, Query, Renderer, Table } from "effect-qb"
+import * as My from "effect-qb/mysql"
 import * as Pg from "effect-qb/postgres"
+import * as Sq from "effect-qb/sqlite"
 
 const Snake = Casing.make({
   tables: "snake_case",
@@ -22,13 +24,42 @@ const snakePlan = Query.select({
   Query.where(Query.eq(snakeUsers.displayName, "Alice"))
 )
 
+Renderer.make({
+  // @ts-expect-error renderer casing is configured with Casing.withCasing pipes
+  casing: {
+    tables: "snake_case",
+    columns: "snake_case"
+  }
+})
+
 Pg.Renderer.make({
+  // @ts-expect-error renderer casing is configured with Casing.withCasing pipes
   casing: {
     tables: "snake_case",
     columns: "snake_case",
     schemas: "snake_case"
   }
 }).render(snakePlan)
+
+My.Renderer.make({
+  // @ts-expect-error renderer casing is configured with Casing.withCasing pipes
+  casing: {
+    tables: "snake_case",
+    columns: "snake_case"
+  }
+}).render(snakePlan)
+
+Sq.Renderer.make({
+  // @ts-expect-error renderer casing is configured with Casing.withCasing pipes
+  casing: {
+    tables: "snake_case",
+    columns: "snake_case"
+  }
+}).render(snakePlan)
+
+Renderer.make().pipe(
+  Casing.withCasing("snake_case")
+).render(snakePlan)
 
 Pg.Renderer.make().pipe(
   Casing.withCasing({

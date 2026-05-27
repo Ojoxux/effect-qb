@@ -795,12 +795,7 @@ const readUsers = Query.select({
   email: users.email
 }).pipe(Query.from(users))
 
-const rendered = Pg.Renderer.make({
-  casing: {
-    tables: "snake_case",
-    columns: "snake_case"
-  }
-}).render(readUsers)
+const rendered = Pg.Renderer.make().render(readUsers)
 
 const sql: string = rendered.sql
 const params: readonly unknown[] = rendered.params
@@ -809,7 +804,6 @@ const params: readonly unknown[] = rendered.params
 
 Renderer options:
 
-- `casing?` - renderer-level physical identifier casing
 - `valueMappings?` - typed driver-boundary mappings by known datatype or datatype family
 
 `valueMappings` is keyed by the renderer's known type surface. Unknown keys are

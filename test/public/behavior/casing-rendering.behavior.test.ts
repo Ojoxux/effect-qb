@@ -21,12 +21,12 @@ describe("casing rendering behavior", () => {
       Query.where(Query.eq(users.displayName, "Alice"))
     )
 
-    const rendered = Pg.Renderer.make({
-      casing: {
+    const rendered = Pg.Renderer.make().pipe(
+      Casing.withCasing({
         tables: "snake_case",
         columns: "snake_case"
-      }
-    }).render(plan)
+      })
+    ).render(plan)
 
     expect(rendered.sql).toBe(
       'select "user_accounts"."created_at" as "createdAt" from "user_accounts" where ("user_accounts"."display_name" = $1)'
@@ -84,10 +84,10 @@ describe("casing rendering behavior", () => {
       columns: "snake_case"
     } as const
 
-    expect(Mysql.Renderer.make({ casing }).render(plan).sql).toBe(
+    expect(Mysql.Renderer.make().pipe(Casing.withCasing(casing)).render(plan).sql).toBe(
       "select `user_accounts`.`created_at` as `createdAt` from `user_accounts` where (`user_accounts`.`display_name` = ?)"
     )
-    expect(Sqlite.Renderer.make({ casing }).render(plan).sql).toBe(
+    expect(Sqlite.Renderer.make().pipe(Casing.withCasing(casing)).render(plan).sql).toBe(
       'select "user_accounts"."created_at" as "createdAt" from "user_accounts" where ("user_accounts"."display_name" = ?)'
     )
   })
@@ -107,21 +107,21 @@ describe("casing rendering behavior", () => {
       { displayName: StdRoot.Query.literal("Alice") }
     ] as const).pipe(StdRoot.Query.as("SeedRows"))
 
-    expect(Pg.Renderer.make({ casing }).render(
+    expect(Pg.Renderer.make().pipe(Casing.withCasing(casing)).render(
       StdRoot.Query.select({
         displayName: postgresSeed.displayName
       }).pipe(StdRoot.Query.from(postgresSeed))
     ).sql).toBe(
       'select "SeedRows"."displayName" as "displayName" from (select $1 as "displayName") as "SeedRows"("displayName")'
     )
-    expect(Mysql.Renderer.make({ casing }).render(
+    expect(Mysql.Renderer.make().pipe(Casing.withCasing(casing)).render(
       StdRoot.Query.select({
         displayName: mysqlSeed.displayName
       }).pipe(StdRoot.Query.from(mysqlSeed))
     ).sql).toBe(
       "select `SeedRows`.`displayName` as `displayName` from (select ? as `displayName`) as `SeedRows`(`displayName`)"
     )
-    expect(Sqlite.Renderer.make({ casing }).render(
+    expect(Sqlite.Renderer.make().pipe(Casing.withCasing(casing)).render(
       StdRoot.Query.select({
         displayName: sqliteSeed.displayName
       }).pipe(StdRoot.Query.from(sqliteSeed))
@@ -164,21 +164,21 @@ describe("casing rendering behavior", () => {
       StdRoot.Query.as("ActiveUsers")
     )
 
-    expect(Pg.Renderer.make({ casing }).render(
+    expect(Pg.Renderer.make().pipe(Casing.withCasing(casing)).render(
       StdRoot.Query.select({
         displayName: postgresActiveUsers.displayName
       }).pipe(StdRoot.Query.from(postgresActiveUsers))
     ).sql).toBe(
       'select "ActiveUsers"."displayName" as "displayName" from (select "user_accounts"."id" as "id", "user_accounts"."display_name" as "displayName" from "user_accounts" where ("user_accounts"."display_name" is not null)) as "ActiveUsers"'
     )
-    expect(Mysql.Renderer.make({ casing }).render(
+    expect(Mysql.Renderer.make().pipe(Casing.withCasing(casing)).render(
       StdRoot.Query.select({
         displayName: mysqlActiveUsers.displayName
       }).pipe(StdRoot.Query.from(mysqlActiveUsers))
     ).sql).toBe(
       "select `ActiveUsers`.`displayName` as `displayName` from (select `user_accounts`.`id` as `id`, `user_accounts`.`display_name` as `displayName` from `user_accounts` where (`user_accounts`.`display_name` is not null)) as `ActiveUsers`"
     )
-    expect(Sqlite.Renderer.make({ casing }).render(
+    expect(Sqlite.Renderer.make().pipe(Casing.withCasing(casing)).render(
       StdRoot.Query.select({
         displayName: sqliteActiveUsers.displayName
       }).pipe(StdRoot.Query.from(sqliteActiveUsers))
@@ -312,12 +312,12 @@ describe("casing rendering behavior", () => {
       createdAt: users.createdAt
     }).pipe(Query.from(users))
 
-    expect(Pg.Renderer.make({
-      casing: {
+    expect(Pg.Renderer.make().pipe(
+      Casing.withCasing({
         tables: "snake_case",
         columns: "snake_case"
-      }
-    }).render(plan).sql).toBe(
+      })
+    ).render(plan).sql).toBe(
       'select "user_accounts"."createdAt" as "createdAt" from "user_accounts"'
     )
     expect(Pg.Renderer.make().pipe(
