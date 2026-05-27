@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 647-681
+// Code fences: 608-640
 
-// README.md:647-681
+// README.md:608-640
 import { Column, Query, Renderer, Table } from "effect-qb"
 
 const users = Table.make("users", {
@@ -34,7 +34,5 @@ Query.as(complete, dynamicAlias)
 // @ts-expect-error derived source aliases must be non-empty
 Query.as(complete, "")
 
-void rendered
-void validRow
 
 export {};

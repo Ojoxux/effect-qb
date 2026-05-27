@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 907-926
+// Code fences: 860-877
 
-// README.md:907-926
+// README.md:860-877
 import { Column, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
@@ -19,7 +19,5 @@ const readUsers = Query.select({
 const rowsEffect = Pg.Executor.make().execute(readUsers)
 const rowStream = Pg.Executor.make().stream(readUsers)
 
-void rowsEffect
-void rowStream
 
 export {};

@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 426-485
+// Code fences: 403-453
 
-// README.md:426-485
+// README.md:403-453
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
@@ -52,14 +52,5 @@ type UserSelectFromSchema = Schema.Schema.Type<typeof selectSchema>
 type UserInsertFromSchema = Schema.Schema.Type<typeof insertSchema>
 type UserUpdateFromSchema = Schema.Schema.Type<typeof updateSchema>
 
-type _UserSelectFromSchema = UserSelectFromSchema
-type _UserInsertFromSchema = UserInsertFromSchema
-type _UserUpdateFromSchema = UserUpdateFromSchema
-void insertUser
-void updateUser
-void parsedInsert
-void parsedUpdate
-void insertWithId
-void updateWithId
 
 export {};

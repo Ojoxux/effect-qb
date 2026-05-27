@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 499-544
+// Code fences: 467-507
 
-// README.md:499-544
+// README.md:467-507
 import { Column, Function, Query, Table } from "effect-qb"
 
 const users = Table.make("users", {
@@ -42,10 +42,5 @@ const missingTitle: null = row.title
 // @ts-expect-error proving the joined post exists also promotes posts.id
 const missingPostId: null = row.postId
 
-void title
-void upperTitle
-void postId
-void missingTitle
-void missingPostId
 
 export {};

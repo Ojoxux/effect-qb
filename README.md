@@ -32,8 +32,6 @@ type ActiveUser = Query.ResultRow<typeof activeUsers>
 
 const rendered = Pg.Renderer.make().render(activeUsers)
 
-void rendered
-type _ActiveUser = ActiveUser
 ```
 
 ## Contents
@@ -119,8 +117,6 @@ type UserDirectoryRow = Query.ResultRow<typeof userDirectory>
 
 const postgresSql = Pg.Renderer.make().render(userDirectory)
 
-void postgresSql
-type _UserDirectoryRow = UserDirectoryRow
 ```
 
 The query plan above is portable because it only uses root modules. It can be
@@ -219,10 +215,6 @@ type Organization = Table.SelectOf<typeof organizations>
 type NewOrganization = Table.InsertOf<typeof organizations>
 type OrganizationPatch = Table.UpdateOf<typeof organizations>
 
-void memberships
-type _Organization = Organization
-type _NewOrganization = NewOrganization
-type _OrganizationPatch = OrganizationPatch
 ```
 
 Root table helpers cover portable constraints and metadata:
@@ -273,8 +265,6 @@ const events = Table.make("events", {
 type EventRow = Table.SelectOf<typeof events>
 type EventInsert = Table.InsertOf<typeof events>
 
-type _EventRow = EventRow
-type _EventInsert = EventInsert
 ```
 
 Postgres adds concrete types such as `jsonb`, `bytea`, arrays, identity
@@ -307,14 +297,10 @@ const readUsers = Query.select({
 )
 
 const renderer = Pg.Renderer.make().pipe(
-  Casing.withCasing({
-    tables: "snake_case",
-    columns: "snake_case"
-  })
+  Casing.withCasing("snake_case")
 )
 
 const rendered = renderer.render(readUsers)
-void rendered
 ```
 
 <details>
@@ -327,13 +313,9 @@ const users = Table.make("UserAccounts", {
   id: Column.uuid().pipe(Column.primaryKey),
   createdAt: Column.datetime()
 }).pipe(
-  Casing.withCasing({
-    tables: "snake_case",
-    columns: "snake_case"
-  })
+  Casing.withCasing("snake_case")
 )
 
-void users
 ```
 
 </details>
@@ -344,17 +326,13 @@ void users
 ```ts
 import { Casing, Column } from "effect-qb"
 
-const Snake = Casing.make({
-  tables: "snake_case",
-  columns: "snake_case"
-})
+const Snake = Casing.make("snake_case")
 
 const users = Snake.table("UserAccounts", {
   id: Column.uuid().pipe(Column.primaryKey),
   createdAt: Column.datetime()
 })
 
-void users
 ```
 
 </details>
@@ -380,7 +358,6 @@ const events = Analytics.table("Events", {
   createdAt: Column.datetime()
 })
 
-void events
 ```
 
 </details>
@@ -473,15 +450,6 @@ type UserSelectFromSchema = Schema.Schema.Type<typeof selectSchema>
 type UserInsertFromSchema = Schema.Schema.Type<typeof insertSchema>
 type UserUpdateFromSchema = Schema.Schema.Type<typeof updateSchema>
 
-type _UserSelectFromSchema = UserSelectFromSchema
-type _UserInsertFromSchema = UserInsertFromSchema
-type _UserUpdateFromSchema = UserUpdateFromSchema
-void insertUser
-void updateUser
-void parsedInsert
-void parsedUpdate
-void insertWithId
-void updateWithId
 ```
 
 The same metadata powers `table.schemas.select`, `table.schemas.insert`, and
@@ -536,11 +504,6 @@ const missingTitle: null = row.title
 // @ts-expect-error proving the joined post exists also promotes posts.id
 const missingPostId: null = row.postId
 
-void title
-void upperTitle
-void postId
-void missingTitle
-void missingPostId
 ```
 
 Literal predicates can narrow finite unions too. This applies to ordinary
@@ -587,8 +550,6 @@ const actorId: string = created.payload.actorId
 // @ts-expect-error discriminator equality removes the deleted payload branch
 created.payload.reason
 
-void createdKind
-void actorId
 ```
 
 These refinements are implemented by the predicate implication layer. It tracks
@@ -676,8 +637,6 @@ Query.as(complete, dynamicAlias)
 // @ts-expect-error derived source aliases must be non-empty
 Query.as(complete, "")
 
-void rendered
-void validRow
 ```
 
 ### Dialect Compatibility
@@ -779,7 +738,6 @@ const postsByUser = Query.select({
 
 type PostsByUserRow = Query.ResultRow<typeof postsByUser>
 
-type _PostsByUserRow = PostsByUserRow
 ```
 
 Core query surfaces include:
@@ -815,8 +773,6 @@ const incrementVisits = Query.update(users, {
   Query.where(Query.eq(users.email, "alice@example.com"))
 )
 
-void insertUser
-void incrementVisits
 ```
 
 </details>
@@ -849,8 +805,6 @@ const rendered = Pg.Renderer.make({
 const sql: string = rendered.sql
 const params: readonly unknown[] = rendered.params
 
-void sql
-void params
 ```
 
 Renderer options:
@@ -880,7 +834,6 @@ const renderer = Pg.Renderer.make({
   }
 })
 
-void renderer
 ```
 
 <details>
@@ -921,8 +874,6 @@ const readUsers = Query.select({
 const rowsEffect = Pg.Executor.make().execute(readUsers)
 const rowStream = Pg.Executor.make().stream(readUsers)
 
-void rowsEffect
-void rowStream
 ```
 
 Executors also accept custom renderers, custom drivers, driver modes, and value
@@ -943,7 +894,6 @@ const driver = Pg.Executor.driver({
 
 const executor = Pg.Executor.make({ driver })
 
-void executor
 ```
 
 </details>
@@ -1058,7 +1008,6 @@ const metrics = Analytics.table("Metrics", {
   )
 })
 
-void metrics
 ```
 
 </details>
@@ -1147,7 +1096,6 @@ const plan = Query.select({
 
 type Row = Query.ResultRow<typeof plan>
 
-type _Row = Row
 ```
 
 </details>
@@ -1168,7 +1116,6 @@ const users = Table.make("Users", {
   })
 )
 
-void users
 ```
 
 </details>
@@ -1203,7 +1150,6 @@ const city = Pg.Jsonb.text(
 
 const plan = Query.select({ city }).pipe(Query.from(docs))
 
-void plan
 ```
 
 </details>

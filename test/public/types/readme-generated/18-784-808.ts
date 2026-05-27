@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 828-854
+// Code fences: 784-808
 
-// README.md:828-854
+// README.md:784-808
 import { Column, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
@@ -26,7 +26,5 @@ const rendered = Pg.Renderer.make({
 const sql: string = rendered.sql
 const params: readonly unknown[] = rendered.params
 
-void sql
-void params
 
 export {};

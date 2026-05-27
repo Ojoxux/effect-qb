@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 1135-1151
+// Code fences: 1084-1099
 
-// README.md:1135-1151
+// README.md:1084-1099
 import { Column, Function, Query, Table } from "effect-qb"
 
 const users = Table.make("users", {
@@ -17,6 +17,5 @@ const plan = Query.select({
 
 type Row = Query.ResultRow<typeof plan>
 
-type _Row = Row
 
 export {};

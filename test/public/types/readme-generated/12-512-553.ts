@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 549-592
+// Code fences: 512-553
 
-// README.md:549-592
+// README.md:512-553
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
@@ -43,7 +43,5 @@ const actorId: string = created.payload.actorId
 // @ts-expect-error discriminator equality removes the deleted payload branch
 created.payload.reason
 
-void createdKind
-void actorId
 
 export {};

@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 1179-1207
+// Code fences: 1126-1153
 
-// README.md:1179-1207
+// README.md:1126-1153
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
@@ -29,6 +29,5 @@ const city = Pg.Jsonb.text(
 
 const plan = Query.select({ city }).pipe(Query.from(docs))
 
-void plan
 
 export {};

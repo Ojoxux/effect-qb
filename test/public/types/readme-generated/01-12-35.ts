@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 12-37
+// Code fences: 12-35
 
-// README.md:12-37
+// README.md:12-35
 import { Column, Function, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
@@ -25,7 +25,5 @@ type ActiveUser = Query.ResultRow<typeof activeUsers>
 
 const rendered = Pg.Renderer.make().render(activeUsers)
 
-void rendered
-type _ActiveUser = ActiveUser
 
 export {};

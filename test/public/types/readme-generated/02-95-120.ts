@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 97-124
+// Code fences: 95-120
 
-// README.md:97-124
+// README.md:95-120
 import { Column, Function, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
@@ -27,7 +27,5 @@ type UserDirectoryRow = Query.ResultRow<typeof userDirectory>
 
 const postgresSql = Pg.Renderer.make().render(userDirectory)
 
-void postgresSql
-type _UserDirectoryRow = UserDirectoryRow
 
 export {};

@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 365-384
+// Code fences: 343-361
 
-// README.md:365-384
+// README.md:343-361
 import { Casing, Column } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
@@ -20,6 +20,5 @@ const events = Analytics.table("Events", {
   createdAt: Column.datetime()
 })
 
-void events
 
 export {};

@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 797-820
+// Code fences: 755-776
 
-// README.md:797-820
+// README.md:755-776
 import { Column, Query, Table } from "effect-qb"
 
 const users = Table.make("users", {
@@ -23,7 +23,5 @@ const incrementVisits = Query.update(users, {
   Query.where(Query.eq(users.email, "alice@example.com"))
 )
 
-void insertUser
-void incrementVisits
 
 export {};

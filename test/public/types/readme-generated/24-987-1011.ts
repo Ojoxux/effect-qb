@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 1037-1062
+// Code fences: 987-1011
 
-// README.md:1037-1062
+// README.md:987-1011
 import { Casing, Column } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
@@ -26,6 +26,5 @@ const metrics = Analytics.table("Metrics", {
   )
 })
 
-void metrics
 
 export {};

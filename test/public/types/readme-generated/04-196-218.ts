@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 200-226
+// Code fences: 196-218
 
-// README.md:200-226
+// README.md:196-218
 import { Column, Table } from "effect-qb"
 
 const organizations = Table.make("organizations", {
@@ -24,9 +24,5 @@ type Organization = Table.SelectOf<typeof organizations>
 type NewOrganization = Table.InsertOf<typeof organizations>
 type OrganizationPatch = Table.UpdateOf<typeof organizations>
 
-void memberships
-type _Organization = Organization
-type _NewOrganization = NewOrganization
-type _OrganizationPatch = OrganizationPatch
 
 export {};

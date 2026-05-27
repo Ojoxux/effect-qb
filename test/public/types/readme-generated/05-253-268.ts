@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 261-278
+// Code fences: 253-268
 
-// README.md:261-278
+// README.md:253-268
 import * as Schema from "effect/Schema"
 import { Column, Table } from "effect-qb"
 
@@ -17,7 +17,5 @@ const events = Table.make("events", {
 type EventRow = Table.SelectOf<typeof events>
 type EventInsert = Table.InsertOf<typeof events>
 
-type _EventRow = EventRow
-type _EventInsert = EventInsert
 
 export {};

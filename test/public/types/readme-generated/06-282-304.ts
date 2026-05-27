@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 292-318
+// Code fences: 282-304
 
-// README.md:292-318
+// README.md:282-304
 import { Casing, Column, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
@@ -20,13 +20,9 @@ const readUsers = Query.select({
 )
 
 const renderer = Pg.Renderer.make().pipe(
-  Casing.withCasing({
-    tables: "snake_case",
-    columns: "snake_case"
-  })
+  Casing.withCasing("snake_case")
 )
 
 const rendered = renderer.render(readUsers)
-void rendered
 
 export {};
