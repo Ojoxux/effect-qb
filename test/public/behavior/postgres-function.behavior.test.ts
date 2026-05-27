@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test"
 
 import * as Postgres from "#postgres"
-import { Column as C, Query as Q, Renderer, Table } from "#postgres"
+import { Query as Q, Table } from "#standard"
+import { Column as C, Renderer } from "#postgres"
 import * as StdRoot from "#standard"
 
 describe("postgres function namespace", () => {
@@ -12,10 +13,10 @@ describe("postgres function namespace", () => {
     })
 
     const plan = Q.select({
-      lowerEmail: Postgres.Function.string.lower(users.email),
-      fallbackEmail: Postgres.Function.core.coalesce(users.email, Q.literal("missing")),
-      today: Postgres.Function.temporal.currentDate(),
-      instant: Postgres.Function.currentTimestamp()
+      lowerEmail: StdRoot.Function.string.lower(users.email),
+      fallbackEmail: StdRoot.Function.core.coalesce(users.email, Q.literal("missing")),
+      today: StdRoot.Function.temporal.currentDate(),
+      instant: StdRoot.Function.currentTimestamp()
     }).pipe(
       Q.from(users)
     )
@@ -30,11 +31,11 @@ describe("postgres function namespace", () => {
     const users = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
-    const today = Postgres.Function.currentDate()
+    const today = StdRoot.Function.currentDate()
 
     const plan = Q.select({
       today,
-      userCount: Postgres.Function.count(users.id)
+      userCount: StdRoot.Function.count(users.id)
     }).pipe(
       Q.from(users),
       Q.groupBy(today)

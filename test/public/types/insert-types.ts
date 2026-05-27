@@ -1,6 +1,7 @@
+import * as StdRoot from "effect-qb"
 import * as Std from "effect-qb"
 import * as Mysql from "effect-qb/mysql"
-import { Function as F, Query as Q } from "effect-qb/postgres"
+import { Function as F, Query as Q } from "effect-qb"
 
 const users = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),
@@ -230,51 +231,51 @@ const positionalInsertPlan = Q.insert(users).pipe(Q.from(positionalInsertSource)
 void positionalInsertPlan
 
 // @ts-expect-error mysql conflict targets do not support named constraints
-Mysql.Query.onConflict({
+StdRoot.Query.onConflict({
   constraint: "users_email_key"
 }, {
   update: {
-    bio: Mysql.Query.excluded(mysqlUsers.bio)
+    bio: StdRoot.Query.excluded(mysqlUsers.bio)
   }
-})(Mysql.Query.insert(mysqlUsers, {
+})(StdRoot.Query.insert(mysqlUsers, {
   id: "user-id",
   email: "alice@example.com",
   bio: null
 }))
 
-Mysql.Query.insert(mysqlUsers, {
+StdRoot.Query.insert(mysqlUsers, {
   id: "user-id",
   email: "alice@example.com",
   bio: null
-}).pipe(Mysql.Query.onConflict(["email"] as const, {
+}).pipe(StdRoot.Query.onConflict(["email"] as const, {
   update: {
-    bio: Mysql.Query.excluded(mysqlUsers.bio)
+    bio: StdRoot.Query.excluded(mysqlUsers.bio)
   },
   // @ts-expect-error mysql conflict actions do not support where(...)
-  where: Mysql.Query.isNotNull(Mysql.Query.excluded(mysqlUsers.bio))
+  where: StdRoot.Query.isNotNull(StdRoot.Query.excluded(mysqlUsers.bio))
 }))
 
-Mysql.Query.insert(mysqlUsers, {
+StdRoot.Query.insert(mysqlUsers, {
   id: "user-id",
   email: "alice@example.com",
   bio: null
-}).pipe(Mysql.Query.onConflict("email", {
+}).pipe(StdRoot.Query.onConflict("email", {
   update: {
-    bio: Mysql.Query.excluded(mysqlUsers.bio)
+    bio: StdRoot.Query.excluded(mysqlUsers.bio)
   }
 }))
 
-Mysql.Query.insert(mysqlUsers, {
+StdRoot.Query.insert(mysqlUsers, {
   id: "user-id",
   email: "alice@example.com",
   bio: null
 }).pipe(
   // @ts-expect-error mysql conflict update actions require at least one assignment
-  Mysql.Query.onConflict(["email"] as const, {
+  StdRoot.Query.onConflict(["email"] as const, {
     update: {}
   })
 )
 
 // @ts-expect-error mysql excluded(...) only accepts bound table columns
-const invalidMysqlExcludedExpression = Mysql.Query.excluded(Mysql.Function.lower(mysqlUsers.bio))
+const invalidMysqlExcludedExpression = StdRoot.Query.excluded(StdRoot.Function.lower(mysqlUsers.bio))
 void invalidMysqlExcludedExpression

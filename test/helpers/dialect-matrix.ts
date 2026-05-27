@@ -1,17 +1,19 @@
-export const buildGroupedConcatPlan = (table: any, users: any, posts: any) => {
-  const selected = table.Query.select({
-    emailLabel: table.Function.concat(
-      table.Function.lower(users.email),
+import { Function, Query } from "#standard"
+
+export const buildGroupedConcatPlan = (_dialect: any, users: any, posts: any) => {
+  const selected = Query.select({
+    emailLabel: Function.concat(
+      Function.lower(users.email),
       "-",
-      table.Function.coalesce(table.Function.max(posts.title), "missing")
+      Function.coalesce(Function.max(posts.title), "missing")
     ),
-    firstTitle: table.Function.min(posts.title),
-    postCount: table.Function.count(posts.id)
+    firstTitle: Function.min(posts.title),
+    postCount: Function.count(posts.id)
   })
 
-  const fromUsers = table.Query.from(users)(selected)
-  const joined = table.Query.innerJoin(posts, table.Query.eq(users.id, posts.userId))(fromUsers)
-  const grouped = table.Query.groupBy(table.Function.lower(users.email))(joined)
-  const filtered = table.Query.having(table.Query.eq(table.Function.count(posts.id), 2))(grouped)
-  return table.Query.orderBy(table.Function.count(posts.id), "desc")(filtered)
+  const fromUsers = Query.from(users)(selected)
+  const joined = Query.innerJoin(posts, Query.eq(users.id, posts.userId))(fromUsers)
+  const grouped = Query.groupBy(Function.lower(users.email))(joined)
+  const filtered = Query.having(Query.eq(Function.count(posts.id), 2))(grouped)
+  return Query.orderBy(Function.count(posts.id), "desc")(filtered)
 }

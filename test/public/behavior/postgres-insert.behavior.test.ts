@@ -22,26 +22,26 @@ describe("postgres insert behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const valuesSource = unsafeAny(Postgres.Query.as(Postgres.Query.values([
-      { id: Postgres.Query.literal(userId), email: "alice@example.com", bio: null },
-      { id: Postgres.Query.literal(secondUserId), email: "bob@example.com", bio: "writer" }
+    const valuesSource = unsafeAny(StdRoot.Query.as(StdRoot.Query.values([
+      { id: StdRoot.Query.literal(userId), email: "alice@example.com", bio: null },
+      { id: StdRoot.Query.literal(secondUserId), email: "bob@example.com", bio: "writer" }
     ] as const), "seed"))
 
-    const multiRowPlan = Postgres.Query.insert(users).pipe(
-      Postgres.Query.from(valuesSource)
+    const multiRowPlan = StdRoot.Query.insert(users).pipe(
+      StdRoot.Query.from(valuesSource)
     )
 
-    const insertSelectPlan = Postgres.Query.insert(archivedUsers).pipe(
-      Postgres.Query.from(Postgres.Query.select({
+    const insertSelectPlan = StdRoot.Query.insert(archivedUsers).pipe(
+      StdRoot.Query.from(StdRoot.Query.select({
       id: users.id,
       email: users.email,
       bio: users.bio
     }).pipe(
-      Postgres.Query.from(users)
+      StdRoot.Query.from(users)
     )))
 
-    const insertUnnestPlan = Postgres.Query.insert(users).pipe(
-      Postgres.Query.from(Postgres.Query.unnest({
+    const insertUnnestPlan = StdRoot.Query.insert(users).pipe(
+      StdRoot.Query.from(StdRoot.Query.unnest({
       id: [userId, secondUserId],
       email: ["alice@example.com", "bob@example.com"],
       bio: [null, "writer"]
@@ -73,11 +73,11 @@ describe("postgres insert behavior", () => {
       [null, "writer"]
     ])
 
-    const updateFromValuesPlan = Postgres.Query.update(users, {
+    const updateFromValuesPlan = StdRoot.Query.update(users, {
       email: valuesSource.email
     }).pipe(
-      Postgres.Query.from(valuesSource),
-      Postgres.Query.where(unsafeAny(Postgres.Query.eq(users.id, valuesSource.id)))
+      StdRoot.Query.from(valuesSource),
+      StdRoot.Query.where(unsafeAny(StdRoot.Query.eq(users.id, valuesSource.id)))
     )
 
     expect(render(updateFromValuesPlan).sql).toBe(
@@ -94,7 +94,7 @@ describe("postgres insert behavior", () => {
 
   test("renders postgres default-only inserts and rich conflict clauses", () => {
     const auditLogs = StdRoot.Table.make("audit_logs", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey, StdRoot.Column.default(Postgres.Query.literal("audit-log-id"))),
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey, StdRoot.Column.default(StdRoot.Query.literal("audit-log-id"))),
       note: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
     const users = StdRoot.Table.make("users", {
@@ -103,27 +103,27 @@ describe("postgres insert behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const defaultInsertPlan = Postgres.Query.insert(auditLogs)
-    const partialIndexConflictPlan = Postgres.Query.onConflict({
+    const defaultInsertPlan = StdRoot.Query.insert(auditLogs)
+    const partialIndexConflictPlan = StdRoot.Query.onConflict({
       columns: ["email"] as const,
-      where: Postgres.Query.isNotNull(users.bio)
+      where: StdRoot.Query.isNotNull(users.bio)
     }, {
       update: {
-        bio: Postgres.Query.excluded(users.bio)
+        bio: StdRoot.Query.excluded(users.bio)
       },
-      where: Postgres.Query.isNotNull(Postgres.Query.excluded(users.bio))
-    })(Postgres.Query.insert(users, {
+      where: StdRoot.Query.isNotNull(StdRoot.Query.excluded(users.bio))
+    })(StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com",
       bio: "writer"
     }))
-    const namedConstraintPlan = Postgres.Query.onConflict({
+    const namedConstraintPlan = StdRoot.Query.onConflict({
       constraint: "users_email_key"
     }, {
       update: {
-        email: Postgres.Query.excluded(users.email)
+        email: StdRoot.Query.excluded(users.email)
       }
-    })(Postgres.Query.insert(users, {
+    })(StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com",
       bio: null
@@ -158,24 +158,24 @@ describe("postgres insert behavior", () => {
       email: StdRoot.Column.text()
     })
 
-    const invalidFromBuilder = Postgres.Query.onConflict({
+    const invalidFromBuilder = StdRoot.Query.onConflict({
       constraint: ""
     }, {
       update: {
-        email: Postgres.Query.excluded(users.email)
+        email: StdRoot.Query.excluded(users.email)
       }
-    })(Postgres.Query.insert(users, {
+    })(StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com"
     }))
 
-    const plan = Postgres.Query.onConflict({
+    const plan = StdRoot.Query.onConflict({
       constraint: "users_email_key"
     }, {
       update: {
-        email: Postgres.Query.excluded(users.email)
+        email: StdRoot.Query.excluded(users.email)
       }
-    })(Postgres.Query.insert(users, {
+    })(StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com"
     }))
@@ -191,11 +191,11 @@ describe("postgres insert behavior", () => {
       email: StdRoot.Column.text()
     })
 
-    const plan = Postgres.Query.onConflict("email", {
+    const plan = StdRoot.Query.onConflict("email", {
       update: {
-        email: Postgres.Query.excluded(users.email)
+        email: StdRoot.Query.excluded(users.email)
       }
-    })(Postgres.Query.insert(users, {
+    })(StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com"
     }))
@@ -211,7 +211,7 @@ describe("postgres insert behavior", () => {
       counter: Postgres.Column.int8()
     })
 
-    const rendered = render(Postgres.Query.insert(metrics, {
+    const rendered = render(StdRoot.Query.insert(metrics, {
       total: "-0.00",
       counter: "0042"
     }))
@@ -227,7 +227,7 @@ describe("postgres insert behavior", () => {
       happenedOn: StdRoot.Column.date()
     })
 
-    expect(() => render(Postgres.Query.insert(events, {
+    expect(() => render(StdRoot.Query.insert(events, {
       happenedOn: "2026-02-31"
     }))).toThrow("Expected a local-date value")
   })
@@ -237,7 +237,7 @@ describe("postgres insert behavior", () => {
       happenedOn: StdRoot.Column.date()
     })
 
-    expect(() => render(Postgres.Query.insert(events, {
+    expect(() => render(StdRoot.Query.insert(events, {
       happenedOn: new Date("not a date")
     }))).toThrow()
   })
@@ -248,9 +248,9 @@ describe("postgres insert behavior", () => {
       counter: Postgres.Column.int8()
     })
 
-    const rendered = render(Postgres.Query.insert(metrics, {
-      total: Postgres.Query.literal("-0.00"),
-      counter: Postgres.Query.literal("0042")
+    const rendered = render(StdRoot.Query.insert(metrics, {
+      total: StdRoot.Query.literal("-0.00"),
+      counter: StdRoot.Query.literal("0042")
     }))
 
     expect(rendered.params).toEqual([
@@ -264,8 +264,8 @@ describe("postgres insert behavior", () => {
       happenedOn: StdRoot.Column.date()
     })
 
-    expect(() => render(Postgres.Query.insert(events, {
-      happenedOn: Postgres.Query.literal("2026-02-31")
+    expect(() => render(StdRoot.Query.insert(events, {
+      happenedOn: StdRoot.Query.literal("2026-02-31")
     }))).toThrow("Expected a local-date value")
   })
 
@@ -274,8 +274,8 @@ describe("postgres insert behavior", () => {
       happenedOn: StdRoot.Column.date()
     })
 
-    expect(() => render(Postgres.Query.insert(events, {
-      happenedOn: Postgres.Query.literal(new Date("not a date"))
+    expect(() => render(StdRoot.Query.insert(events, {
+      happenedOn: StdRoot.Query.literal(new Date("not a date"))
     }))).toThrow("Expected a valid Date value")
   })
 
@@ -284,7 +284,7 @@ describe("postgres insert behavior", () => {
       code: StdRoot.Column.varchar(3)
     })
 
-    expect(() => render(Postgres.Query.insert(labels, {
+    expect(() => render(StdRoot.Query.insert(labels, {
       code: "toolong"
     }))).toThrow()
   })
@@ -296,11 +296,11 @@ describe("postgres insert behavior", () => {
       counter: Postgres.Column.int8()
     })
 
-    const rendered = render(Postgres.Query.update(metrics, {
+    const rendered = render(StdRoot.Query.update(metrics, {
       total: "-0.00",
-      counter: Postgres.Query.literal("0042")
+      counter: StdRoot.Query.literal("0042")
     }).pipe(
-      Postgres.Query.where(Postgres.Query.eq(metrics.id, "metric-1"))
+      StdRoot.Query.where(StdRoot.Query.eq(metrics.id, "metric-1"))
     ))
 
     expect(rendered.params).toEqual([
@@ -317,14 +317,14 @@ describe("postgres insert behavior", () => {
       counter: Postgres.Column.int8()
     })
 
-    const rendered = render(Postgres.Query.onConflict({
+    const rendered = render(StdRoot.Query.onConflict({
       columns: ["id"] as const
     }, {
       update: {
         total: "-0.00",
-        counter: Postgres.Query.literal("0042")
+        counter: StdRoot.Query.literal("0042")
       }
-    })(Postgres.Query.insert(metrics, {
+    })(StdRoot.Query.insert(metrics, {
       id: "metric-1",
       total: "1.00",
       counter: "2"
@@ -345,8 +345,8 @@ describe("postgres insert behavior", () => {
       counter: Postgres.Column.int8()
     })
 
-    const rendered = render(Postgres.Query.insert(metrics).pipe(
-      Postgres.Query.from(Postgres.Query.unnest({
+    const rendered = render(StdRoot.Query.insert(metrics).pipe(
+      StdRoot.Query.from(StdRoot.Query.unnest({
         total: ["-0.00"],
         counter: ["0042"]
       }, "seed"))
@@ -363,8 +363,8 @@ describe("postgres insert behavior", () => {
       happenedOn: StdRoot.Column.date()
     })
 
-    expect(() => render(Postgres.Query.insert(events).pipe(
-      Postgres.Query.from(Postgres.Query.unnest({
+    expect(() => render(StdRoot.Query.insert(events).pipe(
+      StdRoot.Query.from(StdRoot.Query.unnest({
         happenedOn: ["2026-02-31"]
       }, "seed"))
     ))).toThrow("Expected a local-date value")

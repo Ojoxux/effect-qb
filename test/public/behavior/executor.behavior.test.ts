@@ -6,7 +6,8 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 
-import { Cast, Column as C, Executor, Query as Q, Function as F, Renderer, Table, Type } from "#postgres"
+import { Query as Q, Function as F, Table } from "#standard"
+import { Cast, Column as C, Executor, Renderer, Type } from "#postgres"
 import * as StdRoot from "#standard"
 
 const userId = "11111111-1111-1111-1111-111111111111"

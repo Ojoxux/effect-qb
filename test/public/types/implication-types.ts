@@ -2,7 +2,8 @@ import { Column as PgColumn } from "effect-qb/postgres"
 import * as Std from "effect-qb"
 import * as Schema from "effect/Schema"
 
-import { Cast, Query as Q, Function as F, Type } from "effect-qb/postgres"
+import { Query as Q, Function as F } from "effect-qb"
+import { Cast, Type } from "effect-qb/postgres"
 
 const users = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),

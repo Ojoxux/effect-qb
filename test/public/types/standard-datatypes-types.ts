@@ -1,4 +1,4 @@
-import { Query as Q, Table, Column as C, Scalar as E } from "effect-qb/standard"
+import { Query as Q, Table, Column as C, Scalar as E } from "effect-qb"
 
 const assets = Table.make("assets", {
   id: C.uuid().pipe(C.primaryKey),

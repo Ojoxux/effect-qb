@@ -1,7 +1,8 @@
 import * as Std from "effect-qb"
 import type * as Effect from "effect/Effect"
 
-import { Executor, Query as Q, Function as F, Renderer } from "effect-qb/postgres"
+import { Query as Q, Function as F } from "effect-qb"
+import { Executor, Renderer } from "effect-qb/postgres"
 import type {
   BrandedErrorOf,
   BrandedHintOf,

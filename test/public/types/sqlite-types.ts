@@ -2,7 +2,8 @@ import * as Std from "effect-qb"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
-import { Executor, Json, Query as Q, Renderer } from "effect-qb/sqlite"
+import { Query as Q } from "effect-qb"
+import { Executor, Json, Renderer } from "effect-qb/sqlite"
 import { Executor as PostgresExecutor } from "effect-qb/postgres"
 
 const users = Std.Table.make("users", {

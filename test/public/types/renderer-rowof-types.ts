@@ -1,5 +1,6 @@
 import * as Std from "effect-qb"
-import { Query as Q, Renderer } from "effect-qb/postgres"
+import { Query as Q } from "effect-qb"
+import { Renderer } from "effect-qb/postgres"
 
 const users = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),

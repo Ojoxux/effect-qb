@@ -1739,44 +1739,38 @@ const renderIndexOption = (
 ): string => {
   const normalizedKeys = normalizedIndexKeys(option)
   const includeColumns = normalizedIndexInclude(option)
-  const simple =
-    option.name === undefined &&
-    option.unique === undefined &&
-    option.method === undefined &&
-    includeColumns.length === 0 &&
-    option.predicate === undefined &&
-    option.keys === undefined &&
-    Array.isArray(option.columns)
-  if (simple) {
-    return `${TABLE_ALIAS}.index(${renderStringTuple(option.columns)})`
-  }
-  const parts: string[] = []
-  if (Array.isArray(option.columns)) {
-    parts.push(`columns: ${renderStringTuple(option.columns)}`)
-  }
   const renderedKeys = normalizedKeys
     .map((key) => renderIndexKey(key, table, context))
     .filter((key): key is string => key !== undefined)
-  if (renderedKeys.length > 0) {
-    parts.push(`keys: [${renderedKeys.join(", ")}]`)
-  }
+  const baseColumns = Array.isArray(option.columns) && option.columns.length > 0
+    ? option.columns
+    : normalizedKeys.length > 0 && normalizedKeys[0]?.kind === "column"
+      ? [normalizedKeys[0].column]
+      : ["__expression__"]
+  const base = `${TABLE_ALIAS}.index(${renderStringTuple(baseColumns)})`
+  const pipes: string[] = []
   if (option.name) {
-    parts.push(`name: ${renderStringLiteral(option.name)}`)
+    pipes.push(`${POSTGRES_TABLE_ALIAS}.named(${renderStringLiteral(option.name)})`)
   }
-  if (option.unique !== undefined) {
-    parts.push(`unique: ${String(option.unique)}`)
+  if (option.unique === true) {
+    pipes.push(`${POSTGRES_TABLE_ALIAS}.uniqueIndex`)
   }
   if (option.method) {
-    parts.push(`method: ${renderStringLiteral(option.method)}`)
+    pipes.push(`${POSTGRES_TABLE_ALIAS}.using(${renderStringLiteral(option.method)})`)
   }
   if (includeColumns.length > 0) {
-    parts.push(`include: [${includeColumns.map(renderStringLiteral).join(", ")}]`)
+    pipes.push(`${POSTGRES_TABLE_ALIAS}.include([${includeColumns.map(renderStringLiteral).join(", ")}])`)
+  }
+  if (renderedKeys.length === 1) {
+    pipes.push(`${POSTGRES_TABLE_ALIAS}.key(${renderedKeys[0]})`)
+  } else if (renderedKeys.length > 1) {
+    pipes.push(`${POSTGRES_TABLE_ALIAS}.keys([${renderedKeys.join(", ")}])`)
   }
   const normalizedPredicate = normalizedPredicateSql(option.predicate)
   if (normalizedPredicate !== null) {
-    parts.push(`predicate: ${renderTableScopedDdlExpressionCode(table, normalizedPredicate, context)}`)
+    pipes.push(`${POSTGRES_TABLE_ALIAS}.where(${renderTableScopedDdlExpressionCode(table, normalizedPredicate, context)})`)
   }
-  return `${POSTGRES_TABLE_ALIAS}.index({ ${parts.join(", ")} })`
+  return renderPipeChain(base, pipes)
 }
 
 const renderColumnAccess = (
@@ -1988,23 +1982,33 @@ const renderTableOption = (
 ): string => {
   switch (option.kind) {
     case "primaryKey": {
-      const simple =
-        option.name === undefined &&
-        option.deferrable === undefined &&
-        option.initiallyDeferred === undefined
-      return simple
-        ? `${TABLE_ALIAS}.primaryKey(${renderStringTuple(option.columns)})`
-        : `${POSTGRES_TABLE_ALIAS}.primaryKey({ columns: ${renderStringTuple(option.columns)}${option.name ? `, name: ${renderStringLiteral(option.name)}` : ""}${option.deferrable !== undefined ? `, deferrable: ${String(option.deferrable)}` : ""}${option.initiallyDeferred !== undefined ? `, initiallyDeferred: ${String(option.initiallyDeferred)}` : ""} })`
+      const pipes: string[] = []
+      if (option.name) {
+        pipes.push(`${POSTGRES_TABLE_ALIAS}.named(${renderStringLiteral(option.name)})`)
+      }
+      if (option.deferrable === true) {
+        pipes.push(`${POSTGRES_TABLE_ALIAS}.deferrable`)
+      }
+      if (option.initiallyDeferred === true) {
+        pipes.push(`${POSTGRES_TABLE_ALIAS}.initiallyDeferred`)
+      }
+      return renderPipeChain(`${TABLE_ALIAS}.primaryKey(${renderStringTuple(option.columns)})`, pipes)
     }
     case "unique": {
-      const simple =
-        option.name === undefined &&
-        option.nullsNotDistinct === undefined &&
-        option.deferrable === undefined &&
-        option.initiallyDeferred === undefined
-      return simple
-        ? `${TABLE_ALIAS}.unique(${renderStringTuple(option.columns)})`
-        : `${POSTGRES_TABLE_ALIAS}.unique({ columns: ${renderStringTuple(option.columns)}${option.name ? `, name: ${renderStringLiteral(option.name)}` : ""}${option.nullsNotDistinct !== undefined ? `, nullsNotDistinct: ${String(option.nullsNotDistinct)}` : ""}${option.deferrable !== undefined ? `, deferrable: ${String(option.deferrable)}` : ""}${option.initiallyDeferred !== undefined ? `, initiallyDeferred: ${String(option.initiallyDeferred)}` : ""} })`
+      const pipes: string[] = []
+      if (option.name) {
+        pipes.push(`${POSTGRES_TABLE_ALIAS}.named(${renderStringLiteral(option.name)})`)
+      }
+      if (option.nullsNotDistinct === true) {
+        pipes.push(`${POSTGRES_TABLE_ALIAS}.nullsNotDistinct`)
+      }
+      if (option.deferrable === true) {
+        pipes.push(`${POSTGRES_TABLE_ALIAS}.deferrable`)
+      }
+      if (option.initiallyDeferred === true) {
+        pipes.push(`${POSTGRES_TABLE_ALIAS}.initiallyDeferred`)
+      }
+      return renderPipeChain(`${TABLE_ALIAS}.unique(${renderStringTuple(option.columns)})`, pipes)
     }
     case "index":
       return renderIndexOption(table, option, context)
@@ -2016,12 +2020,32 @@ const renderTableOption = (
       if (target === undefined || target.kind !== "table") {
         throw new Error(`Cannot render foreign key from ${tableKey(table.schemaName, table.name)} to missing source table '${displayTargetKey}'`)
       }
-      return `${POSTGRES_TABLE_ALIAS}.foreignKey({ columns: ${renderStringTuple(option.columns)}, target: () => ${target.declaration.identifier}, referencedColumns: ${renderStringTuple(reference.columns)}${option.name ? `, name: ${renderStringLiteral(option.name)}` : ""}${option.onUpdate ? `, onUpdate: ${renderStringLiteral(option.onUpdate)}` : ""}${option.onDelete ? `, onDelete: ${renderStringLiteral(option.onDelete)}` : ""}${option.deferrable !== undefined ? `, deferrable: ${String(option.deferrable)}` : ""}${option.initiallyDeferred !== undefined ? `, initiallyDeferred: ${String(option.initiallyDeferred)}` : ""} })`
+      const pipes: string[] = []
+      if (option.name) {
+        pipes.push(`${POSTGRES_TABLE_ALIAS}.named(${renderStringLiteral(option.name)})`)
+      }
+      if (option.onUpdate) {
+        pipes.push(`${POSTGRES_TABLE_ALIAS}.onUpdate(${renderStringLiteral(option.onUpdate)})`)
+      }
+      if (option.onDelete) {
+        pipes.push(`${POSTGRES_TABLE_ALIAS}.onDelete(${renderStringLiteral(option.onDelete)})`)
+      }
+      if (option.deferrable === true) {
+        pipes.push(`${POSTGRES_TABLE_ALIAS}.deferrable`)
+      }
+      if (option.initiallyDeferred === true) {
+        pipes.push(`${POSTGRES_TABLE_ALIAS}.initiallyDeferred`)
+      }
+      return renderPipeChain(
+        `${TABLE_ALIAS}.foreignKey(${renderStringTuple(option.columns)}, () => ${target.declaration.identifier}, ${renderStringTuple(reference.columns)})`,
+        pipes
+      )
     }
     case "check":
-      return option.noInherit
-        ? `${POSTGRES_TABLE_ALIAS}.check({ name: ${renderStringLiteral(option.name)}, predicate: ${renderTableScopedDdlExpressionCode(table, renderDdlExpressionSql(option.predicate), context)}, noInherit: true })`
-        : `${POSTGRES_TABLE_ALIAS}.check(${renderStringLiteral(option.name)}, ${renderTableScopedDdlExpressionCode(table, renderDdlExpressionSql(option.predicate), context)})`
+      return renderPipeChain(
+        `${TABLE_ALIAS}.check(${renderStringLiteral(option.name)}, ${renderTableScopedDdlExpressionCode(table, renderDdlExpressionSql(option.predicate), context)})`,
+        option.noInherit === true ? [`${POSTGRES_TABLE_ALIAS}.noInherit`] : []
+      )
   }
 }
 

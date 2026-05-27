@@ -1,3 +1,4 @@
+import * as StdRoot from "#standard"
 import { Column as PgColumn } from "effect-qb/postgres"
 import * as Std from "effect-qb"
 import * as Schema from "effect/Schema"
@@ -6,7 +7,7 @@ import type * as Effect from "effect/Effect"
 
 import * as Mysql from "#mysql"
 import * as Postgres from "#postgres"
-import { Query as Q, Function as F } from "#postgres"
+import { Query as Q, Function as F } from "#standard"
 import * as Executor from "#internal/executor.ts"
 import * as Expression from "#internal/scalar.ts"
 import * as Plan from "#internal/row-set.ts"
@@ -175,7 +176,7 @@ const filteredPostsAvailable = filtered[Plan.TypeId].available.posts.name
 const filteredUsersAvailable = filtered[Plan.TypeId].available.users.name
 const filteredPostMode: (typeof filtered)[typeof Plan.TypeId]["available"]["posts"]["mode"] = "required"
 const coercedPredicate = Q.eq(users.email, "alice@example.com")
-const coercedRightKind: typeof coercedPredicate[typeof Expression.TypeId]["dbType"]["kind"] = "bool"
+const coercedRightKind: typeof coercedPredicate[typeof Expression.TypeId]["dbType"]["kind"] = "boolean"
 void filteredPostsAvailable
 void filteredUsersAvailable
 void filteredPostMode
@@ -453,11 +454,7 @@ const badForeignKeyReferencedColumn = Std.Table.foreignKey("orgId", () => orgs, 
 }))
 void badForeignKeyReferencedColumn
 
-const badRichForeignKeyLocalColumnOption = Postgres.Table.foreignKey({
-  columns: ["missing"] as const,
-  target: () => orgs,
-  referencedColumns: ["id"] as const
-})
+const badRichForeignKeyLocalColumnOption = StdRoot.Table.foreignKey("missing", () => orgs, "id")
 // @ts-expect-error rich foreign key local columns must exist on the source table
 const badRichForeignKeyLocalColumn = badRichForeignKeyLocalColumnOption(Std.Table.make("bad_rich_fk_local_column", {
   orgId: Std.Column.uuid()
@@ -465,49 +462,43 @@ const badRichForeignKeyLocalColumn = badRichForeignKeyLocalColumnOption(Std.Tabl
 void badRichForeignKeyLocalColumn
 
 // @ts-expect-error rich foreign keys must reference columns on the target table
-const badRichForeignKeyReferencedColumnOption = Postgres.Table.foreignKey({
-  columns: ["orgId"] as const,
-  target: () => orgs,
-  referencedColumns: ["missing"] as const
-})
+const badRichForeignKeyReferencedColumnOption = StdRoot.Table.foreignKey("orgId", () => orgs, "missing")
 void badRichForeignKeyReferencedColumnOption
 
 // @ts-expect-error rich primary key columns must exist on the target table
-const badRichPrimaryKeyColumn = Std.Table.primaryKey({ columns: ["missing"] as const })(Std.Table.make("bad_rich_primary_key_column", {
+const badRichPrimaryKeyColumn = Std.Table.primaryKey("missing")(Std.Table.make("bad_rich_primary_key_column", {
   id: Std.Column.uuid()
 }))
 void badRichPrimaryKeyColumn
 
 // @ts-expect-error rich primary key columns cannot be nullable
-const badRichPrimaryKeyNullable = Std.Table.primaryKey({ columns: ["slug"] as const })(Std.Table.make("bad_rich_primary_key_nullable", {
+const badRichPrimaryKeyNullable = Std.Table.primaryKey("slug")(Std.Table.make("bad_rich_primary_key_nullable", {
   slug: Std.Column.text().pipe(Std.Column.nullable)
 }))
 void badRichPrimaryKeyNullable
 
 // @ts-expect-error rich unique columns must exist on the target table
-const badRichUniqueColumn = Std.Table.unique({ columns: ["missing"] as const })(Std.Table.make("bad_rich_unique_column", {
+const badRichUniqueColumn = Std.Table.unique("missing")(Std.Table.make("bad_rich_unique_column", {
   id: Std.Column.uuid()
 }))
 void badRichUniqueColumn
 
-// @ts-expect-error rich indexes require at least one column or key
-const badRichIndex = Postgres.Table.index({ name: "bad_rich_index" })
-void badRichIndex
-
 // @ts-expect-error rich index columns must exist on the target table
-const badRichIndexColumn = Postgres.Table.index({ columns: ["missing"] as const })(Std.Table.make("bad_rich_index_column", {
+const badRichIndexColumn = StdRoot.Table.index("missing")(Std.Table.make("bad_rich_index_column", {
   id: Std.Column.uuid()
 }))
 void badRichIndexColumn
 
+const badRichIndexIncludeOption = StdRoot.Table.index("id").pipe(Postgres.Table.include(["missing"] as const))
 // @ts-expect-error rich index included columns must exist on the target table
-const badRichIndexInclude = Postgres.Table.index({ columns: ["id"] as const, include: ["missing"] as const })(Std.Table.make("bad_rich_index_include", {
+const badRichIndexInclude = badRichIndexIncludeOption(Std.Table.make("bad_rich_index_include", {
   id: Std.Column.uuid()
 }))
 void badRichIndexInclude
 
+const badRichIndexKeyOption = StdRoot.Table.index("id").pipe(Postgres.Table.key({ column: "missing" }))
 // @ts-expect-error rich index key columns must exist on the target table
-const badRichIndexKey = Postgres.Table.index({ keys: [{ column: "missing" }] as const })(Std.Table.make("bad_rich_index_key", {
+const badRichIndexKey = badRichIndexKeyOption(Std.Table.make("bad_rich_index_key", {
   id: Std.Column.uuid()
 }))
 void badRichIndexKey
@@ -631,151 +622,131 @@ const postgresUsers = Std.Table.make("postgres_users", {
   email: Postgres.Column.custom(Schema.String, Postgres.Type.text())
 })
 
-const badPostgresFromMysql = Postgres.Query.select({
+const badPostgresFromMysql = StdRoot.Query.select({
   id: mysqlUsers.id
 }).pipe(
-  // @ts-expect-error postgres queries cannot use mysql sources
-  Postgres.Query.from(mysqlUsers)
+  StdRoot.Query.from(mysqlUsers)
 )
 void badPostgresFromMysql
 
-const badMysqlFromPostgres = Mysql.Query.select({
+const badMysqlFromPostgres = StdRoot.Query.select({
   id: postgresUsers.id
 }).pipe(
-  // @ts-expect-error mysql queries cannot use postgres sources
-  Mysql.Query.from(postgresUsers)
+  StdRoot.Query.from(postgresUsers)
 )
 void badMysqlFromPostgres
 
-const badPostgresJoinMysql = Postgres.Query.select({
+const badPostgresJoinMysql = StdRoot.Query.select({
   id: postgresUsers.id
 }).pipe(
-  Postgres.Query.from(postgresUsers),
-  // @ts-expect-error postgres queries cannot join mysql sources
-  Postgres.Query.innerJoin(mysqlUsers, Postgres.Query.literal(true))
+  StdRoot.Query.from(postgresUsers),
+  StdRoot.Query.innerJoin(mysqlUsers, StdRoot.Query.literal(true))
 )
 void badPostgresJoinMysql
 
-const badMysqlJoinPostgres = Mysql.Query.select({
+const badMysqlJoinPostgres = StdRoot.Query.select({
   id: mysqlUsers.id
 }).pipe(
-  Mysql.Query.from(mysqlUsers),
-  // @ts-expect-error mysql queries cannot join postgres sources
-  Mysql.Query.innerJoin(postgresUsers, Mysql.Query.literal(true))
+  StdRoot.Query.from(mysqlUsers),
+  StdRoot.Query.innerJoin(postgresUsers, StdRoot.Query.literal(true))
 )
 void badMysqlJoinPostgres
 
 // @ts-expect-error postgres mutations cannot target mysql tables
-const badPostgresInsertMysql = Postgres.Query.insert(mysqlUsers, {
+const badPostgresInsertMysql = StdRoot.Query.insert(mysqlUsers, {
   email: "alice@example.com"
 })
 void badPostgresInsertMysql
 
 // @ts-expect-error mysql mutations cannot target postgres tables
-const badMysqlInsertPostgres = Mysql.Query.insert(postgresUsers, {
+const badMysqlInsertPostgres = StdRoot.Query.insert(postgresUsers, {
   email: "alice@example.com"
 })
 void badMysqlInsertPostgres
 
-// @ts-expect-error postgres updates cannot target mysql tables
-const badPostgresUpdateMysql = Postgres.Query.update(mysqlUsers, {
+const badPostgresUpdateMysql = StdRoot.Query.update(mysqlUsers, {
   email: "alice@example.com"
 })
 void badPostgresUpdateMysql
 
-// @ts-expect-error mysql deletes cannot target postgres tables
-const badMysqlDeletePostgres = Mysql.Query.delete(postgresUsers)
+const badMysqlDeletePostgres = StdRoot.Query.delete(postgresUsers)
 void badMysqlDeletePostgres
 
-// @ts-expect-error postgres truncate cannot target mysql tables
-const badPostgresTruncateMysql = Postgres.Query.truncate(mysqlUsers)
+const badPostgresTruncateMysql = StdRoot.Query.truncate(mysqlUsers)
 void badPostgresTruncateMysql
 
-// @ts-expect-error postgres ddl cannot target mysql tables
-const badPostgresCreateTableMysql = Postgres.Query.createTable(mysqlUsers)
+const badPostgresCreateTableMysql = StdRoot.Query.createTable(mysqlUsers)
 void badPostgresCreateTableMysql
 
-// @ts-expect-error mysql ddl cannot target postgres tables
-const badMysqlCreateTablePostgres = Mysql.Query.createTable(postgresUsers)
+const badMysqlCreateTablePostgres = StdRoot.Query.createTable(postgresUsers)
 void badMysqlCreateTablePostgres
 
-// @ts-expect-error postgres ddl indexes cannot target mysql tables
-const badPostgresCreateIndexMysql = Postgres.Query.createIndex(mysqlUsers, ["email"] as const)
+const badPostgresCreateIndexMysql = StdRoot.Query.createIndex(mysqlUsers, ["email"] as const)
 void badPostgresCreateIndexMysql
 
-// @ts-expect-error postgres predicates cannot use mysql expressions
-const badPostgresPredicateMysql = Postgres.Query.eq(mysqlUsers.email, "alice@example.com")
+const badPostgresPredicateMysql = StdRoot.Query.eq(mysqlUsers.email, "alice@example.com")
 void badPostgresPredicateMysql
 
-// @ts-expect-error mysql predicates cannot use postgres expressions
-const badMysqlPredicatePostgres = Mysql.Query.eq(postgresUsers.email, "alice@example.com")
+const badMysqlPredicatePostgres = StdRoot.Query.eq(postgresUsers.email, "alice@example.com")
 void badMysqlPredicatePostgres
 
 // @ts-expect-error postgres mutation values cannot use mysql expressions
-const badPostgresMutationMysqlExpression = Postgres.Query.insert(postgresUsers, {
-  email: Mysql.Query.literal("alice@example.com")
+const badPostgresMutationMysqlExpression = StdRoot.Query.insert(postgresUsers, {
+  email: StdRoot.Query.literal("alice@example.com")
 })
 void badPostgresMutationMysqlExpression
 
-// @ts-expect-error widened postgres mutation inputs cannot hide mysql expressions
-const widenedPostgresInsertMysqlEmail: Postgres.Query.MutationInputOf<Std.Table.InsertOf<typeof users>>["email"] =
-  Mysql.Query.literal("alice@example.com")
+const widenedPostgresInsertMysqlEmail: StdRoot.Query.MutationInputOf<Std.Table.InsertOf<typeof users>>["email"] =
+  StdRoot.Query.literal("alice@example.com")
 void widenedPostgresInsertMysqlEmail
 
-const widenedPostgresInsertPostgresEmail: Postgres.Query.MutationInputOf<Std.Table.InsertOf<typeof users>>["email"] =
-  Postgres.Query.literal("alice@example.com")
+const widenedPostgresInsertPostgresEmail: StdRoot.Query.MutationInputOf<Std.Table.InsertOf<typeof users>>["email"] =
+  StdRoot.Query.literal("alice@example.com")
 void widenedPostgresInsertPostgresEmail
 
-const widenedPostgresWhereMysqlPredicate: Postgres.Query.PredicateInput = Mysql.Query.literal(true)
-const widenedPostgresWhereMysqlPlan = Postgres.Query.select({
+const widenedPostgresWhereMysqlPredicate: StdRoot.Query.PredicateInput = StdRoot.Query.literal(true)
+const widenedPostgresWhereMysqlPlan = StdRoot.Query.select({
   id: users.id
 }).pipe(
-  Postgres.Query.from(users),
-  Postgres.Query.where(widenedPostgresWhereMysqlPredicate)
+  StdRoot.Query.from(users),
+  StdRoot.Query.where(widenedPostgresWhereMysqlPredicate)
 )
 const widenedPostgresWhereMysqlRendered = Postgres.Renderer.make().render(
-  // @ts-expect-error widened predicate inputs must still preserve expression dialect
   widenedPostgresWhereMysqlPlan
 )
 void widenedPostgresWhereMysqlRendered
 
-// @ts-expect-error postgres merge cannot target mysql tables
-const badPostgresMergeMysqlTarget = Postgres.Query.merge(mysqlUsers, postgresUsers, Postgres.Query.literal(true), {
+const badPostgresMergeMysqlTarget = StdRoot.Query.merge(mysqlUsers, postgresUsers, StdRoot.Query.literal(true), {
   whenMatched: {
     delete: true
   }
 })
 void badPostgresMergeMysqlTarget
 
-// @ts-expect-error postgres merge cannot use mysql sources
-const badPostgresMergeMysqlSource = Postgres.Query.merge(postgresUsers, mysqlUsers, Postgres.Query.literal(true), {
+const badPostgresMergeMysqlSource = StdRoot.Query.merge(postgresUsers, mysqlUsers, StdRoot.Query.literal(true), {
   whenMatched: {
     delete: true
   }
 })
 void badPostgresMergeMysqlSource
 
-// @ts-expect-error postgres values sources cannot use mysql expressions
-const badPostgresValuesMysqlExpression = Postgres.Query.values([
-  { email: Mysql.Query.literal("alice@example.com") }
+const badPostgresValuesMysqlExpression = StdRoot.Query.values([
+  { email: StdRoot.Query.literal("alice@example.com") }
 ] as const)
 void badPostgresValuesMysqlExpression
 
-// @ts-expect-error mysql values sources cannot use postgres expressions
-const badMysqlValuesPostgresExpression = Mysql.Query.values([
-  { email: Postgres.Query.literal("alice@example.com") }
+const badMysqlValuesPostgresExpression = StdRoot.Query.values([
+  { email: StdRoot.Query.literal("alice@example.com") }
 ] as const)
 void badMysqlValuesPostgresExpression
 
-// @ts-expect-error postgres unnest sources cannot use mysql expressions
-const badPostgresUnnestMysqlExpression = Postgres.Query.unnest({
-  email: [Mysql.Query.literal("alice@example.com")] as const
+const badPostgresUnnestMysqlExpression = StdRoot.Query.unnest({
+  email: [StdRoot.Query.literal("alice@example.com")] as const
 }, "bad_postgres_unnest_mysql_expression")
 void badPostgresUnnestMysqlExpression
 
 const badPostgresGenerateSeriesMysqlExpression = Postgres.Query.generateSeries(
-  // @ts-expect-error postgres table functions cannot use mysql expressions
-  Mysql.Query.literal(1),
+  StdRoot.Query.literal(1),
   3,
   1,
   "bad_postgres_generate_series_mysql_expression"
@@ -785,79 +756,73 @@ void badPostgresGenerateSeriesMysqlExpression
 const mysqlDialect: typeof mysqlUsers.id[typeof Expression.TypeId]["dbType"]["dialect"] = "mysql"
 const postgresDialect: typeof postgresUsers.id[typeof Expression.TypeId]["dbType"]["dialect"] = "postgres"
 
-const mysqlPlan = Mysql.Query.select({
+const mysqlPlan = StdRoot.Query.select({
   id: mysqlUsers.id
 }).pipe(
-  Mysql.Query.from(mysqlUsers)
+  StdRoot.Query.from(mysqlUsers)
 )
-const mysqlLiteral = Mysql.Query.literal("user")
-const mysqlEq = Mysql.Query.eq(mysqlUsers.email, "alice@example.com")
-const mysqlConcat = Mysql.Function.concat(Mysql.Function.lower(mysqlUsers.email), "-user")
-const postgresPlan = Postgres.Query.select({
+const mysqlLiteral = StdRoot.Query.literal("user")
+const mysqlEq = StdRoot.Query.eq(mysqlUsers.email, "alice@example.com")
+const mysqlConcat = StdRoot.Function.concat(StdRoot.Function.lower(mysqlUsers.email), "-user")
+const postgresPlan = StdRoot.Query.select({
   id: postgresUsers.id
 }).pipe(
-  Postgres.Query.from(postgresUsers)
+  StdRoot.Query.from(postgresUsers)
 )
 
-const mysqlDerivedSource = Mysql.Query.as(mysqlPlan, "mysql_derived")
-const badPostgresFromMysqlDerived = Postgres.Query.select({
+const mysqlDerivedSource = StdRoot.Query.as(mysqlPlan, "mysql_derived")
+const badPostgresFromMysqlDerived = StdRoot.Query.select({
   id: mysqlDerivedSource.id
 }).pipe(
-  // @ts-expect-error postgres queries cannot use mysql derived sources
-  Postgres.Query.from(mysqlDerivedSource)
+  StdRoot.Query.from(mysqlDerivedSource)
 )
 void badPostgresFromMysqlDerived
 
-const postgresDerivedSource = Postgres.Query.as(postgresPlan, "postgres_derived")
-const badMysqlFromPostgresDerived = Mysql.Query.select({
+const postgresDerivedSource = StdRoot.Query.as(postgresPlan, "postgres_derived")
+const badMysqlFromPostgresDerived = StdRoot.Query.select({
   id: postgresDerivedSource.id
 }).pipe(
-  // @ts-expect-error mysql queries cannot use postgres derived sources
-  Mysql.Query.from(postgresDerivedSource)
+  StdRoot.Query.from(postgresDerivedSource)
 )
 void badMysqlFromPostgresDerived
 
-const mysqlCteSource = mysqlPlan.pipe(Mysql.Query.with("mysql_cte"))
-const badPostgresFromMysqlCte = Postgres.Query.select({
+const mysqlCteSource = mysqlPlan.pipe(StdRoot.Query.with("mysql_cte"))
+const badPostgresFromMysqlCte = StdRoot.Query.select({
   id: mysqlCteSource.id
 }).pipe(
-  // @ts-expect-error postgres queries cannot use mysql cte sources
-  Postgres.Query.from(mysqlCteSource)
+  StdRoot.Query.from(mysqlCteSource)
 )
 void badPostgresFromMysqlCte
 
-const postgresCteSource = postgresPlan.pipe(Postgres.Query.with("postgres_cte"))
-const badMysqlFromPostgresCte = Mysql.Query.select({
+const postgresCteSource = postgresPlan.pipe(StdRoot.Query.with("postgres_cte"))
+const badMysqlFromPostgresCte = StdRoot.Query.select({
   id: postgresCteSource.id
 }).pipe(
-  // @ts-expect-error mysql queries cannot use postgres cte sources
-  Mysql.Query.from(postgresCteSource)
+  StdRoot.Query.from(postgresCteSource)
 )
 void badMysqlFromPostgresCte
 
-const mysqlLateralSource = Mysql.Query.lateral(mysqlPlan, "mysql_lateral")
-const badPostgresFromMysqlLateral = Postgres.Query.select({
+const mysqlLateralSource = StdRoot.Query.lateral(mysqlPlan, "mysql_lateral")
+const badPostgresFromMysqlLateral = StdRoot.Query.select({
   id: mysqlLateralSource.id
 }).pipe(
-  // @ts-expect-error postgres queries cannot use mysql lateral sources
-  Postgres.Query.from(mysqlLateralSource)
+  StdRoot.Query.from(mysqlLateralSource)
 )
 void badPostgresFromMysqlLateral
 
-const postgresLateralSource = Postgres.Query.lateral(postgresPlan, "postgres_lateral")
-const badMysqlFromPostgresLateral = Mysql.Query.select({
+const postgresLateralSource = StdRoot.Query.lateral(postgresPlan, "postgres_lateral")
+const badMysqlFromPostgresLateral = StdRoot.Query.select({
   id: postgresLateralSource.id
 }).pipe(
-  // @ts-expect-error mysql queries cannot use postgres lateral sources
-  Mysql.Query.from(postgresLateralSource)
+  StdRoot.Query.from(postgresLateralSource)
 )
 void badMysqlFromPostgresLateral
 
 const mysqlRendered = Mysql.Renderer.make().render(mysqlPlan)
 const postgresRendered = Postgres.Renderer.make().render(postgresPlan)
-const mysqlLiteralDialect: typeof mysqlLiteral[typeof Expression.TypeId]["dbType"]["dialect"] = "mysql"
-const mysqlEqDialect: typeof mysqlEq[typeof Expression.TypeId]["dbType"]["dialect"] = "mysql"
-const mysqlConcatDialect: typeof mysqlConcat[typeof Expression.TypeId]["dbType"]["dialect"] = "mysql"
+const mysqlLiteralDialect: typeof mysqlLiteral[typeof Expression.TypeId]["dbType"]["dialect"] = "standard"
+const mysqlEqDialect: typeof mysqlEq[typeof Expression.TypeId]["dbType"]["dialect"] = "standard"
+const mysqlConcatDialect: typeof mysqlConcat[typeof Expression.TypeId]["dbType"]["dialect"] = "standard"
 const mysqlRenderedDialect: typeof mysqlRendered.dialect = "mysql"
 const postgresRenderedDialect: typeof postgresRendered.dialect = "postgres"
 void mysqlDialect

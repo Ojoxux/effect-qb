@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
-import { Column as C, Executor, Jsonb as Jb, Query as Q, Renderer, Table, Type } from "#postgres"
+import { Query as Q, Table } from "#standard"
+import { Column as C, Executor, Jsonb as Jb, Renderer, Type } from "#postgres"
 import * as StdRoot from "#standard"
 
 describe("postgres driver value mappings", () => {

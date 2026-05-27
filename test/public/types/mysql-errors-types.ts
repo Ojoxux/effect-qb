@@ -1,3 +1,4 @@
+import * as StdRoot from "effect-qb"
 import * as Std from "effect-qb"
 import * as Effect from "effect/Effect"
 
@@ -36,10 +37,10 @@ const users = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey)
 })
 
-const plan = Mysql.Query.select({
+const plan = StdRoot.Query.select({
   id: users.id
 }).pipe(
-  Mysql.Query.from(users)
+  StdRoot.Query.from(users)
 )
 
 const driver = Mysql.Executor.driver(() =>
@@ -52,7 +53,7 @@ const driver = Mysql.Executor.driver(() =>
 
 const executor = Mysql.Executor.make({ driver })
 const execution = executor.execute(plan)
-type Capabilities = Mysql.Query.CapabilitiesOfPlan<typeof plan>
+type Capabilities = StdRoot.Query.CapabilitiesOfPlan<typeof plan>
 const readCapability: Capabilities = "read"
 type QueryError = Mysql.Executor.MysqlQueryError<typeof plan>
 type ExecutionError = Effect.Effect.Error<typeof execution>

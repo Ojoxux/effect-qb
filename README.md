@@ -85,7 +85,6 @@ Runtime requirements:
 Public query-builder import paths:
 
 - `effect-qb` - portable table, column, query, function, renderer, and casing modules
-- `effect-qb/standard` - explicit portable subpath
 - `effect-qb/postgres` - Postgres extensions, renderer, executor, schema helpers
 - `effect-qb/mysql` - MySQL extensions, renderer, executor
 - `effect-qb/sqlite` - SQLite extensions, renderer, executor
@@ -184,9 +183,10 @@ dialects is rejected at type level.
 A plan that only uses `effect-qb` root modules has the standard dialect tag.
 Standard plans can render through Postgres, MySQL, and SQLite renderers.
 
-If a plan uses `Pg.Column.jsonb(...)`, `Pg.Jsonb.*`, `Pg.Table.index(...)`,
-or another Postgres-specific helper, it becomes a Postgres plan. Render and
-execute that plan with the Postgres renderer or executor.
+If a plan uses `Pg.Column.jsonb(...)`, `Pg.Jsonb.*`, or a standard table
+option piped through a Postgres modifier such as `Pg.Table.using("btree")`,
+it becomes a Postgres plan. Render and execute that plan with the Postgres
+renderer or executor.
 
 MySQL and SQLite follow the same rule: use root modules for portable SQL, and
 concrete modules only when the query depends on concrete SQL.
@@ -425,13 +425,13 @@ become optional for inserts, and primary keys are omitted from updates.
 
 ```ts
 import * as Schema from "effect/Schema"
-import { Column, Table } from "effect-qb"
+import { Column, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
 const users = Table.make("users", {
   id: Column.uuid().pipe(
     Column.primaryKey,
-    Column.generated(Pg.Query.literal("generated-user-id"))
+    Column.generated(Query.literal("generated-user-id"))
   ),
   email: Column.text(),
   displayName: Column.text().pipe(Column.nullable)
@@ -604,7 +604,7 @@ required key is rejected before SQL rendering.
 
 ```ts
 import * as Schema from "effect/Schema"
-import { Column, Table } from "effect-qb"
+import { Column, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
 const payloadSchema = Schema.Struct({
@@ -631,7 +631,7 @@ const cityPath = Pg.Jsonb.path(
 
 const missingRequiredCity = Pg.Jsonb.delete(docs.payload, cityPath)
 
-Pg.Query.update(docs, {
+Query.update(docs, {
   // @ts-expect-error payload no longer satisfies payloadSchema
   payload: missingRequiredCity
 })
@@ -862,9 +862,10 @@ Renderer options:
 type errors.
 
 ```ts
+import { Scalar } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
-const mapping: Pg.Scalar.DriverValueMapping = {
+const mapping: Scalar.DriverValueMapping = {
   fromDriver: (value) => value,
   toDriver: (value) => value,
   selectSql: (sql) => sql,
@@ -980,8 +981,8 @@ Dialect modules expose:
 | Module | Adds |
 | --- | --- |
 | `effect-qb/postgres` | Postgres column/table extensions, JSON/jsonb helpers, casts, types, schemas, enums, sequences, renderer, executor |
-| `effect-qb/mysql` | MySQL column extensions, JSON helpers, functions, renderer, executor |
-| `effect-qb/sqlite` | SQLite column extensions, JSON helpers, functions, renderer, executor |
+| `effect-qb/mysql` | MySQL column extensions, JSON helpers, renderer, executor |
+| `effect-qb/sqlite` | SQLite column extensions, JSON helpers, renderer, executor |
 
 Portable columns and tables are created from `effect-qb`, not from dialect
 modules. For example, use `Column.uuid()`, not `Pg.Column.uuid()`.
@@ -1014,11 +1015,10 @@ const events = Table.make("events", {
   payload: Pg.Column.jsonb(payloadSchema),
   createdAt: Column.datetime()
 }).pipe(
-  Pg.Table.index({
-    name: "events_created_at_idx",
-    columns: "createdAt",
-    method: "btree"
-  })
+  Table.index("createdAt").pipe(
+    Pg.Table.named("events_created_at_idx"),
+    Pg.Table.using("btree")
+  )
 )
 
 const eventKinds = Query.select({

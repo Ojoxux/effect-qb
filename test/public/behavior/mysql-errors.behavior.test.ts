@@ -56,11 +56,11 @@ describe("mysql errors", () => {
       email: StdRoot.Column.text()
     })
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id,
       email: users.email
     }).pipe(
-      Mysql.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const executor = Mysql.Executor.make({
@@ -102,7 +102,7 @@ describe("mysql errors", () => {
       email: StdRoot.Column.text()
     })
 
-    const plan = Mysql.Query.insert(users, {
+    const plan = StdRoot.Query.insert(users, {
       id: "11111111-1111-1111-1111-111111111111",
       email: "alice@example.com"
     })
@@ -140,11 +140,11 @@ describe("mysql errors", () => {
       email: StdRoot.Column.text()
     })
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id,
       email: users.email
     }).pipe(
-      Mysql.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const executor = Mysql.Executor.make({
@@ -181,10 +181,10 @@ describe("mysql errors", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id
     }).pipe(
-      Mysql.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const executor = Mysql.Executor.make({
@@ -216,10 +216,10 @@ describe("mysql errors", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id
     }).pipe(
-      Mysql.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const executor = Mysql.Executor.make()
@@ -269,10 +269,10 @@ describe("mysql errors", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id
     }).pipe(
-      Mysql.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const executor = Mysql.Executor.make()
@@ -322,10 +322,10 @@ describe("mysql errors", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id
     }).pipe(
-      Mysql.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const executor = Mysql.Executor.make({

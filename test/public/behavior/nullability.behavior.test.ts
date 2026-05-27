@@ -2,7 +2,8 @@
 import { describe, expect, test } from "bun:test"
 import * as Effect from "effect/Effect"
 
-import { Executor, Query as Q, Function as F, Renderer, Table } from "#postgres"
+import { Query as Q, Function as F, Table } from "#standard"
+import { Executor, Renderer } from "#postgres"
 import { makeRootSocialGraph } from "../../fixtures/schema.ts"
 import { unsafeAny } from "../../helpers/unsafe.ts"
 

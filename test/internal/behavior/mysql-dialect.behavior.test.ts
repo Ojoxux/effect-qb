@@ -23,10 +23,10 @@ describe("mysql dialect behavior", () => {
     })
     const aliased = unsafeAny(StdRoot.Table.alias(unsafeAny(events), "daily`rollup"))
 
-    const plan = Mysql.Query.select({
-      payload: Mysql.Query.as(unsafeAny(aliased["event`payload"]), "payload`alias")
+    const plan = StdRoot.Query.select({
+      payload: StdRoot.Query.as(unsafeAny(aliased["event`payload"]), "payload`alias")
     }).pipe(
-      Mysql.Query.from(unsafeAny(aliased))
+      StdRoot.Query.from(unsafeAny(aliased))
     )
 
     expect(render(plan).sql).toBe(
@@ -37,13 +37,13 @@ describe("mysql dialect behavior", () => {
   test("inlines null and booleans while binding other literals with question-mark placeholders", () => {
     const timestamp = new Date("2024-01-02T03:04:05.000Z")
 
-    const plan = Mysql.Query.select({
-      truthy: Mysql.Query.literal(true),
-      falsy: Mysql.Query.literal(false),
-      missing: Mysql.Query.literal(null),
-      createdAt: Mysql.Query.literal(timestamp),
-      visits: Mysql.Query.literal(7),
-      label: Mysql.Query.literal("user")
+    const plan = StdRoot.Query.select({
+      truthy: StdRoot.Query.literal(true),
+      falsy: StdRoot.Query.literal(false),
+      missing: StdRoot.Query.literal(null),
+      createdAt: StdRoot.Query.literal(timestamp),
+      visits: StdRoot.Query.literal(7),
+      label: StdRoot.Query.literal("user")
     })
 
     const rendered = Mysql.Renderer.make().render(plan)
@@ -74,14 +74,14 @@ describe("mysql dialect behavior", () => {
   test("dedupes repeated exact group-by expressions", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const valid = Mysql.Query.select({
-      loweredEmail: Mysql.Function.lower(users.email),
-      postCount: Mysql.Function.count(posts.id)
+    const valid = StdRoot.Query.select({
+      loweredEmail: StdRoot.Function.lower(users.email),
+      postCount: StdRoot.Function.count(posts.id)
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.innerJoin(posts, Mysql.Query.eq(users.id, posts.userId)),
-      Mysql.Query.groupBy(Mysql.Function.lower(users.email)),
-      Mysql.Query.groupBy(Mysql.Function.lower(users.email))
+      StdRoot.Query.from(users),
+      StdRoot.Query.innerJoin(posts, StdRoot.Query.eq(users.id, posts.userId)),
+      StdRoot.Query.groupBy(StdRoot.Function.lower(users.email)),
+      StdRoot.Query.groupBy(StdRoot.Function.lower(users.email))
     )
 
     expect(Mysql.Renderer.make().render(valid).sql).toBe(
@@ -90,13 +90,13 @@ describe("mysql dialect behavior", () => {
   })
 
   test("renders literal-only scalar operators with stable mysql parameter ordering", () => {
-    const plan = Mysql.Query.select({
-      stitched: Mysql.Function.concat("a", "b", "c"),
-      fallback: Mysql.Function.coalesce(null, null, "done"),
-      missing: Mysql.Query.isNull(null),
-      present: Mysql.Query.isNotNull("x"),
-      caps: Mysql.Function.upper("mix"),
-      lowered: Mysql.Function.lower("MIX")
+    const plan = StdRoot.Query.select({
+      stitched: StdRoot.Function.concat("a", "b", "c"),
+      fallback: StdRoot.Function.coalesce(null, null, "done"),
+      missing: StdRoot.Query.isNull(null),
+      present: StdRoot.Query.isNotNull("x"),
+      caps: StdRoot.Function.upper("mix"),
+      lowered: StdRoot.Function.lower("MIX")
     })
 
     const rendered = Mysql.Renderer.make().render(plan)
@@ -110,9 +110,9 @@ describe("mysql dialect behavior", () => {
   test("renders explicit casts with mysql syntax", () => {
     const { users } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.select({
-      idAsText: Mysql.Query.cast(users.id, Mysql.Query.type.text())
-    }).pipe(Mysql.Query.from(users))
+    const plan = StdRoot.Query.select({
+      idAsText: StdRoot.Query.cast(users.id, StdRoot.Query.type.text())
+    }).pipe(StdRoot.Query.from(users))
 
     const rendered = Mysql.Renderer.make().render(plan)
 
@@ -121,10 +121,10 @@ describe("mysql dialect behavior", () => {
   })
 
   test("renders parameterized custom datatypes through explicit casts", () => {
-    const plan = Mysql.Query.select({
-      scaledValue: Mysql.Query.cast(
-        Mysql.Query.literal(1),
-        Mysql.Query.type.custom("decimal(10,2)")
+    const plan = StdRoot.Query.select({
+      scaledValue: StdRoot.Query.cast(
+        StdRoot.Query.literal(1),
+        StdRoot.Query.type.custom("decimal(10,2)")
       )
     })
 
@@ -135,14 +135,14 @@ describe("mysql dialect behavior", () => {
   })
 
   test("renders named enum and set casts with mysql syntax", () => {
-    const plan = Mysql.Query.select({
-      enumValue: Mysql.Query.cast(
-        Mysql.Query.literal("draft"),
-        Mysql.Query.type.enum("enum('draft','published')")
+    const plan = StdRoot.Query.select({
+      enumValue: StdRoot.Query.cast(
+        StdRoot.Query.literal("draft"),
+        StdRoot.Query.type.enum("enum('draft','published')")
       ),
-      setValue: Mysql.Query.cast(
-        Mysql.Query.literal("admin"),
-        Mysql.Query.type.set("set('admin','editor')")
+      setValue: StdRoot.Query.cast(
+        StdRoot.Query.literal("admin"),
+        StdRoot.Query.type.set("set('admin','editor')")
       )
     })
 
@@ -155,34 +155,34 @@ describe("mysql dialect behavior", () => {
   test("renders boolean combinators and clause-level parameter ordering across mysql queries", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.select({
-      summary: Mysql.Function.concat(
-        Mysql.Function.lower(users.email),
+    const plan = StdRoot.Query.select({
+      summary: StdRoot.Function.concat(
+        StdRoot.Function.lower(users.email),
         "::",
-        Mysql.Function.upper(Mysql.Function.coalesce(posts.title, "missing"))
+        StdRoot.Function.upper(StdRoot.Function.coalesce(posts.title, "missing"))
       ),
-      draftOrMissing: Mysql.Query.or(
-        Mysql.Query.isNull(posts.title),
-        unsafeAny(Mysql.Query.eq(Mysql.Function.lower(unsafeAny(posts.title)), "draft"))
+      draftOrMissing: StdRoot.Query.or(
+        StdRoot.Query.isNull(posts.title),
+        unsafeAny(StdRoot.Query.eq(StdRoot.Function.lower(unsafeAny(posts.title)), "draft"))
       ),
-      active: Mysql.Query.and(
-        Mysql.Query.isNotNull(posts.id),
-        Mysql.Query.not(Mysql.Query.eq(users.email, "banned@example.com"))
+      active: StdRoot.Query.and(
+        StdRoot.Query.isNotNull(posts.id),
+        StdRoot.Query.not(StdRoot.Query.eq(users.email, "banned@example.com"))
       )
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.leftJoin(posts, Mysql.Query.eq(users.id, posts.userId)),
-      Mysql.Query.where(Mysql.Query.and(
-        Mysql.Query.or(
-          Mysql.Query.eq(users.email, "alice@example.com"),
-          Mysql.Query.eq(users.email, "bob@example.com")
+      StdRoot.Query.from(users),
+      StdRoot.Query.leftJoin(posts, StdRoot.Query.eq(users.id, posts.userId)),
+      StdRoot.Query.where(StdRoot.Query.and(
+        StdRoot.Query.or(
+          StdRoot.Query.eq(users.email, "alice@example.com"),
+          StdRoot.Query.eq(users.email, "bob@example.com")
         ),
-        Mysql.Query.not(
-          Mysql.Query.eq(Mysql.Function.coalesce(posts.title, "missing"), "archived")
+        StdRoot.Query.not(
+          StdRoot.Query.eq(StdRoot.Function.coalesce(posts.title, "missing"), "archived")
         )
       )),
-      Mysql.Query.orderBy(
-        Mysql.Function.upper(Mysql.Function.coalesce(posts.title, "missing")),
+      StdRoot.Query.orderBy(
+        StdRoot.Function.upper(StdRoot.Function.coalesce(posts.title, "missing")),
         "desc"
       )
     )
@@ -208,15 +208,15 @@ describe("mysql dialect behavior", () => {
   test("renders distinct, limit, and offset with mysql parameter ordering", () => {
     const { users } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       email: users.email
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.where(Mysql.Query.like(users.email, "%@example.com")),
-      Mysql.Query.distinct(),
-      Mysql.Query.orderBy(users.email),
-      Mysql.Query.limit(5),
-      Mysql.Query.offset(10)
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.like(users.email, "%@example.com")),
+      StdRoot.Query.distinct(),
+      StdRoot.Query.orderBy(users.email),
+      StdRoot.Query.limit(5),
+      StdRoot.Query.offset(10)
     )
 
     const rendered = render(plan)
@@ -230,11 +230,11 @@ describe("mysql dialect behavior", () => {
   test("rejects NaN mysql limit values", () => {
     const { users } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       email: users.email
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.limit(Number.NaN)
+      StdRoot.Query.from(users),
+      StdRoot.Query.limit(Number.NaN)
     )
 
     expect(() => render(plan)).toThrow("Expected a finite numeric value")
@@ -243,11 +243,11 @@ describe("mysql dialect behavior", () => {
   test("rejects NaN mysql offset values", () => {
     const { users } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       email: users.email
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.offset(Number.NaN)
+      StdRoot.Query.from(users),
+      StdRoot.Query.offset(Number.NaN)
     )
 
     expect(() => render(plan)).toThrow("Expected a finite numeric value")
@@ -256,18 +256,18 @@ describe("mysql dialect behavior", () => {
   test("renders the extended read predicate surface with mysql-specific operators", () => {
     const { users } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.select({
-      notEqual: Mysql.Query.neq(users.id, 5),
-      lessThan: Mysql.Query.lt(users.id, 10),
-      lessThanOrEqual: Mysql.Query.lte(users.id, 11),
-      greaterThan: Mysql.Query.gt(users.id, 1),
-      greaterThanOrEqual: Mysql.Query.gte(users.id, 0),
-      emailLike: Mysql.Query.like(users.email, "%@example.com"),
-      emailInsensitive: Mysql.Query.ilike(users.email, "%@EXAMPLE.COM%"),
-      idRange: Mysql.Query.between(users.id, 2, 4),
-      idSet: Mysql.Query.in(users.id, 7, 8, 9)
+    const plan = StdRoot.Query.select({
+      notEqual: StdRoot.Query.neq(users.id, 5),
+      lessThan: StdRoot.Query.lt(users.id, 10),
+      lessThanOrEqual: StdRoot.Query.lte(users.id, 11),
+      greaterThan: StdRoot.Query.gt(users.id, 1),
+      greaterThanOrEqual: StdRoot.Query.gte(users.id, 0),
+      emailLike: StdRoot.Query.like(users.email, "%@example.com"),
+      emailInsensitive: StdRoot.Query.ilike(users.email, "%@EXAMPLE.COM%"),
+      idRange: StdRoot.Query.between(users.id, 2, 4),
+      idSet: StdRoot.Query.in(users.id, 7, 8, 9)
     }).pipe(
-      Mysql.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const rendered = Mysql.Renderer.make().render(plan)
@@ -281,23 +281,23 @@ describe("mysql dialect behavior", () => {
   test("renders the remaining read predicate helpers with mysql-specific syntax", () => {
     const { users } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.select({
-      notInIds: Mysql.Query.notIn(users.id, 4, 5, 6),
-      distinctEmail: Mysql.Query.isDistinctFrom(users.email, "alice@example.com"),
-      sameEmail: Mysql.Query.isNotDistinctFrom(users.email, "alice@example.com"),
-      combined: Mysql.Query.all(
-        Mysql.Query.eq(users.id, 1),
-        Mysql.Query.any(
-          Mysql.Query.eq(users.email, "alice@example.com"),
-          Mysql.Query.eq(users.email, "bob@example.com")
+    const plan = StdRoot.Query.select({
+      notInIds: StdRoot.Query.notIn(users.id, 4, 5, 6),
+      distinctEmail: StdRoot.Query.isDistinctFrom(users.email, "alice@example.com"),
+      sameEmail: StdRoot.Query.isNotDistinctFrom(users.email, "alice@example.com"),
+      combined: StdRoot.Query.all(
+        StdRoot.Query.eq(users.id, 1),
+        StdRoot.Query.any(
+          StdRoot.Query.eq(users.email, "alice@example.com"),
+          StdRoot.Query.eq(users.email, "bob@example.com")
         )
       ),
-      label: Mysql.Query.match(users.email)
+      label: StdRoot.Query.match(users.email)
         .when("alice@example.com", "Alice")
         .when("bob@example.com", "Bob")
         .else("Other")
     }).pipe(
-      Mysql.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const rendered = Mysql.Renderer.make().render(plan)
@@ -325,14 +325,14 @@ describe("mysql dialect behavior", () => {
   test("renders searched case expressions with mysql placeholders", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const selected = Mysql.Query.select({
-      titleState: Mysql.Query.case()
-        .when(Mysql.Query.isNull(posts.title), "missing")
-        .when(Mysql.Query.eq(Mysql.Function.lower(posts.title), "draft"), "draft")
-        .else(Mysql.Function.upper(Mysql.Function.coalesce(posts.title, "published")))
+    const selected = StdRoot.Query.select({
+      titleState: StdRoot.Query.case()
+        .when(StdRoot.Query.isNull(posts.title), "missing")
+        .when(StdRoot.Query.eq(StdRoot.Function.lower(posts.title), "draft"), "draft")
+        .else(StdRoot.Function.upper(StdRoot.Function.coalesce(posts.title, "published")))
     })
-    const fromUsers = Mysql.Query.from(users)(unsafeNever(selected))
-    const plan = Mysql.Query.leftJoin(posts, Mysql.Query.eq(users.id, posts.userId))(fromUsers)
+    const fromUsers = StdRoot.Query.from(users)(unsafeNever(selected))
+    const plan = StdRoot.Query.leftJoin(posts, StdRoot.Query.eq(users.id, posts.userId))(fromUsers)
 
     const rendered = Mysql.Renderer.make().render(plan)
 
@@ -345,28 +345,28 @@ describe("mysql dialect behavior", () => {
   test("renders mysql right and cross joins and rejects unsupported full joins", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const rightJoinPlan = Mysql.Query.select({
+    const rightJoinPlan = StdRoot.Query.select({
       userId: users.id,
       postId: posts.id
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.rightJoin(posts, Mysql.Query.eq(users.id, posts.userId))
+      StdRoot.Query.from(users),
+      StdRoot.Query.rightJoin(posts, StdRoot.Query.eq(users.id, posts.userId))
     )
 
-    const fullJoinPlan = Mysql.Query.select({
+    const fullJoinPlan = StdRoot.Query.select({
       userId: users.id,
       postId: posts.id
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.fullJoin(posts, Mysql.Query.eq(users.id, posts.userId))
+      StdRoot.Query.from(users),
+      StdRoot.Query.fullJoin(posts, StdRoot.Query.eq(users.id, posts.userId))
     )
 
-    const crossJoinPlan = Mysql.Query.select({
+    const crossJoinPlan = StdRoot.Query.select({
       userId: users.id,
       postId: posts.id
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.crossJoin(posts)
+      StdRoot.Query.from(users),
+      StdRoot.Query.crossJoin(posts)
     )
 
     expect(Mysql.Renderer.make().render(rightJoinPlan).sql).toBe(
@@ -383,15 +383,15 @@ describe("mysql dialect behavior", () => {
   test("renders distinct, limit, and offset with mysql placeholders", () => {
     const { users } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       userId: users.id,
       email: users.email
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.distinct(),
-      Mysql.Query.orderBy(users.email),
-      Mysql.Query.limit(10),
-      Mysql.Query.offset(20)
+      StdRoot.Query.from(users),
+      StdRoot.Query.distinct(),
+      StdRoot.Query.orderBy(users.email),
+      StdRoot.Query.limit(10),
+      StdRoot.Query.offset(20)
     )
 
     const rendered = Mysql.Renderer.make().render(plan)
@@ -405,19 +405,19 @@ describe("mysql dialect behavior", () => {
   test("renders exists subqueries with shared mysql parameter ordering", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const postExists = Mysql.Query.select({
+    const postExists = StdRoot.Query.select({
       id: posts.id
     }).pipe(
-      Mysql.Query.from(posts),
-      Mysql.Query.where(Mysql.Query.eq(posts.title, "hello"))
+      StdRoot.Query.from(posts),
+      StdRoot.Query.where(StdRoot.Query.eq(posts.title, "hello"))
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       email: users.email,
-      hasHelloPost: Mysql.Query.exists(postExists)
+      hasHelloPost: StdRoot.Query.exists(postExists)
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.where(Mysql.Query.eq(users.email, "alice@example.com"))
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.eq(users.email, "alice@example.com"))
     )
 
     const rendered = Mysql.Renderer.make().render(plan)
@@ -431,19 +431,19 @@ describe("mysql dialect behavior", () => {
   test("renders correlated exists subqueries against outer mysql sources", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const postExists = Mysql.Query.select({
+    const postExists = StdRoot.Query.select({
       id: posts.id
     }).pipe(
-      Mysql.Query.from(posts),
-      Mysql.Query.where(Mysql.Query.eq(posts.userId, users.id))
+      StdRoot.Query.from(posts),
+      StdRoot.Query.where(StdRoot.Query.eq(posts.userId, users.id))
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       email: users.email,
-      hasPosts: Mysql.Query.exists(postExists)
+      hasPosts: StdRoot.Query.exists(postExists)
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.where(Mysql.Query.eq(users.email, "alice@example.com"))
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.eq(users.email, "alice@example.com"))
     )
 
     const rendered = Mysql.Renderer.make().render(plan)
@@ -457,26 +457,26 @@ describe("mysql dialect behavior", () => {
   test("renders window functions and windowed aggregates with mysql syntax", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       userId: users.id,
-      rowNumber: Mysql.Function.rowNumber({
+      rowNumber: StdRoot.Function.rowNumber({
         partitionBy: [users.id],
         orderBy: [{ value: posts.id, direction: "asc" }]
       }),
-      rankByTitle: Mysql.Function.rank({
+      rankByTitle: StdRoot.Function.rank({
         partitionBy: [users.id],
-        orderBy: [{ value: Mysql.Function.lower(posts.title), direction: "desc" }]
+        orderBy: [{ value: StdRoot.Function.lower(posts.title), direction: "desc" }]
       }),
-      postCount: Mysql.Function.over(Mysql.Function.count(posts.id), {
+      postCount: StdRoot.Function.over(StdRoot.Function.count(posts.id), {
         partitionBy: [users.id],
         orderBy: [{ value: posts.id, direction: "asc" }]
       }),
-      latestTitle: Mysql.Function.over(Mysql.Function.max(posts.title), {
+      latestTitle: StdRoot.Function.over(StdRoot.Function.max(posts.title), {
         partitionBy: [users.id]
       })
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.leftJoin(posts, Mysql.Query.eq(users.id, posts.userId))
+      StdRoot.Query.from(users),
+      StdRoot.Query.leftJoin(posts, StdRoot.Query.eq(users.id, posts.userId))
     )
 
     const rendered = Mysql.Renderer.make().render(plan)
@@ -490,22 +490,22 @@ describe("mysql dialect behavior", () => {
   test("renders aliased mysql subqueries as derived tables", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const activePosts = Mysql.Query.select({
+    const activePosts = StdRoot.Query.select({
       userId: posts.userId,
       title: posts.title
     }).pipe(
-      Mysql.Query.from(posts),
-      Mysql.Query.where(Mysql.Query.isNotNull(posts.title))
+      StdRoot.Query.from(posts),
+      StdRoot.Query.where(StdRoot.Query.isNotNull(posts.title))
     )
 
-    const derivedPosts = unsafeAny(activePosts.pipe(Mysql.Query.as("active_posts")))
+    const derivedPosts = unsafeAny(activePosts.pipe(StdRoot.Query.as("active_posts")))
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       userId: users.id,
       title: derivedPosts.title
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.innerJoin(derivedPosts, Mysql.Query.eq(users.id, derivedPosts.userId))
+      StdRoot.Query.from(users),
+      StdRoot.Query.innerJoin(derivedPosts, StdRoot.Query.eq(users.id, derivedPosts.userId))
     )
 
     const rendered = render(plan)
@@ -519,21 +519,21 @@ describe("mysql dialect behavior", () => {
   test("renders mysql common table expressions as aliased sources", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const activePostsSubquery = Mysql.Query.select({
+    const activePostsSubquery = StdRoot.Query.select({
       userId: posts.userId,
       title: posts.title
     }).pipe(
-      Mysql.Query.from(posts),
-      Mysql.Query.where(Mysql.Query.isNotNull(posts.title))
+      StdRoot.Query.from(posts),
+      StdRoot.Query.where(StdRoot.Query.isNotNull(posts.title))
     )
-    const activePosts = activePostsSubquery.pipe(Mysql.Query.with("active_posts"))
+    const activePosts = activePostsSubquery.pipe(StdRoot.Query.with("active_posts"))
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       userId: users.id,
       title: activePosts.title
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.innerJoin(activePosts, Mysql.Query.eq(users.id, activePosts.userId))
+      StdRoot.Query.from(users),
+      StdRoot.Query.innerJoin(activePosts, StdRoot.Query.eq(users.id, activePosts.userId))
     )
 
     const rendered = Mysql.Renderer.make().render(plan)
@@ -550,25 +550,25 @@ describe("mysql dialect behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const insertedUsers = Mysql.Query.insert(users, {
+    const insertedUsers = StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com",
       bio: null
     }).pipe(
-      Mysql.Query.returning({
+      StdRoot.Query.returning({
         id: users.id,
         email: users.email,
         bio: users.bio
       }),
-      Mysql.Query.with("inserted_users")
+      StdRoot.Query.with("inserted_users")
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       id: insertedUsers.id,
       email: insertedUsers.email,
       bio: insertedUsers.bio
     }).pipe(
-      Mysql.Query.from(insertedUsers)
+      StdRoot.Query.from(insertedUsers)
     )
 
     expect(() => Mysql.Renderer.make().render(plan)).toThrow(
@@ -579,21 +579,21 @@ describe("mysql dialect behavior", () => {
   test("renders mysql lateral joins with correlated outer references", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const lateralPosts = Mysql.Query.select({
+    const lateralPosts = StdRoot.Query.select({
         postId: posts.id,
         userId: posts.userId
       }).pipe(
-        Mysql.Query.from(posts),
-        Mysql.Query.where(Mysql.Query.eq(posts.userId, users.id)),
-        Mysql.Query.lateral("user_posts")
+        StdRoot.Query.from(posts),
+        StdRoot.Query.where(StdRoot.Query.eq(posts.userId, users.id)),
+        StdRoot.Query.lateral("user_posts")
       )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       userId: users.id,
       postId: lateralPosts.postId
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.innerJoin(lateralPosts, true)
+      StdRoot.Query.from(users),
+      StdRoot.Query.innerJoin(lateralPosts, true)
     )
 
     const rendered = Mysql.Renderer.make().render(plan)
@@ -607,17 +607,17 @@ describe("mysql dialect behavior", () => {
   test("renders mysql recursive ctes with the recursive keyword", () => {
     const { posts } = makeMysqlSocialGraph()
 
-    const recursivePosts = Mysql.Query.select({
+    const recursivePosts = StdRoot.Query.select({
         userId: posts.userId
       }).pipe(
-        Mysql.Query.from(posts),
-        Mysql.Query.withRecursive("recursive_posts")
+        StdRoot.Query.from(posts),
+        StdRoot.Query.withRecursive("recursive_posts")
       )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       userId: recursivePosts.userId
     }).pipe(
-      Mysql.Query.from(recursivePosts)
+      StdRoot.Query.from(recursivePosts)
     )
 
     const rendered = Mysql.Renderer.make().render(plan)
@@ -635,10 +635,10 @@ describe("mysql dialect behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const upsertPlan = Mysql.Query.returning({
+    const upsertPlan = StdRoot.Query.returning({
       id: users.id,
       email: users.email
-    })(Mysql.Query.upsert(users, {
+    })(StdRoot.Query.upsert(users, {
       id: userId,
       email: "alice@example.com",
       bio: null
@@ -654,11 +654,11 @@ describe("mysql dialect behavior", () => {
   test("renders mysql locking clauses at the end of select queries", () => {
     const { users } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.lock("update", { nowait: true })
+      StdRoot.Query.from(users),
+      StdRoot.Query.lock("update", { nowait: true })
     )
 
     const rendered = Mysql.Renderer.make().render(plan)
@@ -672,30 +672,30 @@ describe("mysql dialect behavior", () => {
   test("renders mysql set operators with stable operand ordering", () => {
     const { users } = makeMysqlSocialGraph()
 
-    const alice = Mysql.Query.select({
+    const alice = StdRoot.Query.select({
       email: users.email
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.where(Mysql.Query.eq(users.email, "alice@example.com"))
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.eq(users.email, "alice@example.com"))
     )
 
-    const bob = Mysql.Query.select({
+    const bob = StdRoot.Query.select({
       email: users.email
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.where(Mysql.Query.eq(users.email, "bob@example.com"))
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.eq(users.email, "bob@example.com"))
     )
 
-    const carol = Mysql.Query.select({
+    const carol = StdRoot.Query.select({
       email: users.email
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.where(Mysql.Query.eq(users.email, "carol@example.com"))
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.eq(users.email, "carol@example.com"))
     )
 
-    const unionPlan = Mysql.Query.union(Mysql.Query.union(alice, bob), carol)
-    const intersectPlan = Mysql.Query.intersect(alice, bob)
-    const exceptPlan = Mysql.Query.except(alice, bob)
+    const unionPlan = StdRoot.Query.union(StdRoot.Query.union(alice, bob), carol)
+    const intersectPlan = StdRoot.Query.intersect(alice, bob)
+    const exceptPlan = StdRoot.Query.except(alice, bob)
 
     expect(Mysql.Renderer.make().render(unionPlan).sql).toBe(
       "(select `users`.`email` as `email` from `users` where (`users`.`email` = ?)) union (select `users`.`email` as `email` from `users` where (`users`.`email` = ?)) union (select `users`.`email` as `email` from `users` where (`users`.`email` = ?))"
@@ -733,31 +733,31 @@ describe("mysql dialect behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const insertPlan = Mysql.Query.returning({
+    const insertPlan = StdRoot.Query.returning({
       id: users.id,
       email: users.email,
       bio: users.bio
-    })(Mysql.Query.insert(users, {
+    })(StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com",
       bio: null
     }))
 
-    const updatePlan = Mysql.Query.returning({
+    const updatePlan = StdRoot.Query.returning({
       id: users.id,
       email: users.email,
       bio: users.bio
-    })(Mysql.Query.where(Mysql.Query.eq(users.id, userId))(
-      Mysql.Query.update(users, {
+    })(StdRoot.Query.where(StdRoot.Query.eq(users.id, userId))(
+      StdRoot.Query.update(users, {
         email: "updated@example.com",
         bio: null
       })
     ))
 
-    const deletePlan = Mysql.Query.returning({
+    const deletePlan = StdRoot.Query.returning({
       id: users.id
-    })(Mysql.Query.where(Mysql.Query.eq(users.id, userId))(
-      Mysql.Query.delete(users)
+    })(StdRoot.Query.where(StdRoot.Query.eq(users.id, userId))(
+      StdRoot.Query.delete(users)
     ))
 
     expect(() => Mysql.Renderer.make().render(insertPlan)).toThrow(
@@ -774,12 +774,12 @@ describe("mysql dialect behavior", () => {
   test("renders mysql joined update modifiers order and limit", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.limit(2)(
-      Mysql.Query.orderBy(posts.id)(
-        Mysql.Query.lock("lowPriority")(
-          Mysql.Query.where(Mysql.Query.eq(posts.title, "hello"))(
-            Mysql.Query.innerJoin(posts, Mysql.Query.eq(posts.userId, users.id))(
-              Mysql.Query.update(users, {
+    const plan = StdRoot.Query.limit(2)(
+      StdRoot.Query.orderBy(posts.id)(
+        StdRoot.Query.lock("lowPriority")(
+          StdRoot.Query.where(StdRoot.Query.eq(posts.title, "hello"))(
+            StdRoot.Query.innerJoin(posts, StdRoot.Query.eq(posts.userId, users.id))(
+              StdRoot.Query.update(users, {
                 email: "author@example.com"
               })
             )
@@ -802,8 +802,8 @@ describe("mysql dialect behavior", () => {
   test("renders mysql multi-table update assignments", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.where(Mysql.Query.eq(posts.userId, users.id))(
-      Mysql.Query.update([users, posts], {
+    const plan = StdRoot.Query.where(StdRoot.Query.eq(posts.userId, users.id))(
+      StdRoot.Query.update([users, posts], {
         users: {
           email: "author@example.com"
         },
@@ -827,12 +827,12 @@ describe("mysql dialect behavior", () => {
   test("renders mysql joined delete modifiers order and limit", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.limit(3)(
-      Mysql.Query.orderBy(posts.id, "desc")(
-        Mysql.Query.lock("quick")(
-          Mysql.Query.where(Mysql.Query.eq(posts.title, "hello"))(
-            Mysql.Query.innerJoin(posts, Mysql.Query.eq(posts.userId, users.id))(
-              Mysql.Query.delete(users)
+    const plan = StdRoot.Query.limit(3)(
+      StdRoot.Query.orderBy(posts.id, "desc")(
+        StdRoot.Query.lock("quick")(
+          StdRoot.Query.where(StdRoot.Query.eq(posts.title, "hello"))(
+            StdRoot.Query.innerJoin(posts, StdRoot.Query.eq(posts.userId, users.id))(
+              StdRoot.Query.delete(users)
             )
           )
         )
@@ -852,8 +852,8 @@ describe("mysql dialect behavior", () => {
   test("renders mysql multi-table delete targets", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.where(Mysql.Query.eq(posts.userId, users.id))(
-      Mysql.Query.delete([users, posts])
+    const plan = StdRoot.Query.where(StdRoot.Query.eq(posts.userId, users.id))(
+      StdRoot.Query.delete([users, posts])
     )
 
     const rendered = Mysql.Renderer.make().render(plan)
@@ -876,26 +876,26 @@ describe("mysql dialect behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const valuesSource = unsafeAny(Mysql.Query.as(Mysql.Query.values([
-      { id: Mysql.Query.literal(userId), email: "alice@example.com", bio: null },
-      { id: Mysql.Query.literal(secondUserId), email: "bob@example.com", bio: "writer" }
+    const valuesSource = unsafeAny(StdRoot.Query.as(StdRoot.Query.values([
+      { id: StdRoot.Query.literal(userId), email: "alice@example.com", bio: null },
+      { id: StdRoot.Query.literal(secondUserId), email: "bob@example.com", bio: "writer" }
     ] as const), "seed"))
 
-    const multiRowPlan = Mysql.Query.insert(users).pipe(
-      Mysql.Query.from(valuesSource)
+    const multiRowPlan = StdRoot.Query.insert(users).pipe(
+      StdRoot.Query.from(valuesSource)
     )
 
-    const insertSelectPlan = Mysql.Query.insert(archivedUsers).pipe(
-      Mysql.Query.from(Mysql.Query.select({
+    const insertSelectPlan = StdRoot.Query.insert(archivedUsers).pipe(
+      StdRoot.Query.from(StdRoot.Query.select({
       id: users.id,
       email: users.email,
       bio: users.bio
     }).pipe(
-      Mysql.Query.from(users)
+      StdRoot.Query.from(users)
     )))
 
-    const insertUnnestPlan = Mysql.Query.insert(users).pipe(
-      Mysql.Query.from(Mysql.Query.unnest({
+    const insertUnnestPlan = StdRoot.Query.insert(users).pipe(
+      StdRoot.Query.from(StdRoot.Query.unnest({
       id: [userId, secondUserId],
       email: ["alice@example.com", "bob@example.com"],
       bio: [null, "writer"]
@@ -932,7 +932,7 @@ describe("mysql dialect behavior", () => {
 
   test("renders mysql default-values and duplicate-key conflict clauses", () => {
     const auditLogs = StdRoot.Table.make("audit_logs", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey, StdRoot.Column.default(Mysql.Query.literal("audit-log-id"))),
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey, StdRoot.Column.default(StdRoot.Query.literal("audit-log-id"))),
       note: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
     const users = StdRoot.Table.make("users", {
@@ -941,12 +941,12 @@ describe("mysql dialect behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const defaultInsertPlan = Mysql.Query.insert(auditLogs)
-    const conflictPlan = Mysql.Query.onConflict(["email"] as const, {
+    const defaultInsertPlan = StdRoot.Query.insert(auditLogs)
+    const conflictPlan = StdRoot.Query.onConflict(["email"] as const, {
       update: {
-        bio: Mysql.Query.excluded(users.bio)
+        bio: StdRoot.Query.excluded(users.bio)
       }
-    })(Mysql.Query.insert(users, {
+    })(StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com",
       bio: "writer"
@@ -982,30 +982,30 @@ describe("mysql dialect behavior", () => {
       StdRoot.Table.foreignKey("orgId", () => orgs, "id"),
       StdRoot.Table.unique(["orgId", "role"] as const),
       StdRoot.Table.index(["role", "orgId"] as const),
-      StdRoot.Table.check("role_not_empty", Mysql.Query.neq(membershipsBase.role, Mysql.Query.literal("")))
+      StdRoot.Table.check("role_not_empty", StdRoot.Query.neq(membershipsBase.role, StdRoot.Query.literal("")))
     )
 
-    expect(Mysql.Renderer.make().render(Mysql.Query.createTable(memberships, {
+    expect(Mysql.Renderer.make().render(StdRoot.Query.createTable(memberships, {
       ifNotExists: true
     })).sql).toBe(
       "create table if not exists `memberships` (`id` char(36) not null, `orgId` char(36) not null, `role` text not null, `note` text, primary key (`id`), foreign key (`orgId`) references `orgs` (`id`), unique (`orgId`, `role`), constraint `role_not_empty` check ((`role` <> '')))"
     )
-    expect(Mysql.Renderer.make().render(Mysql.Query.createTable(memberships, {
+    expect(Mysql.Renderer.make().render(StdRoot.Query.createTable(memberships, {
       ifNotExists: true
     })).params).toEqual([])
-    expect(Mysql.Renderer.make().render(Mysql.Query.createIndex(memberships, ["role", "orgId"] as const)).sql).toBe(
+    expect(Mysql.Renderer.make().render(StdRoot.Query.createIndex(memberships, ["role", "orgId"] as const)).sql).toBe(
       'create index `memberships_role_orgId_idx` on `memberships` (`role`, `orgId`)'
     )
-    expect(Mysql.Renderer.make().render(Mysql.Query.dropIndex(memberships, ["role", "orgId"] as const)).sql).toBe(
+    expect(Mysql.Renderer.make().render(StdRoot.Query.dropIndex(memberships, ["role", "orgId"] as const)).sql).toBe(
       'drop index `memberships_role_orgId_idx` on `memberships`'
     )
-    expect(() => Mysql.Renderer.make().render(Mysql.Query.createIndex(memberships, ["role", "orgId"] as const, {
+    expect(() => Mysql.Renderer.make().render(StdRoot.Query.createIndex(memberships, ["role", "orgId"] as const, {
       ifNotExists: true
     }))).toThrow("Unsupported mysql create index options")
-    expect(() => Mysql.Renderer.make().render(Mysql.Query.dropIndex(memberships, ["role", "orgId"] as const, {
+    expect(() => Mysql.Renderer.make().render(StdRoot.Query.dropIndex(memberships, ["role", "orgId"] as const, {
       ifExists: true
     }))).toThrow("Unsupported mysql drop index options")
-    expect(Mysql.Renderer.make().render(Mysql.Query.dropTable(memberships, {
+    expect(Mysql.Renderer.make().render(StdRoot.Query.dropTable(memberships, {
       ifExists: true
     })).sql).toBe(
       'drop table if exists `memberships`'
@@ -1021,16 +1021,16 @@ describe("mysql dialect behavior", () => {
       userId: StdRoot.Column.uuid().pipe(StdRoot.Column.references(() => users.id))
     }, "analytics")
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       eventId: events.id
     }).pipe(
-      Mysql.Query.from(events)
+      StdRoot.Query.from(events)
     )
 
     expect(Mysql.Renderer.make().render(plan).sql).toBe(
       "select `events`.`id` as `eventId` from `analytics`.`events`"
     )
-    expect(Mysql.Renderer.make().render(Mysql.Query.createTable(events, {
+    expect(Mysql.Renderer.make().render(StdRoot.Query.createTable(events, {
       ifNotExists: true
     })).sql).toBe(
       "create table if not exists `analytics`.`events` (`id` char(36) not null, `userId` char(36) not null, primary key (`id`), foreign key (`userId`) references `analytics`.`users` (`id`))"
@@ -1040,19 +1040,19 @@ describe("mysql dialect behavior", () => {
   test("decodes nullable joined rows through the mysql executor pipeline", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       profile: {
         id: users.id,
-        email: Mysql.Function.lower(users.email)
+        email: StdRoot.Function.lower(users.email)
       },
       post: {
         id: posts.id,
-        title: Mysql.Function.lower(posts.title)
+        title: StdRoot.Function.lower(posts.title)
       },
-      hasPost: Mysql.Query.isNotNull(posts.id)
+      hasPost: StdRoot.Query.isNotNull(posts.id)
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.leftJoin(posts, Mysql.Query.eq(users.id, posts.userId))
+      StdRoot.Query.from(users),
+      StdRoot.Query.leftJoin(posts, StdRoot.Query.eq(users.id, posts.userId))
     )
 
     const rows = Effect.runSync(Mysql.Executor.make({
@@ -1091,7 +1091,7 @@ describe("mysql dialect behavior", () => {
       [ExpressionAst.TypeId]: {
         kind: "unsupported"
       }
-    } as unknown as Mysql.Scalar.Any
+    } as unknown as StdRoot.Scalar.Any
 
     expect(() => renderExpression(unsupportedExpression, {
       params: [],

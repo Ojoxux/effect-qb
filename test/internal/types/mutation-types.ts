@@ -1,3 +1,4 @@
+import * as StdRoot from "#standard"
 import * as Std from "effect-qb"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
@@ -7,7 +8,8 @@ import * as SqlError from "@effect/sql/SqlError"
 import * as Mysql from "#mysql"
 import * as Postgres from "#postgres"
 import type { AvailableOfPlan } from "#internal/query.ts"
-import { Cast, Executor, Query as Q, Renderer, Type } from "#postgres"
+import { Query as Q } from "#standard"
+import { Cast, Executor, Renderer, Type } from "#postgres"
 
 const users = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),
@@ -63,12 +65,12 @@ const insertSelectPlan = Q.insert(users).pipe(Q.from(Q.select({
   Q.from(users)
 )))
 
-const mysqlInsertSelectSource = Mysql.Query.select({
+const mysqlInsertSelectSource = StdRoot.Query.select({
   id: mysqlUsers.id,
   email: mysqlUsers.email,
   bio: mysqlUsers.bio
 }).pipe(
-  Mysql.Query.from(mysqlUsers)
+  StdRoot.Query.from(mysqlUsers)
 )
 const badInsertMysqlSelectSource = Q.insert(users).pipe(Q.from(mysqlInsertSelectSource))
 const badInsertMysqlSelectSourceRendered = Renderer.make().render(
@@ -94,13 +96,13 @@ const insertConflictPlan = Q.insert(users, {
 
 // @ts-expect-error postgres insert values cannot use mysql expressions
 const badInsertMysqlValue = Q.insert(auditLogs, {
-  note: Mysql.Query.literal("wrong-dialect")
+  note: StdRoot.Query.literal("wrong-dialect")
 })
 void badInsertMysqlValue
 
 // @ts-expect-error postgres update values cannot use mysql expressions
 const badUpdateMysqlValue = Q.update(users, {
-  email: Mysql.Query.literal("wrong-dialect")
+  email: StdRoot.Query.literal("wrong-dialect")
 })
 void badUpdateMysqlValue
 
@@ -113,7 +115,7 @@ void badUpdateUnknownColumn
 const badUpdateMysqlWhere = Q.update(users, {
   email: "updated@example.com"
 }).pipe(
-  Q.where(Mysql.Query.literal(true))
+  Q.where(StdRoot.Query.literal(true))
 )
 const badUpdateMysqlWhereRendered = Renderer.make().render(
   // @ts-expect-error postgres mutation filters cannot use mysql expressions
@@ -126,7 +128,7 @@ const badUpsertMysqlInsertValue = Q.upsert(
   // @ts-expect-error postgres upsert insert values cannot use mysql expressions
   {
     id: "user-id",
-    email: Mysql.Query.literal("alice@example.com")
+    email: StdRoot.Query.literal("alice@example.com")
   },
   ["id"] as const,
   {
@@ -144,7 +146,7 @@ const badUpsertMysqlUpdateValue = Q.upsert(
   ["id"] as const,
   // @ts-expect-error postgres upsert update values cannot use mysql expressions
   {
-    email: Mysql.Query.literal("alice@example.com")
+    email: StdRoot.Query.literal("alice@example.com")
   }
 )
 void badUpsertMysqlUpdateValue
@@ -202,7 +204,7 @@ const insertReturning = Q.returning({
 })(insertPlan)
 
 const badReturningMysqlSelection = Q.returning({
-  bad: Mysql.Query.literal("wrong-dialect")
+  bad: StdRoot.Query.literal("wrong-dialect")
 })(insertPlan)
 const badReturningMysqlSelectionRendered = Renderer.make().render(
   // @ts-expect-error postgres returning selections cannot use mysql expressions
@@ -302,40 +304,40 @@ const invalidDefaultInsert: Q.CompletePlan<typeof invalidDefaultInsertPlan> = in
 void invalidDefaultInsertPlan
 
 // @ts-expect-error mysql conflict targets do not support named constraints
-Mysql.Query.onConflict({
+StdRoot.Query.onConflict({
   constraint: "users_email_key"
 }, {
   update: {
-    bio: Mysql.Query.excluded(mysqlUsers.bio)
+    bio: StdRoot.Query.excluded(mysqlUsers.bio)
   }
-})(Mysql.Query.insert(mysqlUsers, {
+})(StdRoot.Query.insert(mysqlUsers, {
   id: "user-id",
   email: "alice@example.com",
   bio: null
 }))
 
-Mysql.Query.insert(mysqlUsers, {
+StdRoot.Query.insert(mysqlUsers, {
   id: "user-id",
   email: "alice@example.com",
   bio: null
-}).pipe(Mysql.Query.onConflict(["email"] as const, {
+}).pipe(StdRoot.Query.onConflict(["email"] as const, {
   update: {
-    bio: Mysql.Query.excluded(mysqlUsers.bio)
+    bio: StdRoot.Query.excluded(mysqlUsers.bio)
   },
   // @ts-expect-error mysql conflict actions do not support where(...)
-  where: Mysql.Query.isNotNull(Mysql.Query.excluded(mysqlUsers.bio))
+  where: StdRoot.Query.isNotNull(StdRoot.Query.excluded(mysqlUsers.bio))
 }))
 
-const postgresMutation = Postgres.Query.returning({
+const postgresMutation = StdRoot.Query.returning({
   id: users.id
-})(Postgres.Query.delete(users))
+})(StdRoot.Query.delete(users))
 
 // @ts-expect-error mysql mutations do not expose PostgreSQL-style RETURNING projections
-Mysql.Query.returning({
+StdRoot.Query.returning({
   id: mysqlUsers.id
-})(Mysql.Query.delete(mysqlUsers))
+})(StdRoot.Query.delete(mysqlUsers))
 
-type PostgresMutationRow = Postgres.Query.ResultRow<typeof postgresMutation>
+type PostgresMutationRow = StdRoot.Query.ResultRow<typeof postgresMutation>
 
 const postgresMutationRow: PostgresMutationRow = { id: "user-id" }
 void postgresMutationRow
@@ -362,21 +364,21 @@ const mysqlMutationPosts = Std.Table.make("posts", {
   title: Mysql.Column.custom(Schema.String, Mysql.Datatypes.mysqlDatatypes.text()).pipe(Std.Column.nullable)
 })
 
-const postgresJoinedUpdate = Postgres.Query.innerJoin(pgPosts, Postgres.Query.eq(pgPosts.userId, pgUsers.id))(
-  Postgres.Query.update(pgUsers, {
+const postgresJoinedUpdate = StdRoot.Query.innerJoin(pgPosts, StdRoot.Query.eq(pgPosts.userId, pgUsers.id))(
+  StdRoot.Query.update(pgUsers, {
     email: "joined@example.com"
   })
 )
 
-const postgresJoinedDelete = Postgres.Query.innerJoin(pgPosts, Postgres.Query.eq(pgPosts.userId, pgUsers.id))(
-  Postgres.Query.delete(pgUsers)
+const postgresJoinedDelete = StdRoot.Query.innerJoin(pgPosts, StdRoot.Query.eq(pgPosts.userId, pgUsers.id))(
+  StdRoot.Query.delete(pgUsers)
 )
 
-const mysqlJoinedUpdate = Mysql.Query.limit(5)(
-  Mysql.Query.orderBy(mysqlMutationPosts.id)(
-    Mysql.Query.lock("ignore")(
-      Mysql.Query.innerJoin(mysqlMutationPosts, Mysql.Query.eq(mysqlMutationPosts.userId, mysqlMutationUsers.id))(
-        Mysql.Query.update(mysqlMutationUsers, {
+const mysqlJoinedUpdate = StdRoot.Query.limit(5)(
+  StdRoot.Query.orderBy(mysqlMutationPosts.id)(
+    StdRoot.Query.lock("ignore")(
+      StdRoot.Query.innerJoin(mysqlMutationPosts, StdRoot.Query.eq(mysqlMutationPosts.userId, mysqlMutationUsers.id))(
+        StdRoot.Query.update(mysqlMutationUsers, {
           email: "joined@example.com"
         })
       )
@@ -384,10 +386,10 @@ const mysqlJoinedUpdate = Mysql.Query.limit(5)(
   )
 )
 
-const badMysqlUpdatePostgresOrderBy = Mysql.Query.update(mysqlMutationUsers, {
+const badMysqlUpdatePostgresOrderBy = StdRoot.Query.update(mysqlMutationUsers, {
   email: "updated@example.com"
 }).pipe(
-  Mysql.Query.orderBy(Postgres.Query.literal(1))
+  StdRoot.Query.orderBy(StdRoot.Query.literal(1))
 )
 const badMysqlUpdatePostgresOrderByRendered = Mysql.Renderer.make().render(
   // @ts-expect-error mysql mutation ordering cannot use postgres expressions
@@ -395,7 +397,7 @@ const badMysqlUpdatePostgresOrderByRendered = Mysql.Renderer.make().render(
 )
 void badMysqlUpdatePostgresOrderByRendered
 
-const mysqlMultiUpdate = Mysql.Query.update([mysqlMutationUsers, mysqlMutationPosts], {
+const mysqlMultiUpdate = StdRoot.Query.update([mysqlMutationUsers, mysqlMutationPosts], {
   users: {
     email: "multi@example.com"
   },
@@ -404,20 +406,20 @@ const mysqlMultiUpdate = Mysql.Query.update([mysqlMutationUsers, mysqlMutationPo
   }
 })
 
-const mysqlJoinedDelete = Mysql.Query.limit(2)(
-  Mysql.Query.orderBy(mysqlMutationPosts.id, "desc")(
-    Mysql.Query.lock("quick")(
-      Mysql.Query.innerJoin(mysqlMutationPosts, Mysql.Query.eq(mysqlMutationPosts.userId, mysqlMutationUsers.id))(
-        Mysql.Query.delete(mysqlMutationUsers)
+const mysqlJoinedDelete = StdRoot.Query.limit(2)(
+  StdRoot.Query.orderBy(mysqlMutationPosts.id, "desc")(
+    StdRoot.Query.lock("quick")(
+      StdRoot.Query.innerJoin(mysqlMutationPosts, StdRoot.Query.eq(mysqlMutationPosts.userId, mysqlMutationUsers.id))(
+        StdRoot.Query.delete(mysqlMutationUsers)
       )
     )
   )
 )
 
-const mysqlMultiDelete = Mysql.Query.delete([mysqlMutationUsers, mysqlMutationPosts])
+const mysqlMultiDelete = StdRoot.Query.delete([mysqlMutationUsers, mysqlMutationPosts])
 
 // @ts-expect-error mysql multi-target updates require unique source names
-const badMysqlDuplicateMultiUpdateTarget = Mysql.Query.update([mysqlMutationUsers, mysqlMutationUsers], {
+const badMysqlDuplicateMultiUpdateTarget = StdRoot.Query.update([mysqlMutationUsers, mysqlMutationUsers], {
   users: {
     email: "duplicate@example.com"
   }
@@ -425,11 +427,11 @@ const badMysqlDuplicateMultiUpdateTarget = Mysql.Query.update([mysqlMutationUser
 void badMysqlDuplicateMultiUpdateTarget
 
 // @ts-expect-error mysql multi-target deletes require unique source names
-const badMysqlDuplicateMultiDeleteTarget = Mysql.Query.delete([mysqlMutationUsers, mysqlMutationUsers])
+const badMysqlDuplicateMultiDeleteTarget = StdRoot.Query.delete([mysqlMutationUsers, mysqlMutationUsers])
 void badMysqlDuplicateMultiDeleteTarget
 
 // @ts-expect-error mysql multi-target updates cannot include postgres tables
-const badMysqlMultiUpdatePostgresTarget = Mysql.Query.update([mysqlMutationUsers, pgPosts], {
+const badMysqlMultiUpdatePostgresTarget = StdRoot.Query.update([mysqlMutationUsers, pgPosts], {
   users: {
     email: "bad@example.com"
   },
@@ -440,13 +442,13 @@ const badMysqlMultiUpdatePostgresTarget = Mysql.Query.update([mysqlMutationUsers
 void badMysqlMultiUpdatePostgresTarget
 
 // @ts-expect-error mysql multi-target deletes cannot include postgres tables
-const badMysqlMultiDeletePostgresTarget = Mysql.Query.delete([mysqlMutationUsers, pgPosts])
+const badMysqlMultiDeletePostgresTarget = StdRoot.Query.delete([mysqlMutationUsers, pgPosts])
 void badMysqlMultiDeletePostgresTarget
 
 // @ts-expect-error mysql multi-target update values cannot use postgres expressions
-const badMysqlMultiUpdatePostgresValue = Mysql.Query.update([mysqlMutationUsers, mysqlMutationPosts], {
+const badMysqlMultiUpdatePostgresValue = StdRoot.Query.update([mysqlMutationUsers, mysqlMutationPosts], {
   users: {
-    email: Postgres.Query.literal("bad@example.com")
+    email: StdRoot.Query.literal("bad@example.com")
   }
 })
 void badMysqlMultiUpdatePostgresValue
@@ -476,25 +478,25 @@ void mysqlMultiDeleteUsers
 void mysqlMultiDeletePosts
 
 // @ts-expect-error postgres update does not support tuple mutation targets
-Postgres.Query.update([pgUsers, pgPosts], {
+StdRoot.Query.update([pgUsers, pgPosts], {
   users: {
     email: "bad@example.com"
   }
 })
 
 // @ts-expect-error postgres delete does not support tuple mutation targets
-Postgres.Query.delete([pgUsers, pgPosts])
+StdRoot.Query.delete([pgUsers, pgPosts])
 
 // @ts-expect-error postgres update does not support orderBy
-Postgres.Query.orderBy(pgUsers.id)(Postgres.Query.update(pgUsers, {
+StdRoot.Query.orderBy(pgUsers.id)(StdRoot.Query.update(pgUsers, {
   email: "bad@example.com"
 }))
 
 // @ts-expect-error postgres delete does not support limit
-Postgres.Query.limit(1)(Postgres.Query.delete(pgUsers))
+StdRoot.Query.limit(1)(StdRoot.Query.delete(pgUsers))
 
 // @ts-expect-error mysql update lock does not accept quick
-Mysql.Query.lock("quick")(Mysql.Query.update(mysqlMutationUsers, {
+StdRoot.Query.lock("quick")(StdRoot.Query.update(mysqlMutationUsers, {
   email: "bad@example.com"
 }))
 
@@ -507,7 +509,7 @@ const invalidMysqlMultiUpdatePayload: Q.UpdateInputOfTarget<[typeof mysqlMutatio
 void invalidMysqlMultiUpdatePayload
 
 // @ts-expect-error mysql delete lock does not accept share
-Mysql.Query.lock("share")(Mysql.Query.delete(mysqlMutationUsers))
+StdRoot.Query.lock("share")(StdRoot.Query.delete(mysqlMutationUsers))
 
 const transactionEffect = Executor.withTransaction(Effect.succeed(insertRow))
 const savepointEffect = Executor.withSavepoint(Effect.succeed(insertRow))

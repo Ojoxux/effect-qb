@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 996-1030
+// Code fences: 997-1030
 
-// README.md:996-1030
+// README.md:997-1030
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
@@ -23,11 +23,10 @@ const events = Table.make("events", {
   payload: Pg.Column.jsonb(payloadSchema),
   createdAt: Column.datetime()
 }).pipe(
-  Pg.Table.index({
-    name: "events_created_at_idx",
-    columns: "createdAt",
-    method: "btree"
-  })
+  Table.index("createdAt").pipe(
+    Pg.Table.named("events_created_at_idx"),
+    Pg.Table.using("btree")
+  )
 )
 
 const eventKinds = Query.select({

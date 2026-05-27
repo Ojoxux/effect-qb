@@ -67,9 +67,14 @@ The dialect lattice is:
 Examples:
 
 ```ts
+import * as Schema from "effect/Schema"
+
 const users = Table.make("users", {
   id: Column.uuid().pipe(Column.primaryKey),
-  email: Column.text()
+  email: Column.text(),
+  profile: Column.json(Schema.Struct({
+    active: Schema.Boolean
+  }))
 })
 
 const portable = Query.select({
@@ -88,7 +93,7 @@ A concrete expression narrows the whole plan:
 
 ```ts
 const postgresOnly = portable.pipe(
-  Query.orderBy(Pg.Query.literal(1))
+  Query.orderBy(Query.literal(1).pipe(Pg.Cast.to(Pg.Type.int4())))
 )
 
 Pg.Renderer.make().render(postgresOnly)
@@ -99,8 +104,8 @@ Mixing different concrete dialects is invalid:
 
 ```ts
 const conflict = portable.pipe(
-  Query.orderBy(Pg.Query.literal(1)),
-  Query.where(My.Query.literal(true))
+  Query.orderBy(Query.literal(1).pipe(Pg.Cast.to(Pg.Type.int4()))),
+  Query.where(My.Json.pathExists(users.profile, My.Json.key("active")))
 )
 
 // Any concrete renderer should reject this at type level.
@@ -168,8 +173,8 @@ Required standard query coverage:
 
 If a SQL construct is not meaningfully portable, use one of these designs:
 
-- Keep it out of `effect-qb/standard`.
-- Expose a standard helper that narrows to a concrete dialect.
+- Keep it out of the root portable API.
+- Expose it as a concrete modifier that standard builders can be piped into.
 - Expose the helper only in concrete namespaces.
 - Throw a renderer error for untyped or impossible runtime use, with type tests
   proving normal typed usage cannot reach the path.
@@ -323,8 +328,8 @@ The standard dialect project is complete when:
 - Type tests cover the dialect lattice and renderer compatibility rules.
 - Behavior tests cover standard rendering across Postgres, MySQL, SQLite, and
   the reference standard renderer.
-- Package exports expose root portable modules, plus the explicit
-  `effect-qb/standard` subpath, with source types and built output.
+- Package exports expose root portable modules and concrete dialect extension
+  namespaces, with source types and built output.
 - Validation passes with:
 
 ```sh

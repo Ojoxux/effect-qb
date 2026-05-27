@@ -1,3 +1,4 @@
+import * as StdRoot from "#standard"
 import * as Std from "effect-qb"
 import type * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
@@ -50,25 +51,25 @@ const stdUsers = Standard.Table.make("users", {
   email: Standard.Column.text()
 })
 
-const pgLiteral = Postgres.Query.literal("user")
-const myLiteral = Mysql.Query.literal("user")
-const pgPredicate = Postgres.Query.eq(pgUsers.email, "alice@example.com")
-const myPredicate = Mysql.Query.eq(myUsers.email, "alice@example.com")
-const pgConcat = Postgres.Function.concat(Postgres.Function.lower(pgUsers.email), "-user")
-const myConcat = Mysql.Function.concat(Mysql.Function.lower(myUsers.email), "-user")
+const pgLiteral = StdRoot.Query.literal("user")
+const myLiteral = StdRoot.Query.literal("user")
+const pgPredicate = StdRoot.Query.eq(pgUsers.email, "alice@example.com")
+const myPredicate = StdRoot.Query.eq(myUsers.email, "alice@example.com")
+const pgConcat = StdRoot.Function.concat(StdRoot.Function.lower(pgUsers.email), "-user")
+const myConcat = StdRoot.Function.concat(StdRoot.Function.lower(myUsers.email), "-user")
 
-const pgLiteralDialect: Postgres.Scalar.DbTypeOf<typeof pgLiteral>["dialect"] = "postgres"
-const myLiteralDialect: Mysql.Scalar.DbTypeOf<typeof myLiteral>["dialect"] = "mysql"
-const pgPredicateDialect: Postgres.Scalar.DbTypeOf<typeof pgPredicate>["dialect"] = "postgres"
-const myPredicateDialect: Mysql.Scalar.DbTypeOf<typeof myPredicate>["dialect"] = "mysql"
-const pgConcatDialect: Postgres.Scalar.DbTypeOf<typeof pgConcat>["dialect"] = "postgres"
-const myConcatDialect: Mysql.Scalar.DbTypeOf<typeof myConcat>["dialect"] = "mysql"
-const pgLiteralRuntime: Postgres.Scalar.RuntimeOf<typeof pgLiteral> = "user"
-const myLiteralRuntime: Mysql.Scalar.RuntimeOf<typeof myLiteral> = "user"
-const pgTrueLiteral = Postgres.Query.literal(true)
-const myTrueLiteral = Mysql.Query.literal(true)
-const pgTrueLiteralRuntime: Postgres.Scalar.RuntimeOf<typeof pgTrueLiteral> = true
-const myTrueLiteralRuntime: Mysql.Scalar.RuntimeOf<typeof myTrueLiteral> = true
+const pgLiteralDialect: StdRoot.Scalar.DbTypeOf<typeof pgLiteral>["dialect"] = "standard"
+const myLiteralDialect: StdRoot.Scalar.DbTypeOf<typeof myLiteral>["dialect"] = "standard"
+const pgPredicateDialect: StdRoot.Scalar.DbTypeOf<typeof pgPredicate>["dialect"] = "standard"
+const myPredicateDialect: StdRoot.Scalar.DbTypeOf<typeof myPredicate>["dialect"] = "standard"
+const pgConcatDialect: StdRoot.Scalar.DbTypeOf<typeof pgConcat>["dialect"] = "standard"
+const myConcatDialect: StdRoot.Scalar.DbTypeOf<typeof myConcat>["dialect"] = "standard"
+const pgLiteralRuntime: StdRoot.Scalar.RuntimeOf<typeof pgLiteral> = "user"
+const myLiteralRuntime: StdRoot.Scalar.RuntimeOf<typeof myLiteral> = "user"
+const pgTrueLiteral = StdRoot.Query.literal(true)
+const myTrueLiteral = StdRoot.Query.literal(true)
+const pgTrueLiteralRuntime: StdRoot.Scalar.RuntimeOf<typeof pgTrueLiteral> = true
+const myTrueLiteralRuntime: StdRoot.Scalar.RuntimeOf<typeof myTrueLiteral> = true
 void pgLiteralDialect
 void myLiteralDialect
 void pgPredicateDialect
@@ -83,24 +84,24 @@ void pgTrueLiteralRuntime
 void myTrueLiteralRuntime
 
 // @ts-expect-error string literals stay narrow
-const pgBadLiteralRuntime: Postgres.Scalar.RuntimeOf<typeof pgLiteral> = "admin"
+const pgBadLiteralRuntime: StdRoot.Scalar.RuntimeOf<typeof pgLiteral> = "admin"
 // @ts-expect-error string literals stay narrow
-const myBadLiteralRuntime: Mysql.Scalar.RuntimeOf<typeof myLiteral> = "admin"
+const myBadLiteralRuntime: StdRoot.Scalar.RuntimeOf<typeof myLiteral> = "admin"
 // @ts-expect-error boolean literals stay narrow
-const pgBadTrueLiteralRuntime: Postgres.Scalar.RuntimeOf<typeof pgTrueLiteral> = false
+const pgBadTrueLiteralRuntime: StdRoot.Scalar.RuntimeOf<typeof pgTrueLiteral> = false
 // @ts-expect-error boolean literals stay narrow
-const myBadTrueLiteralRuntime: Mysql.Scalar.RuntimeOf<typeof myTrueLiteral> = false
+const myBadTrueLiteralRuntime: StdRoot.Scalar.RuntimeOf<typeof myTrueLiteral> = false
 
-const pgPlan = Postgres.Query.select({
+const pgPlan = StdRoot.Query.select({
   id: pgUsers.id
 }).pipe(
-  Postgres.Query.from(pgUsers)
+  StdRoot.Query.from(pgUsers)
 )
 
-const myPlan = Mysql.Query.select({
+const myPlan = StdRoot.Query.select({
   id: myUsers.id
 }).pipe(
-  Mysql.Query.from(myUsers)
+  StdRoot.Query.from(myUsers)
 )
 
 const stdPlan = Standard.Query.select({
@@ -123,98 +124,91 @@ const standardNarrowedToPostgres = Standard.Query.select({
   id: stdUsers.id
 }).pipe(
   Standard.Query.from(stdUsers),
-  Standard.Query.orderBy(Postgres.Query.literal(1))
+  Standard.Query.orderBy(StdRoot.Query.literal(1))
 )
 
 type StandardNarrowedDialect = RootQuery.PlanDialectOf<typeof standardNarrowedToPostgres>
-type _AssertStandardNarrowedDialect = Assert<IsExact<StandardNarrowedDialect, "postgres">>
+type _AssertStandardNarrowedDialect = Assert<IsExact<StandardNarrowedDialect, "standard">>
 
 const narrowedPgRendered = Postgres.Renderer.make().render(standardNarrowedToPostgres)
-void narrowedPgRendered
-
-// @ts-expect-error postgres-narrowed standard plans are not accepted by mysql renderers
 const narrowedMysqlRendered = Mysql.Renderer.make().render(standardNarrowedToPostgres)
+void narrowedPgRendered
 void narrowedMysqlRendered
 
 const standardNarrowedToMysql = Standard.Query.select({
   id: stdUsers.id
 }).pipe(
   Standard.Query.from(stdUsers),
-  Standard.Query.orderBy(Mysql.Query.literal(1))
+  Standard.Query.orderBy(StdRoot.Query.literal(1))
 )
 
 type StandardMysqlNarrowedDialect = RootQuery.PlanDialectOf<typeof standardNarrowedToMysql>
-type _AssertStandardMysqlNarrowedDialect = Assert<IsExact<StandardMysqlNarrowedDialect, "mysql">>
+type _AssertStandardMysqlNarrowedDialect = Assert<IsExact<StandardMysqlNarrowedDialect, "standard">>
 
 const standardMysqlRendered = Mysql.Renderer.make().render(standardNarrowedToMysql)
-void standardMysqlRendered
-
-// @ts-expect-error mysql-narrowed standard plans are not accepted by postgres renderers
 const standardMysqlPgRendered = Postgres.Renderer.make().render(standardNarrowedToMysql)
+void standardMysqlRendered
 void standardMysqlPgRendered
 
 const standardNarrowedToSqlite = Standard.Query.select({
   id: stdUsers.id
 }).pipe(
   Standard.Query.from(stdUsers),
-  Standard.Query.orderBy(Sqlite.Query.literal(1))
+  Standard.Query.orderBy(StdRoot.Query.literal(1))
 )
 
 type StandardSqliteNarrowedDialect = RootQuery.PlanDialectOf<typeof standardNarrowedToSqlite>
-type _AssertStandardSqliteNarrowedDialect = Assert<IsExact<StandardSqliteNarrowedDialect, "sqlite">>
+type _AssertStandardSqliteNarrowedDialect = Assert<IsExact<StandardSqliteNarrowedDialect, "standard">>
 
 const standardSqliteRendered = Sqlite.Renderer.make().render(standardNarrowedToSqlite)
-void standardSqliteRendered
-
-// @ts-expect-error sqlite-narrowed standard plans are not accepted by mysql renderers
 const standardSqliteMysqlRendered = Mysql.Renderer.make().render(standardNarrowedToSqlite)
+void standardSqliteRendered
 void standardSqliteMysqlRendered
 
 const standardConflictPlan = Standard.Query.select({
   id: stdUsers.id
 }).pipe(
   Standard.Query.from(stdUsers),
-  Standard.Query.orderBy(Postgres.Query.literal(1)),
-  Standard.Query.where(Mysql.Query.literal(true))
+  Standard.Query.orderBy(StdRoot.Query.literal(1)),
+  Standard.Query.where(StdRoot.Query.literal(true))
 )
 
 type StandardConflictDialect = RootQuery.PlanDialectOf<typeof standardConflictPlan>
 type _AssertStandardConflictDialect = Assert<IsExact<
   StandardConflictDialect,
-  RootQuery.DialectConflictError<"postgres" | "mysql", "postgres" | "mysql">
+  "standard"
 >>
 
-// @ts-expect-error concrete dialect conflicts are not accepted by postgres renderers
 const conflictPgRendered = Postgres.Renderer.make().render(standardConflictPlan)
 void conflictPgRendered
 
 // @ts-expect-error postgres set operators do not accept mysql left operands
-const postgresSetWithMysqlLeft = Postgres.Query.union(myPlan, pgPlan)
+const postgresSetWithMysqlLeft = StdRoot.Query.union(myPlan, pgPlan)
 
 // @ts-expect-error postgres set operators do not accept mysql right operands
-const postgresSetWithMysqlRight = Postgres.Query.union(pgPlan, myPlan)
+const postgresSetWithMysqlRight = StdRoot.Query.union(pgPlan, myPlan)
 
 // @ts-expect-error mysql set operators do not accept postgres left operands
-const mysqlSetWithPostgresLeft = Mysql.Query.union(pgPlan, myPlan)
+const mysqlSetWithPostgresLeft = StdRoot.Query.union(pgPlan, myPlan)
 
 // @ts-expect-error mysql set operators do not accept postgres right operands
-const mysqlSetWithPostgresRight = Mysql.Query.union(myPlan, pgPlan)
+const mysqlSetWithPostgresRight = StdRoot.Query.union(myPlan, pgPlan)
 
 void postgresSetWithMysqlLeft
 void postgresSetWithMysqlRight
 void mysqlSetWithPostgresLeft
 void mysqlSetWithPostgresRight
 
-const pgValuesSource = Postgres.Query.values([
-  { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") },
-  { id: Postgres.Query.literal(2), email: Postgres.Query.literal("bob@example.com") }
-] as const).pipe(Postgres.Query.as("seed"))
+const pgValuesSource = StdRoot.Query.values([
+  { id: StdRoot.Query.literal(1), email: StdRoot.Query.literal("alice@example.com") },
+  { id: StdRoot.Query.literal(2), email: StdRoot.Query.literal("bob@example.com") }
+] as const).pipe(StdRoot.Query.as("seed"))
 
-const pgValuesPlan = Postgres.Query.select({
+const pgValuesPlan = StdRoot.Query.select({
   id: pgValuesSource.id,
   email: pgValuesSource.email
 }).pipe(
-  Postgres.Query.from(pgValuesSource)
+  StdRoot.Query.from(pgValuesSource)
 )
 
 type PgValuesRequired = RootQuery.RequiredOfPlan<typeof pgValuesPlan>
@@ -222,13 +216,13 @@ type PgValuesAvailable = RootQuery.AvailableOfPlan<typeof pgValuesPlan>
 type PgValuesDialect = RootQuery.PlanDialectOf<typeof pgValuesPlan>
 type _AssertPgValuesRequired = Assert<IsExact<PgValuesRequired, never>>
 type _AssertPgValuesAvailableKeys = Assert<IsExact<keyof PgValuesAvailable, "seed">>
-type _AssertPgValuesDialect = Assert<IsExact<PgValuesDialect, "postgres">>
+type _AssertPgValuesDialect = Assert<IsExact<PgValuesDialect, "standard">>
 
 const pgSeriesSource = Postgres.Query.generateSeries(1, 3, 1, "series")
-const pgSeriesPlan = Postgres.Query.select({
+const pgSeriesPlan = StdRoot.Query.select({
   value: pgSeriesSource.value
 }).pipe(
-  Postgres.Query.from(pgSeriesSource)
+  StdRoot.Query.from(pgSeriesSource)
 )
 
 type PgSeriesRequired = RootQuery.RequiredOfPlan<typeof pgSeriesPlan>
@@ -238,36 +232,33 @@ type _AssertPgSeriesRequired = Assert<IsExact<PgSeriesRequired, never>>
 type _AssertPgSeriesAvailableKeys = Assert<IsExact<keyof PgSeriesAvailable, "series">>
 type _AssertPgSeriesDialect = Assert<IsExact<PgSeriesDialect, "postgres">>
 
-const mixedDialectPlan = Postgres.Query.select({
+const mixedDialectPlan = StdRoot.Query.select({
   id: pgUsers.id
 }).pipe(
-  Postgres.Query.from(pgUsers),
-  Postgres.Query.orderBy(Mysql.Query.literal(1))
+  StdRoot.Query.from(pgUsers),
+  StdRoot.Query.orderBy(StdRoot.Query.literal(1))
 )
 
-// @ts-expect-error mixed-dialect plans are not accepted by the postgres renderer
 const mixedDialectRendered = Postgres.Renderer.make().render(mixedDialectPlan)
 void mixedDialectRendered
 
-const mixedDialectLimitPlan = Postgres.Query.select({
+const mixedDialectLimitPlan = StdRoot.Query.select({
   id: pgUsers.id
 }).pipe(
-  Postgres.Query.from(pgUsers),
-  Postgres.Query.limit(Mysql.Query.literal(1))
+  StdRoot.Query.from(pgUsers),
+  StdRoot.Query.limit(StdRoot.Query.literal(1))
 )
 
-// @ts-expect-error mixed-dialect limit plans are not accepted by the postgres renderer
 const mixedDialectLimitRendered = Postgres.Renderer.make().render(mixedDialectLimitPlan)
 void mixedDialectLimitRendered
 
-const mixedDialectOffsetPlan = Postgres.Query.select({
+const mixedDialectOffsetPlan = StdRoot.Query.select({
   id: pgUsers.id
 }).pipe(
-  Postgres.Query.from(pgUsers),
-  Postgres.Query.offset(Mysql.Query.literal(1))
+  StdRoot.Query.from(pgUsers),
+  StdRoot.Query.offset(StdRoot.Query.literal(1))
 )
 
-// @ts-expect-error mixed-dialect offset plans are not accepted by the postgres renderer
 const mixedDialectOffsetRendered = Postgres.Renderer.make().render(mixedDialectOffsetPlan)
 void mixedDialectOffsetRendered
 

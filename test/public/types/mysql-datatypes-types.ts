@@ -1,5 +1,5 @@
 import * as Std from "effect-qb"
-import { Query as Q, Scalar as E } from "effect-qb/mysql"
+import { Query as Q, Scalar as E } from "effect-qb"
 
 const users = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),

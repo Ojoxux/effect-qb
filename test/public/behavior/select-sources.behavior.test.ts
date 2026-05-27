@@ -41,63 +41,63 @@ describe("select sources behavior", () => {
       email: StdRoot.Column.text()
     })
 
-    const active = Postgres.Query.select({
+    const active = StdRoot.Query.select({
       email: users.email
     }).pipe(
-      Postgres.Query.from(users)
+      StdRoot.Query.from(users)
     )
-    const archived = Postgres.Query.select({
+    const archived = StdRoot.Query.select({
       email: archivedUsers.email
     }).pipe(
-      Postgres.Query.from(archivedUsers)
+      StdRoot.Query.from(archivedUsers)
     )
 
-    expect(renderPostgres(Postgres.Query.unionAll(unsafeAny(active), unsafeAny(archived))).sql).toBe(
+    expect(renderPostgres(StdRoot.Query.unionAll(unsafeAny(active), unsafeAny(archived))).sql).toBe(
       '(select "users"."email" as "email" from "users") union all (select "archived_users"."email" as "email" from "archived_users")'
     )
-    expect(renderPostgres(Postgres.Query.intersectAll(unsafeAny(active), unsafeAny(archived))).sql).toBe(
+    expect(renderPostgres(StdRoot.Query.intersectAll(unsafeAny(active), unsafeAny(archived))).sql).toBe(
       '(select "users"."email" as "email" from "users") intersect all (select "archived_users"."email" as "email" from "archived_users")'
     )
-    expect(renderPostgres(Postgres.Query.exceptAll(unsafeAny(active), unsafeAny(archived))).sql).toBe(
+    expect(renderPostgres(StdRoot.Query.exceptAll(unsafeAny(active), unsafeAny(archived))).sql).toBe(
       '(select "users"."email" as "email" from "users") except all (select "archived_users"."email" as "email" from "archived_users")'
     )
   })
 
   test("renders standalone values, unnest, and generate series sources in postgres", () => {
-    const valuesSource = Postgres.Query.values([
-      { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") },
-      { id: Postgres.Query.literal(2), email: Postgres.Query.literal("bob@example.com") }
-    ] as const).pipe(Postgres.Query.as("seed"))
+    const valuesSource = StdRoot.Query.values([
+      { id: StdRoot.Query.literal(1), email: StdRoot.Query.literal("alice@example.com") },
+      { id: StdRoot.Query.literal(2), email: StdRoot.Query.literal("bob@example.com") }
+    ] as const).pipe(StdRoot.Query.as("seed"))
 
-    const unnestSource = Postgres.Query.unnest({
-      id: [Postgres.Query.literal(1), Postgres.Query.literal(2)] as const,
-      email: [Postgres.Query.literal("alice@example.com"), Postgres.Query.literal("bob@example.com")] as const
+    const unnestSource = StdRoot.Query.unnest({
+      id: [StdRoot.Query.literal(1), StdRoot.Query.literal(2)] as const,
+      email: [StdRoot.Query.literal("alice@example.com"), StdRoot.Query.literal("bob@example.com")] as const
     }, "seed_rows")
 
     const seriesSource = Postgres.Query.generateSeries(1, 3, 1, "series")
 
     expect(renderPostgres(
-      Postgres.Query.select({
+      StdRoot.Query.select({
         id: valuesSource.id,
         email: valuesSource.email
-      }).pipe(Postgres.Query.from(valuesSource))
+      }).pipe(StdRoot.Query.from(valuesSource))
     ).sql).toBe(
       'select "seed"."id" as "id", "seed"."email" as "email" from (select $1 as "id", $2 as "email" union all select $3 as "id", $4 as "email") as "seed"("id", "email")'
     )
 
     expect(renderPostgres(
-      Postgres.Query.select({
+      StdRoot.Query.select({
         id: unnestSource.id,
         email: unnestSource.email
-      }).pipe(Postgres.Query.from(unnestSource))
+      }).pipe(StdRoot.Query.from(unnestSource))
     ).sql).toBe(
       'select "seed_rows"."id" as "id", "seed_rows"."email" as "email" from (select $1 as "id", $2 as "email" union all select $3 as "id", $4 as "email") as "seed_rows"("id", "email")'
     )
 
     expect(renderPostgres(
-      Postgres.Query.select({
+      StdRoot.Query.select({
         value: seriesSource.value
-      }).pipe(Postgres.Query.from(seriesSource))
+      }).pipe(StdRoot.Query.from(seriesSource))
     ).sql).toBe(
       'select "series"."value" as "value" from generate_series($1, $2, $3) as "series"("value")'
     )
@@ -105,9 +105,9 @@ describe("select sources behavior", () => {
 
   test("rejects NaN postgres generateSeries arguments", () => {
     const renderSeries = (series: ReturnType<typeof Postgres.Query.generateSeries>) =>
-      renderPostgres(Postgres.Query.select({
+      renderPostgres(StdRoot.Query.select({
         value: series.value
-      }).pipe(Postgres.Query.from(series)))
+      }).pipe(StdRoot.Query.from(series)))
 
     expect(() =>
       renderSeries(Postgres.Query.generateSeries(Number.NaN, 3, 1, "bad_start"))
@@ -121,16 +121,16 @@ describe("select sources behavior", () => {
   })
 
   test("renders postgres values rows by column name when row property order differs", () => {
-    const valuesSource = Postgres.Query.values([
-      { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") },
-      { email: Postgres.Query.literal("bob@example.com"), id: Postgres.Query.literal(2) }
-    ] as const).pipe(Postgres.Query.as("seed"))
+    const valuesSource = StdRoot.Query.values([
+      { id: StdRoot.Query.literal(1), email: StdRoot.Query.literal("alice@example.com") },
+      { email: StdRoot.Query.literal("bob@example.com"), id: StdRoot.Query.literal(2) }
+    ] as const).pipe(StdRoot.Query.as("seed"))
 
     const rendered = renderPostgres(
-      Postgres.Query.select({
+      StdRoot.Query.select({
         id: valuesSource.id,
         email: valuesSource.email
-      }).pipe(Postgres.Query.from(valuesSource))
+      }).pipe(StdRoot.Query.from(valuesSource))
     )
 
     expect(rendered.sql).toBe(
@@ -140,46 +140,46 @@ describe("select sources behavior", () => {
   })
 
   test("renders standalone values and unnest sources in mysql", () => {
-    const valuesSource = Mysql.Query.values([
-      { id: Mysql.Query.literal(1), email: Mysql.Query.literal("alice@example.com") },
-      { id: Mysql.Query.literal(2), email: Mysql.Query.literal("bob@example.com") }
-    ] as const).pipe(Mysql.Query.as("seed"))
+    const valuesSource = StdRoot.Query.values([
+      { id: StdRoot.Query.literal(1), email: StdRoot.Query.literal("alice@example.com") },
+      { id: StdRoot.Query.literal(2), email: StdRoot.Query.literal("bob@example.com") }
+    ] as const).pipe(StdRoot.Query.as("seed"))
 
-    const unnestSource = Mysql.Query.unnest({
-      id: [Mysql.Query.literal(1), Mysql.Query.literal(2)] as const,
-      email: [Mysql.Query.literal("alice@example.com"), Mysql.Query.literal("bob@example.com")] as const
+    const unnestSource = StdRoot.Query.unnest({
+      id: [StdRoot.Query.literal(1), StdRoot.Query.literal(2)] as const,
+      email: [StdRoot.Query.literal("alice@example.com"), StdRoot.Query.literal("bob@example.com")] as const
     }, "seed_rows")
 
     expect(renderMysql(
-      Mysql.Query.select({
+      StdRoot.Query.select({
         id: valuesSource.id,
         email: valuesSource.email
-      }).pipe(Mysql.Query.from(valuesSource))
+      }).pipe(StdRoot.Query.from(valuesSource))
     ).sql).toBe(
       'select `seed`.`id` as `id`, `seed`.`email` as `email` from (select ? as `id`, ? as `email` union all select ? as `id`, ? as `email`) as `seed`(`id`, `email`)'
     )
 
     expect(renderMysql(
-      Mysql.Query.select({
+      StdRoot.Query.select({
         id: unnestSource.id,
         email: unnestSource.email
-      }).pipe(Mysql.Query.from(unnestSource))
+      }).pipe(StdRoot.Query.from(unnestSource))
     ).sql).toBe(
       'select `seed_rows`.`id` as `id`, `seed_rows`.`email` as `email` from (select ? as `id`, ? as `email` union all select ? as `id`, ? as `email`) as `seed_rows`(`id`, `email`)'
     )
   })
 
   test("renders mysql values rows by column name when row property order differs", () => {
-    const valuesSource = Mysql.Query.values([
-      { id: Mysql.Query.literal(1), email: Mysql.Query.literal("alice@example.com") },
-      { email: Mysql.Query.literal("bob@example.com"), id: Mysql.Query.literal(2) }
-    ] as const).pipe(Mysql.Query.as("seed"))
+    const valuesSource = StdRoot.Query.values([
+      { id: StdRoot.Query.literal(1), email: StdRoot.Query.literal("alice@example.com") },
+      { email: StdRoot.Query.literal("bob@example.com"), id: StdRoot.Query.literal(2) }
+    ] as const).pipe(StdRoot.Query.as("seed"))
 
     const rendered = renderMysql(
-      Mysql.Query.select({
+      StdRoot.Query.select({
         id: valuesSource.id,
         email: valuesSource.email
-      }).pipe(Mysql.Query.from(valuesSource))
+      }).pipe(StdRoot.Query.from(valuesSource))
     )
 
     expect(rendered.sql).toBe(
@@ -189,20 +189,20 @@ describe("select sources behavior", () => {
   })
 
   test("renders scalar and quantified subqueries in postgres", () => {
-    const postIds = Postgres.Query.select({
+    const postIds = StdRoot.Query.select({
       value: pgPosts.id
     }).pipe(
-      Postgres.Query.from(pgPosts)
+      StdRoot.Query.from(pgPosts)
     )
 
-    const scalarPlan = Postgres.Query.select({
+    const scalarPlan = StdRoot.Query.select({
       userId: pgUsers.id,
-      firstPostId: Postgres.Query.scalar(postIds),
-      matchesAny: Postgres.Query.inSubquery(pgUsers.id, postIds),
-      matchesSome: Postgres.Query.compareAny(pgUsers.id, postIds, "eq"),
-      matchesAll: Postgres.Query.compareAll(pgUsers.id, postIds, "eq")
+      firstPostId: StdRoot.Query.scalar(postIds),
+      matchesAny: StdRoot.Query.inSubquery(pgUsers.id, postIds),
+      matchesSome: StdRoot.Query.compareAny(pgUsers.id, postIds, "eq"),
+      matchesAll: StdRoot.Query.compareAll(pgUsers.id, postIds, "eq")
     }).pipe(
-      Postgres.Query.from(pgUsers)
+      StdRoot.Query.from(pgUsers)
     )
 
     expect(renderPostgres(scalarPlan).sql).toBe(
@@ -211,12 +211,12 @@ describe("select sources behavior", () => {
   })
 
   test("rejects mutation plans in subquery expressions before rendering invalid nested sql", () => {
-    const insertPlan = Postgres.Query.insert(pgUsers, {
+    const insertPlan = StdRoot.Query.insert(pgUsers, {
       id: "11111111-1111-1111-1111-111111111111",
       email: "alice@example.com"
     })
-    const plan = Postgres.Query.select({
-      inserted: Postgres.Query.exists(unsafeAny(insertPlan))
+    const plan = StdRoot.Query.select({
+      inserted: StdRoot.Query.exists(unsafeAny(insertPlan))
     })
 
     expect(() => renderPostgres(plan)).toThrow(
@@ -225,19 +225,19 @@ describe("select sources behavior", () => {
   })
 
   test("groups by quantified subquery expressions in postgres", () => {
-    const postIds = Postgres.Query.select({
+    const postIds = StdRoot.Query.select({
       value: pgPosts.id
     }).pipe(
-      Postgres.Query.from(pgPosts)
+      StdRoot.Query.from(pgPosts)
     )
-    const matchesAny = Postgres.Query.inSubquery(pgUsers.id, postIds)
+    const matchesAny = StdRoot.Query.inSubquery(pgUsers.id, postIds)
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       matchesAny,
-      userCount: Postgres.Function.count(pgUsers.id)
+      userCount: StdRoot.Function.count(pgUsers.id)
     }).pipe(
-      Postgres.Query.from(pgUsers),
-      Postgres.Query.groupBy(matchesAny)
+      StdRoot.Query.from(pgUsers),
+      StdRoot.Query.groupBy(matchesAny)
     )
 
     expect(renderPostgres(plan).sql).toBe(
@@ -246,21 +246,21 @@ describe("select sources behavior", () => {
   })
 
   test("renders common table expressions before referencing cte sources", () => {
-    const activePosts = Postgres.Query.select({
+    const activePosts = StdRoot.Query.select({
       userId: pgPosts.userId,
       title: pgPosts.title
     }).pipe(
-      Postgres.Query.from(pgPosts),
-      Postgres.Query.where(Postgres.Query.isNotNull(pgPosts.title)),
-      Postgres.Query.with("active_posts")
+      StdRoot.Query.from(pgPosts),
+      StdRoot.Query.where(StdRoot.Query.isNotNull(pgPosts.title)),
+      StdRoot.Query.with("active_posts")
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       email: pgUsers.email,
       title: activePosts.title
     }).pipe(
-      Postgres.Query.from(pgUsers),
-      Postgres.Query.innerJoin(activePosts, Postgres.Query.eq(pgUsers.id, activePosts.userId))
+      StdRoot.Query.from(pgUsers),
+      StdRoot.Query.innerJoin(activePosts, StdRoot.Query.eq(pgUsers.id, activePosts.userId))
     )
 
     expect(renderPostgres(plan).sql).toBe(
@@ -269,26 +269,26 @@ describe("select sources behavior", () => {
   })
 
   test("renders nested common table expressions once at the outer query", () => {
-    const postTitles = Postgres.Query.select({
+    const postTitles = StdRoot.Query.select({
       userId: pgPosts.userId,
       title: pgPosts.title
     }).pipe(
-      Postgres.Query.from(pgPosts),
-      Postgres.Query.with("post_titles")
+      StdRoot.Query.from(pgPosts),
+      StdRoot.Query.with("post_titles")
     )
-    const activeTitles = Postgres.Query.select({
+    const activeTitles = StdRoot.Query.select({
       userId: postTitles.userId,
       title: postTitles.title
     }).pipe(
-      Postgres.Query.from(postTitles),
-      Postgres.Query.where(Postgres.Query.isNotNull(postTitles.title)),
-      Postgres.Query.with("active_titles")
+      StdRoot.Query.from(postTitles),
+      StdRoot.Query.where(StdRoot.Query.isNotNull(postTitles.title)),
+      StdRoot.Query.with("active_titles")
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       title: activeTitles.title
     }).pipe(
-      Postgres.Query.from(activeTitles)
+      StdRoot.Query.from(activeTitles)
     )
 
     expect(renderPostgres(plan).sql).toBe(
@@ -297,34 +297,34 @@ describe("select sources behavior", () => {
   })
 
   test("rejects nested ctes that shadow an outer cte name with a different plan", () => {
-    const outerItems = Postgres.Query.select({
+    const outerItems = StdRoot.Query.select({
       id: pgUsers.id,
       email: pgUsers.email
     }).pipe(
-      Postgres.Query.from(pgUsers),
-      Postgres.Query.with("shared_items")
+      StdRoot.Query.from(pgUsers),
+      StdRoot.Query.with("shared_items")
     )
-    const innerItems = Postgres.Query.select({
+    const innerItems = StdRoot.Query.select({
       postId: pgPosts.id,
       title: pgPosts.title
     }).pipe(
-      Postgres.Query.from(pgPosts),
-      Postgres.Query.with("shared_items")
+      StdRoot.Query.from(pgPosts),
+      StdRoot.Query.with("shared_items")
     )
-    const postItems = Postgres.Query.select({
+    const postItems = StdRoot.Query.select({
       postId: innerItems.postId,
       title: innerItems.title
     }).pipe(
-      Postgres.Query.from(innerItems),
-      Postgres.Query.as("post_items")
+      StdRoot.Query.from(innerItems),
+      StdRoot.Query.as("post_items")
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       email: outerItems.email,
       title: postItems.title
     }).pipe(
-      Postgres.Query.from(outerItems),
-      Postgres.Query.crossJoin(postItems)
+      StdRoot.Query.from(outerItems),
+      StdRoot.Query.crossJoin(postItems)
     )
 
     expect(() => renderPostgres(plan)).toThrow(
@@ -333,26 +333,26 @@ describe("select sources behavior", () => {
   })
 
   test("renders nested mysql common table expressions once at the outer query", () => {
-    const postTitles = Mysql.Query.select({
+    const postTitles = StdRoot.Query.select({
       userId: mysqlPosts.userId,
       title: mysqlPosts.title
     }).pipe(
-      Mysql.Query.from(mysqlPosts),
-      Mysql.Query.with("post_titles")
+      StdRoot.Query.from(mysqlPosts),
+      StdRoot.Query.with("post_titles")
     )
-    const activeTitles = Mysql.Query.select({
+    const activeTitles = StdRoot.Query.select({
       userId: postTitles.userId,
       title: postTitles.title
     }).pipe(
-      Mysql.Query.from(postTitles),
-      Mysql.Query.where(Mysql.Query.isNotNull(postTitles.title)),
-      Mysql.Query.with("active_titles")
+      StdRoot.Query.from(postTitles),
+      StdRoot.Query.where(StdRoot.Query.isNotNull(postTitles.title)),
+      StdRoot.Query.with("active_titles")
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       title: activeTitles.title
     }).pipe(
-      Mysql.Query.from(activeTitles)
+      StdRoot.Query.from(activeTitles)
     )
 
     expect(renderMysql(plan).sql).toBe(
@@ -361,21 +361,21 @@ describe("select sources behavior", () => {
   })
 
   test("renders lateral joins after their required outer sources are in scope", () => {
-    const lateralPosts = Postgres.Query.select({
+    const lateralPosts = StdRoot.Query.select({
       postId: pgPosts.id,
       userId: pgPosts.userId
     }).pipe(
-      Postgres.Query.from(pgPosts),
-      Postgres.Query.where(Postgres.Query.eq(pgPosts.userId, pgUsers.id)),
-      Postgres.Query.lateral("user_posts")
+      StdRoot.Query.from(pgPosts),
+      StdRoot.Query.where(StdRoot.Query.eq(pgPosts.userId, pgUsers.id)),
+      StdRoot.Query.lateral("user_posts")
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       email: pgUsers.email,
       postId: lateralPosts.postId
     }).pipe(
-      Postgres.Query.from(pgUsers),
-      Postgres.Query.innerJoin(lateralPosts, Postgres.Query.eq(lateralPosts.userId, pgUsers.id))
+      StdRoot.Query.from(pgUsers),
+      StdRoot.Query.innerJoin(lateralPosts, StdRoot.Query.eq(lateralPosts.userId, pgUsers.id))
     )
 
     expect(renderPostgres(plan).sql).toBe(
@@ -384,20 +384,20 @@ describe("select sources behavior", () => {
   })
 
   test("renders scalar and quantified subqueries in mysql", () => {
-    const postIds = Mysql.Query.select({
+    const postIds = StdRoot.Query.select({
       value: mysqlPosts.id
     }).pipe(
-      Mysql.Query.from(mysqlPosts)
+      StdRoot.Query.from(mysqlPosts)
     )
 
-    const scalarPlan = Mysql.Query.select({
+    const scalarPlan = StdRoot.Query.select({
       userId: mysqlUsers.id,
-      firstPostId: Mysql.Query.scalar(postIds),
-      matchesAny: Mysql.Query.inSubquery(mysqlUsers.id, postIds),
-      matchesSome: Mysql.Query.compareAny(mysqlUsers.id, postIds, "eq"),
-      matchesAll: Mysql.Query.compareAll(mysqlUsers.id, postIds, "eq")
+      firstPostId: StdRoot.Query.scalar(postIds),
+      matchesAny: StdRoot.Query.inSubquery(mysqlUsers.id, postIds),
+      matchesSome: StdRoot.Query.compareAny(mysqlUsers.id, postIds, "eq"),
+      matchesAll: StdRoot.Query.compareAll(mysqlUsers.id, postIds, "eq")
     }).pipe(
-      Mysql.Query.from(mysqlUsers)
+      StdRoot.Query.from(mysqlUsers)
     )
 
     expect(renderMysql(scalarPlan).sql).toBe(

@@ -3,7 +3,8 @@ import * as Schema from "effect/Schema"
 
 import * as Mysql from "#mysql"
 import * as Sqlite from "#sqlite"
-import { Column as C, Scalar as Expression, Function as F, Query as Q, Table } from "#postgres"
+import { Scalar as Expression, Function as F, Query as Q, Table } from "#standard"
+import { Column as C } from "#postgres"
 import { unsafeAny, unsafeNever } from "../../helpers/unsafe.ts"
 import * as StdRoot from "#standard"
 

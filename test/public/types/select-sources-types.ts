@@ -1,7 +1,8 @@
+import * as StdRoot from "effect-qb"
 import * as Std from "effect-qb"
 import * as Mysql from "effect-qb/mysql"
 import * as Postgres from "effect-qb/postgres"
-import { Query as Q } from "effect-qb/postgres"
+import { Query as Q } from "effect-qb"
 import type { BrandedErrorOf, BrandedHintOf } from "../../helpers/branded-error.ts"
 
 type IsExact<A, B> =
@@ -61,29 +62,29 @@ const replacedFromSource = Q.select({
 )
 void replacedFromSource
 
-const valuesSource = Postgres.Query.values([
-  { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") },
-  { id: Postgres.Query.literal(2), email: Postgres.Query.literal("bob@example.com") }
-] as const).pipe(Postgres.Query.as("seed"))
+const valuesSource = StdRoot.Query.values([
+  { id: StdRoot.Query.literal(1), email: StdRoot.Query.literal("alice@example.com") },
+  { id: StdRoot.Query.literal(2), email: StdRoot.Query.literal("bob@example.com") }
+] as const).pipe(StdRoot.Query.as("seed"))
 declare const dynamicValuesAlias: string
-Postgres.Query.values([
-  { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") }
+StdRoot.Query.values([
+  { id: StdRoot.Query.literal(1), email: StdRoot.Query.literal("alice@example.com") }
 ] as const).pipe(
   // @ts-expect-error values aliases must be literal strings
-  Postgres.Query.as(dynamicValuesAlias)
+  StdRoot.Query.as(dynamicValuesAlias)
 )
-Postgres.Query.values([
-  { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") }
+StdRoot.Query.values([
+  { id: StdRoot.Query.literal(1), email: StdRoot.Query.literal("alice@example.com") }
 ] as const).pipe(
   // @ts-expect-error values aliases must be non-empty
-  Postgres.Query.as("")
+  StdRoot.Query.as("")
 )
 
-const valuesPlan = Postgres.Query.select({
+const valuesPlan = StdRoot.Query.select({
   id: valuesSource.id,
   email: valuesSource.email
 }).pipe(
-  Postgres.Query.from(valuesSource)
+  StdRoot.Query.from(valuesSource)
 )
 
 type ValuesRow = Q.ResultRow<typeof valuesPlan>
@@ -99,17 +100,17 @@ void valuesId
 void valuesIdSecondRow
 void valuesEmail
 
-const nullableValuesSource = Postgres.Query.values([
-  { id: Postgres.Query.literal(1), bio: Postgres.Query.literal("writer") },
-  { id: Postgres.Query.literal(2), bio: Postgres.Query.literal(null) }
-] as const).pipe(Postgres.Query.as("nullable_seed"))
+const nullableValuesSource = StdRoot.Query.values([
+  { id: StdRoot.Query.literal(1), bio: StdRoot.Query.literal("writer") },
+  { id: StdRoot.Query.literal(2), bio: StdRoot.Query.literal(null) }
+] as const).pipe(StdRoot.Query.as("nullable_seed"))
 
-const filteredValuesPlan = Postgres.Query.select({
+const filteredValuesPlan = StdRoot.Query.select({
   id: nullableValuesSource.id,
   bio: nullableValuesSource.bio
 }).pipe(
-  Postgres.Query.where(Postgres.Query.isNotNull(nullableValuesSource.bio)),
-  Postgres.Query.from(nullableValuesSource)
+  StdRoot.Query.where(StdRoot.Query.isNotNull(nullableValuesSource.bio)),
+  StdRoot.Query.from(nullableValuesSource)
 )
 
 type FilteredValuesRow = Q.ResultRow<typeof filteredValuesPlan>
@@ -120,55 +121,55 @@ void filteredValuesBio
 void filteredValuesNullBio
 
 // @ts-expect-error values rows must project the same columns
-const invalidValuesRows = Postgres.Query.values([
-  { id: Postgres.Query.literal(1), email: Postgres.Query.literal("alice@example.com") },
-  { id: Postgres.Query.literal(2), name: Postgres.Query.literal("Bob") }
+const invalidValuesRows = StdRoot.Query.values([
+  { id: StdRoot.Query.literal(1), email: StdRoot.Query.literal("alice@example.com") },
+  { id: StdRoot.Query.literal(2), name: StdRoot.Query.literal("Bob") }
 ] as const)
 void invalidValuesRows
 
 // @ts-expect-error values rows must project at least one column
-const emptyValuesRows = Postgres.Query.values([
+const emptyValuesRows = StdRoot.Query.values([
   {}
 ] as const)
 void emptyValuesRows
 
-const unnestSource = Postgres.Query.unnest({
-  id: [Postgres.Query.literal(1), Postgres.Query.literal(2)] as const,
-  email: [Postgres.Query.literal("alice@example.com"), Postgres.Query.literal("bob@example.com")] as const
+const unnestSource = StdRoot.Query.unnest({
+  id: [StdRoot.Query.literal(1), StdRoot.Query.literal(2)] as const,
+  email: [StdRoot.Query.literal("alice@example.com"), StdRoot.Query.literal("bob@example.com")] as const
 }, "seed_rows")
-Postgres.Query.unnest(
+StdRoot.Query.unnest(
   {
-    id: [Postgres.Query.literal(1)] as const
+    id: [StdRoot.Query.literal(1)] as const
   },
   // @ts-expect-error unnest aliases must be literal strings
   dynamicValuesAlias
 )
-Postgres.Query.unnest(
+StdRoot.Query.unnest(
   {
-    id: [Postgres.Query.literal(1)] as const
+    id: [StdRoot.Query.literal(1)] as const
   },
   // @ts-expect-error unnest aliases must be non-empty
   ""
 )
 
 // @ts-expect-error unnest column arrays must have the same length
-const invalidUnnestLengths = Postgres.Query.unnest({
-  id: [Postgres.Query.literal(1), Postgres.Query.literal(2)] as const,
-  email: [Postgres.Query.literal("alice@example.com")] as const
+const invalidUnnestLengths = StdRoot.Query.unnest({
+  id: [StdRoot.Query.literal(1), StdRoot.Query.literal(2)] as const,
+  email: [StdRoot.Query.literal("alice@example.com")] as const
 }, "invalid_seed_rows")
 void invalidUnnestLengths
 
-const emptyUnnestRows = Postgres.Query.unnest({
+const emptyUnnestRows = StdRoot.Query.unnest({
   // @ts-expect-error unnest column arrays must contain at least one value
   id: [] as const
 }, "empty_seed_rows")
 void emptyUnnestRows
 
-const unnestPlan = Postgres.Query.select({
+const unnestPlan = StdRoot.Query.select({
   id: unnestSource.id,
   email: unnestSource.email
 }).pipe(
-  Postgres.Query.from(unnestSource)
+  StdRoot.Query.from(unnestSource)
 )
 
 type UnnestRow = Q.ResultRow<typeof unnestPlan>
@@ -187,10 +188,10 @@ const seriesSource = Postgres.Query.generateSeries(1, 3, 1, "series")
 Postgres.Query.generateSeries(1, 3, 1, dynamicValuesAlias)
 // @ts-expect-error generateSeries aliases must be non-empty
 Postgres.Query.generateSeries(1, 3, 1, "")
-const seriesPlan = Postgres.Query.select({
+const seriesPlan = StdRoot.Query.select({
   value: seriesSource.value
 }).pipe(
-  Postgres.Query.from(seriesSource)
+  StdRoot.Query.from(seriesSource)
 )
 
 type SeriesRow = Q.ResultRow<typeof seriesPlan>
@@ -202,24 +203,24 @@ const badSeriesValue: SeriesRow["value"] = "wrong"
 void badSeriesValue
 void seriesValue
 
-const scalarPlan = Postgres.Query.select({
-  value: Postgres.Query.scalar(
-    Postgres.Query.select({
+const scalarPlan = StdRoot.Query.select({
+  value: StdRoot.Query.scalar(
+    StdRoot.Query.select({
       value: users.id
     }).pipe(
-      Postgres.Query.from(users)
+      StdRoot.Query.from(users)
     )
   ),
-  inSubqueryValue: Postgres.Query.inSubquery(
+  inSubqueryValue: StdRoot.Query.inSubquery(
     users.id,
-    Postgres.Query.select({
+    StdRoot.Query.select({
       value: users.id
     }).pipe(
-      Postgres.Query.from(users)
+      StdRoot.Query.from(users)
     )
   )
 }).pipe(
-  Postgres.Query.from(users)
+  StdRoot.Query.from(users)
 )
 
 type ScalarRow = Q.ResultRow<typeof scalarPlan>
@@ -231,59 +232,59 @@ void scalarNull
 void scalarInValue
 
 // @ts-expect-error selections require unique aliases after path flattening
-const derivedAliasCollisionSubquery = Postgres.Query.select({
+const derivedAliasCollisionSubquery = StdRoot.Query.select({
   "user__id": users.id,
   user: {
     id: users.email
   }
 }).pipe(
-  Postgres.Query.from(users)
+  StdRoot.Query.from(users)
 )
 
 void derivedAliasCollisionSubquery
 
-const derivedAliasedProjectionSubquery = Postgres.Query.select({
-  value: Postgres.Query.as(users.id, "renamed_value")
+const derivedAliasedProjectionSubquery = StdRoot.Query.select({
+  value: StdRoot.Query.as(users.id, "renamed_value")
 }).pipe(
-  Postgres.Query.from(users)
+  StdRoot.Query.from(users)
 )
 
 // @ts-expect-error derived subqueries require path-based projection aliases
-const derivedAliasedProjectionSource = Postgres.Query.as(derivedAliasedProjectionSubquery, "derived_alias")
+const derivedAliasedProjectionSource = StdRoot.Query.as(derivedAliasedProjectionSubquery, "derived_alias")
 void derivedAliasedProjectionSource
 
-const groupedSubqueryIds = Postgres.Query.select({
+const groupedSubqueryIds = StdRoot.Query.select({
   value: users.id
 }).pipe(
-  Postgres.Query.from(users)
+  StdRoot.Query.from(users)
 )
-const groupedInSubqueryValue = Postgres.Query.inSubquery(users.id, groupedSubqueryIds)
-const groupedInSubqueryPlan = Postgres.Query.select({
+const groupedInSubqueryValue = StdRoot.Query.inSubquery(users.id, groupedSubqueryIds)
+const groupedInSubqueryPlan = StdRoot.Query.select({
   matchesAny: groupedInSubqueryValue,
-  rowCount: Postgres.Function.count(users.id)
+  rowCount: StdRoot.Function.count(users.id)
 }).pipe(
-  Postgres.Query.from(users),
-  Postgres.Query.groupBy(groupedInSubqueryValue)
+  StdRoot.Query.from(users),
+  StdRoot.Query.groupBy(groupedInSubqueryValue)
 )
 
-const completeGroupedInSubqueryPlan: Postgres.Query.CompletePlan<typeof groupedInSubqueryPlan> =
+const completeGroupedInSubqueryPlan: StdRoot.Query.CompletePlan<typeof groupedInSubqueryPlan> =
   groupedInSubqueryPlan
 void completeGroupedInSubqueryPlan
 
-const mysqlValuesSource = Mysql.Query.values([
-  { id: Mysql.Query.literal(1), email: Mysql.Query.literal("alice@example.com") },
-  { id: Mysql.Query.literal(2), email: Mysql.Query.literal("bob@example.com") }
-] as const).pipe(Mysql.Query.as("seed"))
+const mysqlValuesSource = StdRoot.Query.values([
+  { id: StdRoot.Query.literal(1), email: StdRoot.Query.literal("alice@example.com") },
+  { id: StdRoot.Query.literal(2), email: StdRoot.Query.literal("bob@example.com") }
+] as const).pipe(StdRoot.Query.as("seed"))
 
-const mysqlValuesPlan = Mysql.Query.select({
+const mysqlValuesPlan = StdRoot.Query.select({
   id: mysqlValuesSource.id,
   email: mysqlValuesSource.email
 }).pipe(
-  Mysql.Query.from(mysqlValuesSource)
+  StdRoot.Query.from(mysqlValuesSource)
 )
 
-type MysqlValuesRow = Mysql.Query.ResultRow<typeof mysqlValuesPlan>
-type MysqlValuesStatement = Mysql.Query.StatementOfPlan<typeof mysqlValuesPlan>
+type MysqlValuesRow = StdRoot.Query.ResultRow<typeof mysqlValuesPlan>
+type MysqlValuesStatement = StdRoot.Query.StatementOfPlan<typeof mysqlValuesPlan>
 const mysqlValuesId: MysqlValuesRow["id"] = 1
 const mysqlValuesIdSecondRow: MysqlValuesRow["id"] = 2
 const mysqlValuesEmail: MysqlValuesRow["email"] = "alice@example.com"
@@ -296,45 +297,45 @@ void mysqlValuesIdSecondRow
 void mysqlValuesEmail
 
 // @ts-expect-error mysql values rows must project the same columns
-const invalidMysqlValuesRows = Mysql.Query.values([
-  { id: Mysql.Query.literal(1), email: Mysql.Query.literal("alice@example.com") },
-  { id: Mysql.Query.literal(2), name: Mysql.Query.literal("Bob") }
+const invalidMysqlValuesRows = StdRoot.Query.values([
+  { id: StdRoot.Query.literal(1), email: StdRoot.Query.literal("alice@example.com") },
+  { id: StdRoot.Query.literal(2), name: StdRoot.Query.literal("Bob") }
 ] as const)
 void invalidMysqlValuesRows
 
 // @ts-expect-error mysql values rows must project at least one column
-const emptyMysqlValuesRows = Mysql.Query.values([
+const emptyMysqlValuesRows = StdRoot.Query.values([
   {}
 ] as const)
 void emptyMysqlValuesRows
 
-const mysqlUnnestSource = Mysql.Query.unnest({
-  id: [Mysql.Query.literal(1), Mysql.Query.literal(2)] as const,
-  email: [Mysql.Query.literal("alice@example.com"), Mysql.Query.literal("bob@example.com")] as const
+const mysqlUnnestSource = StdRoot.Query.unnest({
+  id: [StdRoot.Query.literal(1), StdRoot.Query.literal(2)] as const,
+  email: [StdRoot.Query.literal("alice@example.com"), StdRoot.Query.literal("bob@example.com")] as const
 }, "seed_rows")
 
 // @ts-expect-error mysql unnest column arrays must have the same length
-const invalidMysqlUnnestLengths = Mysql.Query.unnest({
-  id: [Mysql.Query.literal(1), Mysql.Query.literal(2)] as const,
-  email: [Mysql.Query.literal("alice@example.com")] as const
+const invalidMysqlUnnestLengths = StdRoot.Query.unnest({
+  id: [StdRoot.Query.literal(1), StdRoot.Query.literal(2)] as const,
+  email: [StdRoot.Query.literal("alice@example.com")] as const
 }, "invalid_seed_rows")
 void invalidMysqlUnnestLengths
 
-const emptyMysqlUnnestRows = Mysql.Query.unnest({
+const emptyMysqlUnnestRows = StdRoot.Query.unnest({
   // @ts-expect-error mysql unnest column arrays must contain at least one value
   id: [] as const
 }, "empty_seed_rows")
 void emptyMysqlUnnestRows
 
-const mysqlUnnestPlan = Mysql.Query.select({
+const mysqlUnnestPlan = StdRoot.Query.select({
   id: mysqlUnnestSource.id,
   email: mysqlUnnestSource.email
 }).pipe(
-  Mysql.Query.from(mysqlUnnestSource)
+  StdRoot.Query.from(mysqlUnnestSource)
 )
 
-type MysqlUnnestRow = Mysql.Query.ResultRow<typeof mysqlUnnestPlan>
-type MysqlUnnestStatement = Mysql.Query.StatementOfPlan<typeof mysqlUnnestPlan>
+type MysqlUnnestRow = StdRoot.Query.ResultRow<typeof mysqlUnnestPlan>
+type MysqlUnnestStatement = StdRoot.Query.StatementOfPlan<typeof mysqlUnnestPlan>
 const mysqlUnnestId: MysqlUnnestRow["id"] = 1
 const mysqlUnnestEmail: MysqlUnnestRow["email"] = "bob@example.com"
 type _AssertMysqlUnnestStatement = Assert<IsExact<MysqlUnnestStatement, "select">>
@@ -344,7 +345,7 @@ void badMysqlUnnestId
 void mysqlUnnestId
 void mysqlUnnestEmail
 
-const mysqlSeries = Mysql.Query.generateSeries(1, 3)
+const mysqlSeries = StdRoot.Query.generateSeries(1, 3)
 
 type MysqlSeriesError = BrandedErrorOf<typeof mysqlSeries>
 type MysqlSeriesHint = BrandedHintOf<typeof mysqlSeries>

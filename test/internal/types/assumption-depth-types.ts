@@ -1,5 +1,5 @@
 import * as Std from "effect-qb"
-import { Query as Q } from "effect-qb/postgres"
+import { Query as Q } from "effect-qb"
 
 const stress = Std.Table.make("stress", {
   value: Std.Column.text().pipe(Std.Column.nullable)

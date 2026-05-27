@@ -4,7 +4,8 @@ import * as Mysql from "#mysql"
 import * as Sqlite from "#sqlite"
 import * as Standard from "#standard"
 import { Column as C, Table } from "#standard"
-import { Cast as PgCast, Query as Q, Function as F, Jsonb as PgJsonb, Renderer, Type as PgType } from "#postgres"
+import { Query as Q, Function as F } from "#standard"
+import { Cast as PgCast, Jsonb as PgJsonb, Renderer, Type as PgType } from "#postgres"
 import { makeMysqlEmployees, makeMysqlSocialGraph, makeRootSocialGraph } from "../../fixtures/schema.ts"
 import * as StdRoot from "#standard"
 import { unsafeAny } from "../../helpers/unsafe.ts"
@@ -375,12 +376,12 @@ describe("rendering behavior", () => {
         render: (mixed: unknown) => Renderer.make().render(Q.select({ ok: mixed as any }))
       },
       {
-        mixed: (Mysql.Query.and(true, true) as any).pipe(false, (value: unknown) => value),
-        render: (mixed: unknown) => Mysql.Renderer.make().render(Mysql.Query.select({ ok: mixed as any }))
+        mixed: (StdRoot.Query.and(true, true) as any).pipe(false, (value: unknown) => value),
+        render: (mixed: unknown) => Mysql.Renderer.make().render(StdRoot.Query.select({ ok: mixed as any }))
       },
       {
-        mixed: (Sqlite.Query.and(true, true) as any).pipe(false, (value: unknown) => value),
-        render: (mixed: unknown) => Sqlite.Renderer.make().render(Sqlite.Query.select({ ok: mixed as any }))
+        mixed: (StdRoot.Query.and(true, true) as any).pipe(false, (value: unknown) => value),
+        render: (mixed: unknown) => Sqlite.Renderer.make().render(StdRoot.Query.select({ ok: mixed as any }))
       }
     ] as const
 
@@ -414,11 +415,11 @@ describe("rendering behavior", () => {
     const postgresPlan = Q.select({
       value: PgCast.to(Q.literal(1), PgType.custom("") as any)
     })
-    const mysqlPlan = Mysql.Query.select({
-      value: Mysql.Query.cast(Mysql.Query.literal(1), Mysql.Query.type.custom("") as any)
+    const mysqlPlan = StdRoot.Query.select({
+      value: StdRoot.Query.cast(StdRoot.Query.literal(1), StdRoot.Query.type.custom("") as any)
     })
-    const sqlitePlan = Sqlite.Query.select({
-      value: Sqlite.Query.cast(Sqlite.Query.literal(1), Sqlite.Query.type.custom("") as any)
+    const sqlitePlan = StdRoot.Query.select({
+      value: StdRoot.Query.cast(StdRoot.Query.literal(1), StdRoot.Query.type.custom("") as any)
     })
 
     expect(Standard.Renderer.make().render(standardPlan).sql).toContain(" as )")
@@ -601,10 +602,10 @@ describe("rendering behavior", () => {
     expect(() => Renderer.make().render(Q.select({ hasKey: pgHasKey }))).toThrow(
       "json key predicates require string keys"
     )
-    expect(() => Mysql.Renderer.make().render(Mysql.Query.select({ hasKey: mysqlHasKey }))).toThrow(
+    expect(() => Mysql.Renderer.make().render(StdRoot.Query.select({ hasKey: mysqlHasKey }))).toThrow(
       "json key predicates require string keys"
     )
-    expect(() => Sqlite.Renderer.make().render(Sqlite.Query.select({ hasKey: sqliteHasKey }))).toThrow(
+    expect(() => Sqlite.Renderer.make().render(StdRoot.Query.select({ hasKey: sqliteHasKey }))).toThrow(
       "json key predicates require string keys"
     )
   })
@@ -627,14 +628,14 @@ describe("rendering behavior", () => {
       hasKey: pgHasKey,
       rowCount: F.count(Q.literal(1))
     }).pipe(Q.groupBy(pgHasKey))
-    const mysqlPlan = Mysql.Query.select({
+    const mysqlPlan = StdRoot.Query.select({
       hasKey: mysqlHasKey,
-      rowCount: Mysql.Function.count(Mysql.Query.literal(1))
-    }).pipe(Mysql.Query.groupBy(mysqlHasKey))
-    const sqlitePlan = Sqlite.Query.select({
+      rowCount: StdRoot.Function.count(StdRoot.Query.literal(1))
+    }).pipe(StdRoot.Query.groupBy(mysqlHasKey))
+    const sqlitePlan = StdRoot.Query.select({
       hasKey: sqliteHasKey,
-      rowCount: Sqlite.Function.count(Sqlite.Query.literal(1))
-    }).pipe(Sqlite.Query.groupBy(sqliteHasKey))
+      rowCount: StdRoot.Function.count(StdRoot.Query.literal(1))
+    }).pipe(StdRoot.Query.groupBy(sqliteHasKey))
     ;(pgHasKey as any)[expressionAst].keys = [0]
     ;(mysqlHasKey as any)[expressionAst].keys = [0]
     ;(sqliteHasKey as any)[expressionAst].keys = [0]
@@ -671,10 +672,10 @@ describe("rendering behavior", () => {
     expect(() => Renderer.make().render(Q.select({ value: pgValue }))).toThrow(
       "JSON path segments require string, number, or path segment objects"
     )
-    expect(() => Mysql.Renderer.make().render(Mysql.Query.select({ value: mysqlValue }))).toThrow(
+    expect(() => Mysql.Renderer.make().render(StdRoot.Query.select({ value: mysqlValue }))).toThrow(
       "JSON path segments require string, number, or path segment objects"
     )
-    expect(() => Sqlite.Renderer.make().render(Sqlite.Query.select({ value: sqliteValue }))).toThrow(
+    expect(() => Sqlite.Renderer.make().render(StdRoot.Query.select({ value: sqliteValue }))).toThrow(
       "JSON path segments require string, number, or path segment objects"
     )
   })
@@ -697,14 +698,14 @@ describe("rendering behavior", () => {
       value: pgValue,
       rowCount: F.count(Q.literal(1))
     }).pipe(Q.groupBy(pgValue))
-    const mysqlPlan = Mysql.Query.select({
+    const mysqlPlan = StdRoot.Query.select({
       value: mysqlValue,
-      rowCount: Mysql.Function.count(Mysql.Query.literal(1))
-    }).pipe(Mysql.Query.groupBy(mysqlValue))
-    const sqlitePlan = Sqlite.Query.select({
+      rowCount: StdRoot.Function.count(StdRoot.Query.literal(1))
+    }).pipe(StdRoot.Query.groupBy(mysqlValue))
+    const sqlitePlan = StdRoot.Query.select({
       value: sqliteValue,
-      rowCount: Sqlite.Function.count(Sqlite.Query.literal(1))
-    }).pipe(Sqlite.Query.groupBy(sqliteValue))
+      rowCount: StdRoot.Function.count(StdRoot.Query.literal(1))
+    }).pipe(StdRoot.Query.groupBy(sqliteValue))
     ;(pgValue as any)[expressionAst].segments = {}
     ;(mysqlValue as any)[expressionAst].segments = {}
     ;(sqliteValue as any)[expressionAst].segments = {}
@@ -737,10 +738,10 @@ describe("rendering behavior", () => {
     expect(() => Renderer.make().render(Q.select({ pathExists: pgPathExists }))).toThrow(
       "SQL/JSON path input must be a non-empty string"
     )
-    expect(() => Mysql.Renderer.make().render(Mysql.Query.select({ pathExists: mysqlPathExists }))).toThrow(
+    expect(() => Mysql.Renderer.make().render(StdRoot.Query.select({ pathExists: mysqlPathExists }))).toThrow(
       "SQL/JSON path input must be a non-empty string"
     )
-    expect(() => Sqlite.Renderer.make().render(Sqlite.Query.select({ pathExists: sqlitePathExists }))).toThrow(
+    expect(() => Sqlite.Renderer.make().render(StdRoot.Query.select({ pathExists: sqlitePathExists }))).toThrow(
       "SQL/JSON path input must be a non-empty string"
     )
   })
@@ -773,15 +774,15 @@ describe("rendering behavior", () => {
   test("mysql renders the same logical query with mysql-specific quoting and placeholders", () => {
     const { users, posts } = makeMysqlSocialGraph()
 
-    const plan = Mysql.Query.select({
-      label: Mysql.Function.concat(Mysql.Function.lower(users.email), "::"),
-      fallbackTitle: Mysql.Function.coalesce(posts.title, Mysql.Query.literal("missing")),
-      ok: Mysql.Query.not(Mysql.Query.or(Mysql.Query.eq(users.email, "a"), Mysql.Query.isNull(posts.title)))
+    const plan = StdRoot.Query.select({
+      label: StdRoot.Function.concat(StdRoot.Function.lower(users.email), "::"),
+      fallbackTitle: StdRoot.Function.coalesce(posts.title, StdRoot.Query.literal("missing")),
+      ok: StdRoot.Query.not(StdRoot.Query.or(StdRoot.Query.eq(users.email, "a"), StdRoot.Query.isNull(posts.title)))
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.leftJoin(posts, Mysql.Query.eq(users.id, posts.userId)),
-      Mysql.Query.where(Mysql.Query.and(Mysql.Query.eq(users.email, "alice@example.com"), Mysql.Query.isNotNull(posts.title))),
-      Mysql.Query.orderBy(Mysql.Function.lower(users.email), "desc")
+      StdRoot.Query.from(users),
+      StdRoot.Query.leftJoin(posts, StdRoot.Query.eq(users.id, posts.userId)),
+      StdRoot.Query.where(StdRoot.Query.and(StdRoot.Query.eq(users.email, "alice@example.com"), StdRoot.Query.isNotNull(posts.title))),
+      StdRoot.Query.orderBy(StdRoot.Function.lower(users.email), "desc")
     )
 
     const rendered = Mysql.Renderer.make().render(plan)
@@ -920,12 +921,12 @@ describe("rendering behavior", () => {
     const manager = StdRoot.Table.alias(employees, "manager")
     const report = StdRoot.Table.alias(employees, "report")
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       managerId: manager.id,
       reportName: report.name
     }).pipe(
-      Mysql.Query.from(manager),
-      Mysql.Query.leftJoin(report, Mysql.Query.eq(report.managerId, manager.id))
+      StdRoot.Query.from(manager),
+      StdRoot.Query.leftJoin(report, StdRoot.Query.eq(report.managerId, manager.id))
     )
 
     const rendered = Mysql.Renderer.make().render(plan)

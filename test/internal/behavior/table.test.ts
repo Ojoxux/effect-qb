@@ -8,7 +8,8 @@ import * as CoreRenderer from "#internal/renderer.ts"
 import * as Mysql from "#mysql"
 import * as Postgres from "#postgres"
 import { renderMysqlPlan } from "../../../packages/querybuilder/src/mysql/internal/renderer.ts"
-import { Column as C, Executor, Scalar, RowSet, Query as Q, Function as F, Renderer, Table } from "#postgres"
+import { Scalar, RowSet, Query as Q, Function as F, Table } from "#standard"
+import { Column as C, Executor, Renderer } from "#postgres"
 import { unsafeAny, unsafeNever } from "../../helpers/unsafe.ts"
 import * as StdRoot from "#standard"
 
@@ -303,7 +304,7 @@ describe("table definitions", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       email: StdRoot.Column.text()
     }).pipe(
-      Table.index({ columns: ["email"] as const })
+      Table.index(["email"] as const)
     )
 
     expect(users[StdRoot.Table.OptionsSymbol].find((option) => option.kind === "index")).toMatchObject({
@@ -1076,13 +1077,13 @@ describe("table definitions", () => {
       email: StdRoot.Column.text()
     })
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id,
-      decoratedEmail: Mysql.Function.concat(Mysql.Function.lower(users.email), "-user"),
-      kind: Mysql.Query.literal("user")
+      decoratedEmail: StdRoot.Function.concat(StdRoot.Function.lower(users.email), "-user"),
+      kind: StdRoot.Query.literal("user")
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.where(Mysql.Query.eq(users.email, "alice@example.com"))
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.eq(users.email, "alice@example.com"))
     )
 
     const rendered = renderMysqlPlan(unsafeNever(plan))
@@ -1109,15 +1110,15 @@ describe("table definitions", () => {
     expect(mysqlUsers.id[Scalar.TypeId].dbType.dialect).toBe("standard")
     expect(postgresUsers.id[Scalar.TypeId].dbType.dialect).toBe("standard")
 
-    const mysqlPlan = Mysql.Query.select({
+    const mysqlPlan = StdRoot.Query.select({
       id: mysqlUsers.id
     }).pipe(
-      Mysql.Query.from(mysqlUsers)
+      StdRoot.Query.from(mysqlUsers)
     )
-    const postgresPlan = Postgres.Query.select({
+    const postgresPlan = StdRoot.Query.select({
       id: postgresUsers.id
     }).pipe(
-      Postgres.Query.from(postgresUsers)
+      StdRoot.Query.from(postgresUsers)
     )
 
     expect(Mysql.Renderer.make().render(mysqlPlan).sql).toBe("select `users`.`id` as `id` from `users`")
@@ -1130,12 +1131,12 @@ describe("table definitions", () => {
       email: StdRoot.Column.text()
     })
 
-    const plan = Mysql.Query.select({
-      matches: Mysql.Query.eq(users.email, "alice@example.com"),
-      decorated: Mysql.Function.concat(Mysql.Function.lower(users.email), "-user"),
-      kind: Mysql.Query.literal("user")
+    const plan = StdRoot.Query.select({
+      matches: StdRoot.Query.eq(users.email, "alice@example.com"),
+      decorated: StdRoot.Function.concat(StdRoot.Function.lower(users.email), "-user"),
+      kind: StdRoot.Query.literal("user")
     }).pipe(
-      Mysql.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const rendered = Mysql.Renderer.make().render(plan)

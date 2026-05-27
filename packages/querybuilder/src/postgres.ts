@@ -4,11 +4,9 @@ export * as Column from "./postgres/column-extension.js"
 export * as Datatypes from "./postgres/datatypes/index.js"
 /** Postgres SQLSTATE catalog and error normalization helpers. */
 export * as Errors from "./postgres/errors/index.js"
-/** Shared scalar SQL interfaces and DB-type descriptors. */
-export * as Scalar from "./internal/scalar.js"
 /** Postgres cast helpers. */
 export { cast as Cast } from "./postgres/cast.js"
-/** Postgres-specialized SQL function expressions. */
+/** Postgres-specific SQL function expressions. Portable functions are exported from the root package. */
 export * as Function from "./postgres/function/index.js"
 /** Postgres-specialized JSON expression helpers. */
 export * as Json from "./postgres/json.js"
@@ -16,10 +14,8 @@ export * as Json from "./postgres/json.js"
 export * as Jsonb from "./postgres/jsonb.js"
 /** Postgres-specialized typed query execution contracts. */
 export * as Executor from "./postgres/executor.js"
-/** Shared logical row-set interfaces. */
-export * as RowSet from "./internal/row-set.js"
-/** Postgres-specialized query-construction DSL. */
-export * as Query from "./postgres/query.js"
+/** Postgres-specific query helpers. Portable queries are exported from the root package. */
+export * as Query from "./postgres/query-extension.js"
 /** Postgres database-type constructors for casts and typed references. */
 export { type as Type } from "./postgres/type.js"
 /** Postgres normalized table/enum metadata helpers. */
@@ -32,7 +28,7 @@ export type { SchemaNamespace } from "./postgres/schema.js"
 /** Postgres enum and sequence definition helpers. */
 export { enumType as enum, sequence } from "./postgres/schema-management.js"
 export type { EnumDefinition, SequenceDefinition } from "./postgres/schema-management.js"
-/** Postgres-specific table extensions. Portable tables are exported from `effect-qb`. */
-export * as Table from "./postgres/table-extension.js"
+/** Postgres-specific table-option extensions. Portable tables are exported from `effect-qb`. */
+export * as Table from "./postgres/table.js"
 /** Postgres-specialized built-in renderer entrypoint. */
 export * as Renderer from "./postgres/renderer.js"

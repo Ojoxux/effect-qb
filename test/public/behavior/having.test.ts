@@ -2,7 +2,8 @@
 import { describe, expect, test } from "bun:test"
 import * as Effect from "effect/Effect"
 
-import { Column as C, Executor, Query as Q, Function as F, Renderer, Table } from "#postgres"
+import { Query as Q, Function as F, Table } from "#standard"
+import { Column as C, Executor, Renderer } from "#postgres"
 import * as StdRoot from "#standard"
 
 describe("having", () => {

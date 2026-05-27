@@ -87,43 +87,79 @@ interface TableOptionBuilderLike<
 
 type ClassTableOption<Fields extends TableFieldMap> = TableOptionBuilderLike<ClassOptionSpec<Fields>>
 type ClassDeclaredTableOptions<Fields extends TableFieldMap> = readonly ClassTableOption<Fields>[]
+type TableNameOf<Table extends TableDefinition<any, any, any, "schema", any>> =
+  Table extends TableDefinition<infer Name, any, any, "schema", any> ? Name : never
+type TableFieldsOf<Table extends TableDefinition<any, any, any, "schema", any>> =
+  Table extends TableDefinition<any, infer Fields, any, "schema", any> ? Fields : never
+type TablePrimaryKeyOf<Table extends TableDefinition<any, any, any, "schema", any>> =
+  Table extends TableDefinition<any, any, infer PrimaryKeyColumns, "schema", any> ? PrimaryKeyColumns : never
+type TableSchemaNameOf<Table extends TableDefinition<any, any, any, "schema", any>> =
+  Table extends TableDefinition<any, any, any, "schema", infer SchemaName> ? SchemaName : never
 
 type BuildPrimaryKey<
   Table extends TableDefinition<any, any, any, "schema", any>,
   Spec extends TableOptionSpec
 > = Spec extends { readonly kind: "primaryKey"; readonly columns: infer Columns extends readonly string[] }
-  ? Columns[number] & keyof Table[typeof TypeId]["fields"] & string
-  : Table[typeof TypeId]["primaryKey"][number]
+  ? Columns[number] & keyof TableFieldsOf<Table> & string
+  : TablePrimaryKeyOf<Table>
+
+type OptionInputConstraint<
+  Table extends TableDefinition<any, any, any, "schema", any>,
+  Spec extends TableOptionSpec
+> = Spec extends { readonly kind: "primaryKey"; readonly columns: infer Columns extends readonly string[] }
+  ? ValidatePrimaryKeyColumns<Table[typeof TypeId]["fields"], Columns> extends never ? never : unknown
+  : Spec extends { readonly kind: "index" }
+    ? ValidateIndexOptionColumns<Table[typeof TypeId]["fields"], Spec> extends never ? never : unknown
+    : Spec extends { readonly kind: "foreignKey" }
+      ? ValidateForeignKeyOptionColumns<Table[typeof TypeId]["fields"], Spec> extends never ? never : unknown
+      : Spec extends { readonly columns: infer Columns extends readonly string[] }
+        ? ValidateKnownColumns<Table[typeof TypeId]["fields"], Columns> extends never ? never : unknown
+        : unknown
 
 type OptionInputTable<
   Table extends TableDefinition<any, any, any, "schema", any>,
   Spec extends TableOptionSpec
-> = Spec extends { readonly kind: "primaryKey"; readonly columns: infer Columns extends readonly string[] }
-  ? ValidatePrimaryKeyColumns<Table[typeof TypeId]["fields"], Columns> extends never ? never : Table
-  : Spec extends { readonly kind: "index" }
-    ? ValidateIndexOptionColumns<Table[typeof TypeId]["fields"], Spec> extends never ? never : Table
-    : Spec extends { readonly kind: "foreignKey" }
-      ? ValidateForeignKeyOptionColumns<Table[typeof TypeId]["fields"], Spec> extends never ? never : Table
-      : Spec extends { readonly columns: infer Columns extends readonly string[] }
-        ? ValidateKnownColumns<Table[typeof TypeId]["fields"], Columns> extends never ? never : Table
-        : Table
+> = Table & OptionInputConstraint<Table, Spec>
+
+type OptionValidationArgs<
+  Table extends TableDefinition<any, any, any, "schema", any>,
+  Spec extends TableOptionSpec
+> = OptionInputConstraint<Table, Spec> extends never ? [never] : []
 
 type ApplyOption<
   Table extends TableDefinition<any, any, any, "schema", any>,
   Spec extends TableOptionSpec
 > = Spec extends { readonly kind: "primaryKey" }
   ? TableDefinition<
-    Table[typeof TypeId]["name"],
-    Table[typeof TypeId]["fields"],
+    TableNameOf<Table>,
+    TableFieldsOf<Table>,
     BuildPrimaryKey<Table, Spec>,
-    "schema"
+    "schema",
+    TableSchemaNameOf<Table>
   >
-  : TableDefinition<
-    Table[typeof TypeId]["name"],
-    Table[typeof TypeId]["fields"],
-    Table[typeof TypeId]["primaryKey"][number],
-    "schema"
-  >
+  : Table
+
+type ApplyTableOption<
+  Table extends TableDefinition<any, any, any, "schema", any>,
+  Spec extends TableOptionSpec
+> = Spec extends { readonly kind: "primaryKey" }
+  ? ApplyOption<Table, Spec>
+  : Table
+
+type TableOptionPipe<
+  Name extends string,
+  Fields extends TableFieldMap,
+  PrimaryKeyColumns extends keyof Fields & string,
+  Kind extends TableKind,
+  SchemaName extends string | undefined
+> = Kind extends "schema"
+  ? {
+      pipe<Spec extends TableOptionSpec>(
+        option: TableOption<Spec>,
+        ...validation: OptionValidationArgs<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Spec>
+      ): ApplyTableOption<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Spec>
+    }
+  : {}
 
 export type ValidateDeclaredOptions<
   Table extends TableDefinition<any, any, any, "schema", any>,
@@ -166,6 +202,12 @@ export interface TableSchemas<
   readonly update: Schema.Schema<UpdateRow<Name, Fields, PrimaryKeyColumns>>
 }
 
+type AnyTableSchemas = {
+  readonly select: Schema.Schema<any>
+  readonly insert: Schema.Schema<any>
+  readonly update: Schema.Schema<any>
+}
+
 type TableSchemaCache<
   Name extends string,
   Fields extends TableFieldMap,
@@ -202,10 +244,10 @@ export type TableDefinition<
   PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>,
   Kind extends TableKind = "schema",
   SchemaName extends string | undefined = DefaultSchemaName
-> = Pipeable & {
+> = TableOptionPipe<Name, Fields, PrimaryKeyColumns, Kind, SchemaName> & Pipeable & {
   readonly name: Name
   readonly columns: BoundColumns<Name, Fields>
-  readonly schemas: TableSchemas<Name, Fields, PrimaryKeyColumns>
+  readonly schemas: TableSchemas<Name, Fields, PrimaryKeyColumns> & AnyTableSchemas
   readonly [TypeId]: TableState<Name, Fields, PrimaryKeyColumns, Kind, SchemaName>
   readonly [Plan.TypeId]: Plan.State<
     BoundColumns<Name, Fields>,
@@ -267,16 +309,22 @@ type ColumnNamesOfAnyTable<Table extends AnyTable> = Extract<keyof FieldsOfAnyTa
 /** Public table-option builder type used by `Table.index`, `Table.primaryKey`, and friends. */
 export type TableOption<
   Spec extends TableOptionSpec = TableOptionSpec
-> = {
-  <
-    Name extends string,
-    Fields extends TableFieldMap,
-    PrimaryKeyColumns extends keyof Fields & string
-  >(
-    table: OptionInputTable<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>, Spec>
-  ): ApplyOption<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>, Spec>
+> = Pipeable & {
+  readonly pipe: Pipeable["pipe"]
   readonly option: Spec
-}
+} & (Spec extends { readonly kind: "primaryKey" }
+  ? {
+  <Table extends TableDefinition<any, any, any, "schema", any>>(
+    table: Table,
+    ...validation: OptionValidationArgs<Table, Spec>
+  ): ApplyOption<Table, Spec>
+  }
+  : {
+    <Table extends TableDefinition<any, any, any, "schema", any>>(
+      table: Table,
+      ...validation: OptionValidationArgs<Table, Spec>
+    ): Table
+  })
 
 const TableProto = {
   pipe(this: Pipeable) {
@@ -627,37 +675,31 @@ const appendOption = <
 }
 
 const makeOption = <Spec extends TableOptionSpec>(option: Spec): TableOption<Spec> => {
-  return Object.assign(
-    <
-      Name extends string,
-      Fields extends TableFieldMap,
-      PrimaryKeyColumns extends keyof Fields & string
-    >(
-      table: OptionInputTable<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>, Spec>
-    ): ApplyOption<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>, Spec> =>
-      appendOption(table as TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>, option),
+  return attachPipe(Object.assign(
+    <Table extends TableDefinition<any, any, any, "schema", any>>(
+      table: Table,
+      ..._validation: OptionValidationArgs<Table, Spec>
+    ): ApplyTableOption<Table, Spec> =>
+      appendOption(table, option) as unknown as ApplyTableOption<Table, Spec>,
     { option }
-  )
+  )) as TableOption<Spec>
 }
 
 const makeResolvedOption = <Spec extends TableOptionSpec>(
   option: Spec,
   resolve: (table: TableDefinition<any, any, any, "schema", any>) => Spec
 ): TableOption<Spec> => {
-  return Object.assign(
-    <
-      Name extends string,
-      Fields extends TableFieldMap,
-      PrimaryKeyColumns extends keyof Fields & string
-    >(
-      table: OptionInputTable<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>, Spec>
-    ): ApplyOption<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>, Spec> =>
+  return attachPipe(Object.assign(
+    <Table extends TableDefinition<any, any, any, "schema", any>>(
+      table: Table,
+      ..._validation: OptionValidationArgs<Table, Spec>
+    ): ApplyTableOption<Table, Spec> =>
       appendOption(
-        table as TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>,
-        resolve(table as TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", any>)
-      ),
+        table,
+        resolve(table)
+      ) as unknown as ApplyTableOption<Table, Spec>,
     { option }
-  )
+  )) as TableOption<Spec>
 }
 
 export const option = <Spec extends TableOptionSpec>(spec: Spec): TableOption<Spec> =>
@@ -672,18 +714,30 @@ export const optionFromTable = <Spec extends TableOptionSpec>(
 /** Creates a table definition from a name and field map. */
 export function make<
   Name extends string,
+  Fields extends TableFieldMap
+>(
+  name: NonEmptyStringInput<Name>,
+  fields: Fields & NonEmptyFieldMap<Fields>
+): TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", DefaultSchemaName>
+export function make<
+  Name extends string,
   Fields extends TableFieldMap,
-  const SchemaName extends string | undefined = DefaultSchemaName
+  const SchemaName extends string | undefined
 >(
   name: NonEmptyStringInput<Name>,
   fields: Fields & NonEmptyFieldMap<Fields>,
-  schemaName?: NonEmptySchemaNameInput<SchemaName>
-): TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName> {
+  schemaName: NonEmptySchemaNameInput<SchemaName>
+): TableDefinition<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName>
+export function make(
+  name: string,
+  fields: TableFieldMap,
+  schemaName?: string
+): TableDefinition<string, TableFieldMap, string, "schema", string | undefined> {
   const resolvedSchemaName = arguments.length >= 3
     ? schemaName
-    : ("public" as SchemaName)
-  return makeTable<Name, Fields, InlinePrimaryKeyKeys<Fields>, "schema", SchemaName>(
-    name as Name,
+    : "public"
+  return makeTable(
+    name,
     fields,
     [],
     name,

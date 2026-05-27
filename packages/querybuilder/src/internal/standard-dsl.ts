@@ -143,7 +143,7 @@ import * as ProjectionAlias from "./projection-alias.js"
 import * as QueryAst from "./query-ast.js"
 import { normalizeColumnList } from "./table-options.js"
 
-type MutationTargetLike = Table.AnyTable<Dialect>
+type MutationTargetLike = Table.AnyTable<string>
 type MutationTargetTuple = readonly [MutationTargetLike, MutationTargetLike, ...MutationTargetLike[]]
 type MutationTargetInput = MutationTargetLike | MutationTargetTuple
 
@@ -719,7 +719,8 @@ type NumericExpressionDialectInput<
   BoolDb extends Expression.DbType.Any,
   TimestampDb extends Expression.DbType.Any,
   NullDb extends Expression.DbType.Any
-> = Exclude<DialectOfDialectNumericInput<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>, Dialect> extends never
+> = Dialect extends "standard" ? unknown
+  : Exclude<DialectOfDialectNumericInput<Value, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>, Dialect> extends never
   ? unknown
   : {
       readonly __effect_qb_error__: "effect-qb: numeric expressions cannot mix dialects"
@@ -4634,7 +4635,8 @@ type ValuesRowsDialectInput<
   BoolDb extends Expression.DbType.Any,
   TimestampDb extends Expression.DbType.Any,
   NullDb extends Expression.DbType.Any
-> = Exclude<ValuesRowsDialect<Rows, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>, Dialect> extends never
+> = Dialect extends "standard" ? unknown
+  : Exclude<ValuesRowsDialect<Rows, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>, Dialect> extends never
   ? unknown
   : {
       readonly __effect_qb_error__: "effect-qb: values rows cannot mix dialects"
@@ -4689,7 +4691,8 @@ type UnnestColumnsDialectInput<
   BoolDb extends Expression.DbType.Any,
   TimestampDb extends Expression.DbType.Any,
   NullDb extends Expression.DbType.Any
-> = Exclude<UnnestColumnsDialect<Columns, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>, Dialect> extends never
+> = Dialect extends "standard" ? unknown
+  : Exclude<UnnestColumnsDialect<Columns, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>, Dialect> extends never
   ? unknown
   : {
       readonly __effect_qb_error__: "effect-qb: unnest columns cannot mix dialects"
@@ -5112,7 +5115,7 @@ type MutationOrderLimitSupported<PlanValue extends QueryPlan<any, any, any, any,
 type MutationTargetTupleDialectConstraint<
   Targets extends MutationTargetTuple,
   Dialect extends string
-> = Exclude<TableDialectOf<Targets[number]>, Dialect> extends never ? unknown : never
+> = Dialect extends "standard" ? unknown : Exclude<TableDialectOf<Targets[number]>, Dialect> extends never ? unknown : never
 
 type MutationRequiredFromValues<Values extends Record<string, unknown>> = {
   [K in keyof Values]: Values[K] extends Expression.Any ? RequiredFromDependencies<DependenciesOf<Values[K]>> : never
@@ -5166,7 +5169,7 @@ type KnownIncompatibleMutationDialectFromValues<
   BoolDb extends Expression.DbType.Any,
   TimestampDb extends Expression.DbType.Any,
   NullDb extends Expression.DbType.Any
-> = Exclude<KnownMutationDialectFromValues<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>, Dialect>
+> = Dialect extends "standard" ? never : Exclude<KnownMutationDialectFromValues<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>, Dialect>
 
 type MutationValuesDialectConstraint<
   Values,

@@ -1,6 +1,6 @@
 # Standard SQL Namespace
 
-The root modules from `effect-qb` are the default import path for query plans that should stay portable across the built-in SQL engines. `effect-qb/standard` remains available as an explicit portable subpath.
+The root modules from `effect-qb` are the import path for query plans that should stay portable across the built-in SQL engines.
 
 ```ts
 import { Column, Function, Query, Renderer, Table } from "effect-qb"

@@ -1,3 +1,4 @@
+import * as StdRoot from "effect-qb"
 import * as Std from "effect-qb"
 import type * as Brand from "effect/Brand";
 import * as Schema from "effect/Schema";
@@ -32,9 +33,9 @@ const brandedPostgresNickname = postgresAccounts.nickname.pipe(
 const brandedPostgresAge = postgresAccounts.age.pipe(Std.Column.brand);
 
 type PostgresIdRuntime =
-  (typeof brandedPostgresId)[Postgres.Scalar.TypeId]["runtime"];
+  (typeof brandedPostgresId)[StdRoot.Scalar.TypeId]["runtime"];
 type PostgresNicknameRuntime =
-  (typeof brandedPostgresNickname)[Postgres.Scalar.TypeId]["runtime"];
+  (typeof brandedPostgresNickname)[StdRoot.Scalar.TypeId]["runtime"];
 type PostgresAgeSchema = Schema.Schema.Type<typeof brandedPostgresAge.schema>;
 type InlineBrandedPostgresSelect = Std.Table.SelectOf<typeof inlineBrandedPostgresAccounts>;
 
@@ -71,20 +72,20 @@ type _AssertInlineBrandedPostgresAge = Assert<
     : false
 >;
 
-const postgresPlan = Postgres.Query.select({
+const postgresPlan = StdRoot.Query.select({
   id: brandedPostgresId,
   nickname: brandedPostgresNickname,
   age: brandedPostgresAge,
-}).pipe(Postgres.Query.from(postgresAccounts));
+}).pipe(StdRoot.Query.from(postgresAccounts));
 
-const inlineBrandedPostgresPlan = Postgres.Query.select({
+const inlineBrandedPostgresPlan = StdRoot.Query.select({
   id: inlineBrandedPostgresAccounts.id,
   nickname: inlineBrandedPostgresAccounts.nickname,
   age: inlineBrandedPostgresAccounts.age,
-}).pipe(Postgres.Query.from(inlineBrandedPostgresAccounts));
+}).pipe(StdRoot.Query.from(inlineBrandedPostgresAccounts));
 
-type PostgresRow = Postgres.Query.ResultRow<typeof postgresPlan>;
-type InlineBrandedPostgresRow = Postgres.Query.ResultRow<
+type PostgresRow = StdRoot.Query.ResultRow<typeof postgresPlan>;
+type InlineBrandedPostgresRow = StdRoot.Query.ResultRow<
   typeof inlineBrandedPostgresPlan
 >;
 
@@ -123,18 +124,18 @@ type _AssertInlineBrandedPostgresRowAge = Assert<
 
 const aliasedPostgresAccounts = Std.Table.alias(postgresAccounts, "u");
 
-const aliasedPostgresPlan = Postgres.Query.select({
+const aliasedPostgresPlan = StdRoot.Query.select({
   id: postgresAccounts.id.pipe(Std.Column.brand),
   aliasedId: aliasedPostgresAccounts.id.pipe(Std.Column.brand),
 }).pipe(
-  Postgres.Query.from(postgresAccounts),
-  Postgres.Query.innerJoin(
+  StdRoot.Query.from(postgresAccounts),
+  StdRoot.Query.innerJoin(
     aliasedPostgresAccounts,
-    Postgres.Query.eq(postgresAccounts.id, aliasedPostgresAccounts.id),
+    StdRoot.Query.eq(postgresAccounts.id, aliasedPostgresAccounts.id),
   ),
 );
 
-type AliasedPostgresRow = Postgres.Query.ResultRow<typeof aliasedPostgresPlan>;
+type AliasedPostgresRow = StdRoot.Query.ResultRow<typeof aliasedPostgresPlan>;
 
 type _AssertAliasedPostgresRowId = Assert<
   AliasedPostgresRow["id"] extends string & Brand.Brand<"accounts.id">
@@ -163,7 +164,7 @@ const brandedMysqlEmail = mysqlAccounts.email.pipe(Std.Column.brand);
 const brandedMysqlQuota = mysqlAccounts.quota.pipe(Std.Column.brand);
 
 type MysqlEmailRuntime =
-  (typeof brandedMysqlEmail)[Mysql.Scalar.TypeId]["runtime"];
+  (typeof brandedMysqlEmail)[StdRoot.Scalar.TypeId]["runtime"];
 type MysqlQuotaSchema = Schema.Schema.Type<typeof brandedMysqlQuota.schema>;
 
 type _AssertMysqlEmailRuntime = Assert<
@@ -177,12 +178,12 @@ type _AssertMysqlQuotaSchema = Assert<
     : false
 >;
 
-const mysqlPlan = Mysql.Query.select({
+const mysqlPlan = StdRoot.Query.select({
   email: brandedMysqlEmail,
   quota: brandedMysqlQuota,
-}).pipe(Mysql.Query.from(mysqlAccounts));
+}).pipe(StdRoot.Query.from(mysqlAccounts));
 
-type MysqlRow = Mysql.Query.ResultRow<typeof mysqlPlan>;
+type MysqlRow = StdRoot.Query.ResultRow<typeof mysqlPlan>;
 
 type _AssertMysqlRowEmail = Assert<
   MysqlRow["email"] extends string & Brand.Brand<"mysql_accounts.email">

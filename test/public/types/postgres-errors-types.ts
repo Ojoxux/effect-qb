@@ -1,3 +1,4 @@
+import * as StdRoot from "effect-qb"
 import * as Std from "effect-qb"
 import * as Effect from "effect/Effect"
 
@@ -28,10 +29,10 @@ const users = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey)
 })
 
-const plan = Postgres.Query.select({
+const plan = StdRoot.Query.select({
   id: users.id
 }).pipe(
-  Postgres.Query.from(users)
+  StdRoot.Query.from(users)
 )
 
 const driver = Postgres.Executor.driver(() =>
@@ -43,7 +44,7 @@ const driver = Postgres.Executor.driver(() =>
 const executor = Postgres.Executor.make({ driver })
 const execution = executor.execute(plan)
 
-type Capabilities = Postgres.Query.CapabilitiesOfPlan<typeof plan>
+type Capabilities = StdRoot.Query.CapabilitiesOfPlan<typeof plan>
 const readCapability: Capabilities = "read"
 type QueryError = Postgres.Executor.PostgresQueryError<typeof plan>
 type ExecutionError = Effect.Effect.Error<typeof execution>
@@ -67,11 +68,11 @@ const writeUsers = Std.Table.make("write_users", {
   email: Std.Column.text()
 })
 
-const writePlan = Postgres.Query.insert(writeUsers, {
+const writePlan = StdRoot.Query.insert(writeUsers, {
   id: "user-1",
   email: "alice@example.com"
 }).pipe(
-  Postgres.Query.returning({
+  StdRoot.Query.returning({
     id: writeUsers.id,
     email: writeUsers.email
   })

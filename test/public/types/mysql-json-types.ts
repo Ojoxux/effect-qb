@@ -1,7 +1,8 @@
 import * as Std from "effect-qb"
 import * as Schema from "effect/Schema"
 
-import { Json as J, Scalar as E } from "effect-qb/mysql"
+import { Scalar as E } from "effect-qb"
+import { Json as J } from "effect-qb/mysql"
 
 const payloadSchema = Schema.Struct({
   profile: Schema.Struct({

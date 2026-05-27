@@ -7,7 +7,8 @@ import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 
 import { Column as C, Table } from "#standard"
-import { Executor, Function as F, Json as J, Query as Q } from "#sqlite"
+import { Function as F, Query as Q } from "#standard"
+import { Executor, Json as J } from "#sqlite"
 
 const runSqlite = <A, E>(effect: Effect.Effect<A, E, never>) =>
   Effect.runPromise(Effect.provide(effect, SqliteClient.layer({

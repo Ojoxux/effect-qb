@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { Query as Q } from "#postgres"
+import { Query as Q } from "#standard"
 
 describe("query capabilities", () => {
   test("union_query_capabilities dedupes while preserving first-seen order", () => {

@@ -13,22 +13,22 @@ describe("sqlite behavior", () => {
   test("renders read queries with sqlite placeholders, quoting, and string concatenation", () => {
     const { users, posts } = makeSqliteSocialGraph()
 
-    const plan = Sqlite.Query.select({
-      emailLabel: Sqlite.Function.concat(
-        Sqlite.Function.lower(users.email),
+    const plan = StdRoot.Query.select({
+      emailLabel: StdRoot.Function.concat(
+        StdRoot.Function.lower(users.email),
         "-",
-        Sqlite.Function.coalesce(Sqlite.Function.max(posts.title), "missing")
+        StdRoot.Function.coalesce(StdRoot.Function.max(posts.title), "missing")
       ),
-      firstTitle: Sqlite.Function.min(posts.title),
-      postCount: Sqlite.Function.count(posts.id)
+      firstTitle: StdRoot.Function.min(posts.title),
+      postCount: StdRoot.Function.count(posts.id)
     }).pipe(
-      Sqlite.Query.from(users),
-      Sqlite.Query.leftJoin(posts, Sqlite.Query.eq(users.id, posts.userId)),
-      Sqlite.Query.groupBy(Sqlite.Function.lower(users.email)),
-      Sqlite.Query.having(Sqlite.Query.eq(Sqlite.Function.count(posts.id), 2)),
-      Sqlite.Query.orderBy(Sqlite.Function.count(posts.id), "desc"),
-      Sqlite.Query.limit(5),
-      Sqlite.Query.offset(1)
+      StdRoot.Query.from(users),
+      StdRoot.Query.leftJoin(posts, StdRoot.Query.eq(users.id, posts.userId)),
+      StdRoot.Query.groupBy(StdRoot.Function.lower(users.email)),
+      StdRoot.Query.having(StdRoot.Query.eq(StdRoot.Function.count(posts.id), 2)),
+      StdRoot.Query.orderBy(StdRoot.Function.count(posts.id), "desc"),
+      StdRoot.Query.limit(5),
+      StdRoot.Query.offset(1)
     )
 
     const rendered = render(plan)
@@ -47,62 +47,62 @@ describe("sqlite behavior", () => {
         tags: Schema.Array(Schema.String)
       }))
     })
-    const postIds = Sqlite.Query.select({
+    const postIds = StdRoot.Query.select({
       value: posts.id
-    }).pipe(Sqlite.Query.from(posts))
-    const lateralPosts = Sqlite.Query.select({
+    }).pipe(StdRoot.Query.from(posts))
+    const lateralPosts = StdRoot.Query.select({
       postId: posts.id,
       userId: posts.userId
     }).pipe(
-      Sqlite.Query.from(posts),
-      Sqlite.Query.where(Sqlite.Query.eq(posts.userId, users.id)),
-      Sqlite.Query.lateral("user_posts")
+      StdRoot.Query.from(posts),
+      StdRoot.Query.where(StdRoot.Query.eq(posts.userId, users.id)),
+      StdRoot.Query.lateral("user_posts")
     )
 
-    expect(() => render(Sqlite.Query.select({
-      ok: Sqlite.Query.compareAny(users.id, postIds, "eq")
-    }).pipe(Sqlite.Query.from(users)))).toThrow("Unsupported sqlite quantified comparison")
+    expect(() => render(StdRoot.Query.select({
+      ok: StdRoot.Query.compareAny(users.id, postIds, "eq")
+    }).pipe(StdRoot.Query.from(users)))).toThrow("Unsupported sqlite quantified comparison")
 
-    expect(() => render(Sqlite.Query.select({
-      ok: Sqlite.Query.compareAll(users.id, postIds, "eq")
-    }).pipe(Sqlite.Query.from(users)))).toThrow("Unsupported sqlite quantified comparison")
+    expect(() => render(StdRoot.Query.select({
+      ok: StdRoot.Query.compareAll(users.id, postIds, "eq")
+    }).pipe(StdRoot.Query.from(users)))).toThrow("Unsupported sqlite quantified comparison")
 
-    expect(() => render(Sqlite.Query.select({
-      ok: Sqlite.Query.regexMatch(users.email, ".*@example.com")
-    }).pipe(Sqlite.Query.from(users)))).toThrow("Unsupported sqlite regex operator")
+    expect(() => render(StdRoot.Query.select({
+      ok: StdRoot.Query.regexMatch(users.email, ".*@example.com")
+    }).pipe(StdRoot.Query.from(users)))).toThrow("Unsupported sqlite regex operator")
 
-    expect(() => render(Sqlite.Query.select({
-      ok: Sqlite.Query.contains(docs.payload, docs.payload)
-    }).pipe(Sqlite.Query.from(docs)))).toThrow("Unsupported container operator for SQL rendering")
+    expect(() => render(StdRoot.Query.select({
+      ok: StdRoot.Query.contains(docs.payload, docs.payload)
+    }).pipe(StdRoot.Query.from(docs)))).toThrow("Unsupported container operator for SQL rendering")
 
-    expect(() => render(Sqlite.Query.select({
+    expect(() => render(StdRoot.Query.select({
       id: users.id
     }).pipe(
-      Sqlite.Query.from(users),
-      Sqlite.Query.lock("update")
+      StdRoot.Query.from(users),
+      StdRoot.Query.lock("update")
     ))).toThrow("Unsupported sqlite row locking")
 
-    expect(() => render(Sqlite.Query.select({
+    expect(() => render(StdRoot.Query.select({
       email: users.email,
       postId: lateralPosts.postId
     }).pipe(
-      Sqlite.Query.from(users),
-      Sqlite.Query.innerJoin(lateralPosts, Sqlite.Query.eq(lateralPosts.userId, users.id))
+      StdRoot.Query.from(users),
+      StdRoot.Query.innerJoin(lateralPosts, StdRoot.Query.eq(lateralPosts.userId, users.id))
     ))).toThrow("Unsupported sqlite lateral source")
   })
 
   test("rejects sqlite-unsupported set operator all variants before emitting invalid SQL", () => {
-    const left = Sqlite.Query.select({
-      id: Sqlite.Query.cast(Sqlite.Query.literal(1), Sqlite.Query.type.int())
+    const left = StdRoot.Query.select({
+      id: StdRoot.Query.cast(StdRoot.Query.literal(1), StdRoot.Query.type.int())
     })
-    const right = Sqlite.Query.select({
-      id: Sqlite.Query.cast(Sqlite.Query.literal(2), Sqlite.Query.type.int())
+    const right = StdRoot.Query.select({
+      id: StdRoot.Query.cast(StdRoot.Query.literal(2), StdRoot.Query.type.int())
     })
 
-    expect(() => render(Sqlite.Query.intersectAll(left, right))).toThrow(
+    expect(() => render(StdRoot.Query.intersectAll(left, right))).toThrow(
       "Unsupported sqlite set operator all variant"
     )
-    expect(() => render(Sqlite.Query.exceptAll(left, right))).toThrow(
+    expect(() => render(StdRoot.Query.exceptAll(left, right))).toThrow(
       "Unsupported sqlite set operator all variant"
     )
   })
@@ -114,18 +114,18 @@ describe("sqlite behavior", () => {
       visits: StdRoot.Column.int()
     })
 
-    const plan = Sqlite.Query.insert(users, {
+    const plan = StdRoot.Query.insert(users, {
       id: "user-1",
       email: "alice@example.com",
       visits: 1
     }).pipe(
-      Sqlite.Query.onConflict(["id"] as const, {
+      StdRoot.Query.onConflict(["id"] as const, {
         update: {
-          email: Sqlite.Query.excluded(users.email),
+          email: StdRoot.Query.excluded(users.email),
           visits: 2
         }
       }),
-      Sqlite.Query.returning({
+      StdRoot.Query.returning({
         id: users.id,
         email: users.email,
         visits: users.visits
@@ -147,19 +147,19 @@ describe("sqlite behavior", () => {
       visits: StdRoot.Column.int()
     })
 
-    const plan = Sqlite.Query.insert(users, {
+    const plan = StdRoot.Query.insert(users, {
       id: "user-1",
       email: "alice@example.com",
       visits: 1
     }).pipe(
-      Sqlite.Query.onConflict({
+      StdRoot.Query.onConflict({
         columns: ["email"] as const,
-        where: Sqlite.Query.isNotNull(users.email)
+        where: StdRoot.Query.isNotNull(users.email)
       }, {
         update: {
-          visits: Sqlite.Query.excluded(users.visits)
+          visits: StdRoot.Query.excluded(users.visits)
         },
-        where: Sqlite.Query.gt(Sqlite.Query.excluded(users.visits), 0)
+        where: StdRoot.Query.gt(StdRoot.Query.excluded(users.visits), 0)
       })
     )
 
@@ -177,11 +177,11 @@ describe("sqlite behavior", () => {
       email: StdRoot.Column.text()
     })
 
-    const plan = Sqlite.Query.onConflict("email", {
+    const plan = StdRoot.Query.onConflict("email", {
       update: {
-        email: Sqlite.Query.excluded(users.email)
+        email: StdRoot.Query.excluded(users.email)
       }
-    })(Sqlite.Query.insert(users, {
+    })(StdRoot.Query.insert(users, {
       id: "user-1",
       email: "alice@example.com"
     }))
@@ -197,8 +197,8 @@ describe("sqlite behavior", () => {
       happenedOn: StdRoot.Column.date()
     })
 
-    const rendered = render(Sqlite.Query.insert(metrics).pipe(
-      Sqlite.Query.from(Sqlite.Query.unnest({
+    const rendered = render(StdRoot.Query.insert(metrics).pipe(
+      StdRoot.Query.from(StdRoot.Query.unnest({
         total: ["-0.00"],
         happenedOn: ["2026-05-12"]
       }, "seed"))
@@ -209,8 +209,8 @@ describe("sqlite behavior", () => {
       "2026-05-12"
     ])
 
-    expect(() => render(Sqlite.Query.insert(metrics).pipe(
-      Sqlite.Query.from(Sqlite.Query.unnest({
+    expect(() => render(StdRoot.Query.insert(metrics).pipe(
+      StdRoot.Query.from(StdRoot.Query.unnest({
         total: ["1.00"],
         happenedOn: ["2026-02-31"]
       }, "seed"))
@@ -230,7 +230,7 @@ describe("sqlite behavior", () => {
       )
     )
 
-    const plan = Sqlite.Query.select({
+    const plan = StdRoot.Query.select({
       city: Sqlite.Json.text(
         docs.payload,
         Sqlite.Json.path(
@@ -244,7 +244,7 @@ describe("sqlite behavior", () => {
         ok: true
       }),
       tags: Sqlite.Json.length(tags)
-    }).pipe(Sqlite.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = render(plan)
 
@@ -270,7 +270,7 @@ describe("sqlite behavior", () => {
       payload: StdRoot.Column.json(Schema.Unknown)
     })
 
-    const rendered = render(Sqlite.Query.select({
+    const rendered = render(StdRoot.Query.select({
       built: Sqlite.Json.buildObject({
         nested: { ok: true },
         tags: ["sqlite"]
@@ -280,7 +280,7 @@ describe("sqlite behavior", () => {
         Sqlite.Json.path(Sqlite.Json.key("nested")),
         { ok: true }
       )
-    }).pipe(Sqlite.Query.from(docs)))
+    }).pipe(StdRoot.Query.from(docs)))
 
     expect(rendered.sql).toBe(
       'select json_object(?, json(?), ?, json(?)) as "built", json_set("docs"."payload", ?, json(?)) as "patched" from "docs"'
@@ -296,7 +296,7 @@ describe("sqlite behavior", () => {
   })
 
   test("renders sqlite JSON merge operands as JSON instead of raw driver objects", () => {
-    const rendered = render(Sqlite.Query.select({
+    const rendered = render(StdRoot.Query.select({
       merged: Sqlite.Json.merge(
         { nested: { left: true } },
         { tags: ["sqlite"] }
@@ -332,20 +332,20 @@ describe("sqlite behavior", () => {
       Sqlite.Json.wildcard()
     )
 
-    const rendered = render(Sqlite.Query.select({
+    const rendered = render(StdRoot.Query.select({
       hasLastTag: Sqlite.Json.pathExists(docs.payload, lastTagPath)
-    }).pipe(Sqlite.Query.from(docs)))
+    }).pipe(StdRoot.Query.from(docs)))
 
     expect(rendered.sql).toBe(
       'select (json_type("docs"."payload", ?) is not null) as "hasLastTag" from "docs"'
     )
     expect(rendered.params).toEqual(["$.profile.tags[#-1]"])
-    expect(() => render(Sqlite.Query.select({
+    expect(() => render(StdRoot.Query.select({
       unsupported: Sqlite.Json.pathExists(docs.payload, descendPath)
-    }).pipe(Sqlite.Query.from(docs)))).toThrow("SQLite JSON paths do not support recursive descent segments")
-    expect(() => render(Sqlite.Query.select({
+    }).pipe(StdRoot.Query.from(docs)))).toThrow("SQLite JSON paths do not support recursive descent segments")
+    expect(() => render(StdRoot.Query.select({
       unsupported: Sqlite.Json.get(docs.payload, wildcardPath)
-    }).pipe(Sqlite.Query.from(docs)))).toThrow("SQLite JSON paths do not support wildcard segments")
+    }).pipe(StdRoot.Query.from(docs)))).toThrow("SQLite JSON paths do not support wildcard segments")
   })
 
   test("rejects sqlite JSON array inserts that SQLite would silently ignore", () => {
@@ -360,9 +360,9 @@ describe("sqlite behavior", () => {
       Sqlite.Json.index(1)
     )
 
-    expect(() => render(Sqlite.Query.select({
+    expect(() => render(StdRoot.Query.select({
       inserted: Sqlite.Json.insert(docs.payload, firstTagPath, "city")
-    }).pipe(Sqlite.Query.from(docs)))).toThrow(
+    }).pipe(StdRoot.Query.from(docs)))).toThrow(
       "Unsupported JSON feature for sqlite: jsonInsertArrayIndex"
     )
   })
@@ -373,7 +373,7 @@ describe("sqlite behavior", () => {
       payload: StdRoot.Column.json(Schema.String)
     })
 
-    const rendered = render(Sqlite.Query.insert(docs, {
+    const rendered = render(StdRoot.Query.insert(docs, {
       id: "json-string-1",
       payload: "42"
     }))
@@ -387,9 +387,9 @@ describe("sqlite behavior", () => {
   test("renders sqlite DDL without postgres-only constraint clauses", () => {
     const employees = makeSqliteEmployees()
 
-    const create = render(Sqlite.Query.createTable(employees, { ifNotExists: true }))
-    const createIndex = render(Sqlite.Query.createIndex(employees, ["managerId"] as const, { ifNotExists: true }))
-    const dropIndex = render(Sqlite.Query.dropIndex(employees, ["managerId"] as const, { ifExists: true }))
+    const create = render(StdRoot.Query.createTable(employees, { ifNotExists: true }))
+    const createIndex = render(StdRoot.Query.createIndex(employees, ["managerId"] as const, { ifNotExists: true }))
+    const dropIndex = render(StdRoot.Query.dropIndex(employees, ["managerId"] as const, { ifExists: true }))
 
     expect(create.sql).toBe(
       'create table if not exists "employees" ("id" text not null, "managerId" text, "name" text not null, primary key ("id"))'
@@ -403,7 +403,7 @@ describe("sqlite behavior", () => {
   test("rejects sqlite truncate statements before emitting invalid SQL", () => {
     const { users } = makeSqliteSocialGraph()
 
-    expect(() => render(Sqlite.Query.truncate(users))).toThrow(
+    expect(() => render(StdRoot.Query.truncate(users))).toThrow(
       "Unsupported sqlite truncate statement"
     )
   })
@@ -411,11 +411,11 @@ describe("sqlite behavior", () => {
   test("rejects sqlite mutation forms that cannot be rendered", () => {
     const { users, posts } = makeSqliteSocialGraph()
 
-    expect(() => render(Sqlite.Query.delete(users).pipe(
-      Sqlite.Query.innerJoin(posts, Sqlite.Query.eq(users.id, posts.userId))
+    expect(() => render(StdRoot.Query.delete(users).pipe(
+      StdRoot.Query.innerJoin(posts, StdRoot.Query.eq(users.id, posts.userId))
     ))).toThrow("Unsupported sqlite joined delete")
 
-    expect(() => render(Sqlite.Query.update([users, posts] as any, {
+    expect(() => render(StdRoot.Query.update([users, posts] as any, {
       users: {
         email: "updated@example.com"
       },
@@ -427,19 +427,19 @@ describe("sqlite behavior", () => {
 
   test("rejects sqlite transaction options that cannot be rendered", () => {
     expect(() =>
-      render(Sqlite.Query.transaction({
+      render(StdRoot.Query.transaction({
         isolationLevel: "serializable"
       }))
     ).toThrow("Unsupported sqlite transaction options")
 
     expect(() =>
-      render(Sqlite.Query.transaction({
+      render(StdRoot.Query.transaction({
         readOnly: true
       }))
     ).toThrow("Unsupported sqlite transaction options")
 
     expect(() =>
-      render(Sqlite.Query.transaction({
+      render(StdRoot.Query.transaction({
         readOnly: false
       }))
     ).toThrow("Unsupported sqlite transaction options")
@@ -447,7 +447,7 @@ describe("sqlite behavior", () => {
 
   test("sqlite transaction builders trust typed clause kinds without renderer-time validation", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
-    const transaction = Sqlite.Query.transaction()
+    const transaction = StdRoot.Query.transaction()
     ;(transaction as any)[queryAst].transaction.kind = "begin"
 
     expect(render(transaction).sql).toBe("begin")
@@ -455,15 +455,15 @@ describe("sqlite behavior", () => {
 
   test("sqlite query builders trust typed statement kinds without renderer-time validation", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
-    const transaction = Sqlite.Query.transaction()
+    const transaction = StdRoot.Query.transaction()
     ;(transaction as any)[queryAst].kind = "vacuum"
 
     expect(render(transaction).sql).toBe("begin")
   })
 
   test("rejects non-finite sqlite numeric literals", () => {
-    expect(() => render(Sqlite.Query.select({
-      bad: Sqlite.Query.literal(Number.NaN)
+    expect(() => render(StdRoot.Query.select({
+      bad: StdRoot.Query.literal(Number.NaN)
     }))).toThrow("Expected a finite numeric value")
   })
 

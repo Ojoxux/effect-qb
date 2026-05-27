@@ -23,26 +23,26 @@ describe("mysql insert behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const valuesSource = unsafeAny(Mysql.Query.as(Mysql.Query.values([
-      { id: Mysql.Query.literal(userId), email: "alice@example.com", bio: null },
-      { id: Mysql.Query.literal(secondUserId), email: "bob@example.com", bio: "writer" }
+    const valuesSource = unsafeAny(StdRoot.Query.as(StdRoot.Query.values([
+      { id: StdRoot.Query.literal(userId), email: "alice@example.com", bio: null },
+      { id: StdRoot.Query.literal(secondUserId), email: "bob@example.com", bio: "writer" }
     ] as const), "seed"))
 
-    const multiRowPlan = Mysql.Query.insert(users).pipe(
-      Mysql.Query.from(valuesSource)
+    const multiRowPlan = StdRoot.Query.insert(users).pipe(
+      StdRoot.Query.from(valuesSource)
     )
 
-    const insertSelectPlan = Mysql.Query.insert(archivedUsers).pipe(
-      Mysql.Query.from(Mysql.Query.select({
+    const insertSelectPlan = StdRoot.Query.insert(archivedUsers).pipe(
+      StdRoot.Query.from(StdRoot.Query.select({
       id: users.id,
       email: users.email,
       bio: users.bio
     }).pipe(
-      Mysql.Query.from(users)
+      StdRoot.Query.from(users)
     )))
 
-    const insertUnnestPlan = Mysql.Query.insert(users).pipe(
-      Mysql.Query.from(Mysql.Query.unnest({
+    const insertUnnestPlan = StdRoot.Query.insert(users).pipe(
+      StdRoot.Query.from(StdRoot.Query.unnest({
       id: [userId, secondUserId],
       email: ["alice@example.com", "bob@example.com"],
       bio: [null, "writer"]
@@ -76,11 +76,11 @@ describe("mysql insert behavior", () => {
       "writer"
     ])
 
-    const updateFromValuesPlan = Mysql.Query.update(users, {
+    const updateFromValuesPlan = StdRoot.Query.update(users, {
       email: valuesSource.email
     }).pipe(
-      Mysql.Query.from(valuesSource),
-      Mysql.Query.where(Mysql.Query.eq(users.id, valuesSource.id))
+      StdRoot.Query.from(valuesSource),
+      StdRoot.Query.where(StdRoot.Query.eq(users.id, valuesSource.id))
     )
 
     expect(render(updateFromValuesPlan).sql).toBe(
@@ -100,7 +100,7 @@ describe("mysql insert behavior", () => {
       payload: StdRoot.Column.json(Schema.String)
     })
 
-    const rendered = render(Mysql.Query.insert(docs, {
+    const rendered = render(StdRoot.Query.insert(docs, {
       payload: "42"
     }))
 
@@ -112,7 +112,7 @@ describe("mysql insert behavior", () => {
       payload: StdRoot.Column.json(Schema.Unknown)
     })
 
-    const rendered = render(Mysql.Query.insert(docs, {
+    const rendered = render(StdRoot.Query.insert(docs, {
       payload: {
         profile: {
           city: "Paris"
@@ -134,8 +134,8 @@ describe("mysql insert behavior", () => {
       happenedOn: StdRoot.Column.date()
     })
 
-    const rendered = render(Mysql.Query.insert(metrics).pipe(
-      Mysql.Query.from(Mysql.Query.unnest({
+    const rendered = render(StdRoot.Query.insert(metrics).pipe(
+      StdRoot.Query.from(StdRoot.Query.unnest({
         total: ["-0.00"],
         happenedOn: ["2026-05-12"]
       }, "seed"))
@@ -146,8 +146,8 @@ describe("mysql insert behavior", () => {
       "2026-05-12"
     ])
 
-    expect(() => render(Mysql.Query.insert(metrics).pipe(
-      Mysql.Query.from(Mysql.Query.unnest({
+    expect(() => render(StdRoot.Query.insert(metrics).pipe(
+      StdRoot.Query.from(StdRoot.Query.unnest({
         total: ["1.00"],
         happenedOn: ["2026-02-31"]
       }, "seed"))
@@ -156,7 +156,7 @@ describe("mysql insert behavior", () => {
 
   test("renders mysql default-only inserts and duplicate-key conflict clauses", () => {
     const auditLogs = StdRoot.Table.make("audit_logs", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey, StdRoot.Column.default(Mysql.Query.literal("audit-log-id"))),
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey, StdRoot.Column.default(StdRoot.Query.literal("audit-log-id"))),
       note: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
     const users = StdRoot.Table.make("users", {
@@ -165,12 +165,12 @@ describe("mysql insert behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const defaultInsertPlan = Mysql.Query.insert(auditLogs)
-    const conflictPlan = Mysql.Query.onConflict(["email"] as const, {
+    const defaultInsertPlan = StdRoot.Query.insert(auditLogs)
+    const conflictPlan = StdRoot.Query.onConflict(["email"] as const, {
       update: {
-        bio: Mysql.Query.excluded(users.bio)
+        bio: StdRoot.Query.excluded(users.bio)
       }
-    })(Mysql.Query.insert(users, {
+    })(StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com",
       bio: "writer"
@@ -196,11 +196,11 @@ describe("mysql insert behavior", () => {
       email: StdRoot.Column.text()
     })
 
-    const plan = Mysql.Query.onConflict("email", {
+    const plan = StdRoot.Query.onConflict("email", {
       update: {
-        email: Mysql.Query.excluded(users.email)
+        email: StdRoot.Query.excluded(users.email)
       }
-    })(Mysql.Query.insert(users, {
+    })(StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com"
     }))

@@ -1,8 +1,6 @@
 import type { ExpressionInput } from "../query.js"
 import {
-  call,
   cast,
-  coalesce,
   literal,
   nextVal as nextValInternal,
   type as postgresType,
@@ -11,7 +9,7 @@ import {
 import { isSequenceDefinition, type SequenceDefinition } from "../schema-management.js"
 
 /** Postgres scalar core functions. */
-export { coalesce, call, uuidGenerateV4 }
+export { uuidGenerateV4 }
 
 const safeUnquotedIdentifier = /^[a-z_][a-z0-9_$]*$/
 

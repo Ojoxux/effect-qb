@@ -2,7 +2,8 @@ import { Column as PgColumn } from "effect-qb/postgres"
 import * as Std from "effect-qb"
 import * as Schema from "effect/Schema";
 
-import { Function as F, Json as J, Jsonb as Jb, Query as Q } from "effect-qb/postgres"
+import { Function as F, Query as Q } from "effect-qb"
+import { Json as J, Jsonb as Jb } from "effect-qb/postgres"
 
 const docs = Std.Table.make("docs", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),

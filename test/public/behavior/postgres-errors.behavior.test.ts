@@ -48,11 +48,11 @@ describe("postgres errors", () => {
       email: StdRoot.Column.text()
     })
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id,
       email: users.email
     }).pipe(
-      Postgres.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const executor = Postgres.Executor.make({
@@ -97,22 +97,22 @@ describe("postgres errors", () => {
       email: StdRoot.Column.text()
     })
 
-    const insertedUsers = Postgres.Query.insert(users, {
+    const insertedUsers = StdRoot.Query.insert(users, {
       id: "11111111-1111-1111-1111-111111111111",
       email: "alice@example.com"
     }).pipe(
-      Postgres.Query.returning({
+      StdRoot.Query.returning({
         id: users.id,
         email: users.email
       }),
-      Postgres.Query.with("inserted_users")
+      StdRoot.Query.with("inserted_users")
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       id: insertedUsers.id,
       email: insertedUsers.email
     }).pipe(
-      Postgres.Query.from(insertedUsers)
+      StdRoot.Query.from(insertedUsers)
     )
 
     const executor = Postgres.Executor.make({
@@ -148,11 +148,11 @@ describe("postgres errors", () => {
       email: StdRoot.Column.text()
     })
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id,
       email: users.email
     }).pipe(
-      Postgres.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const executor = Postgres.Executor.make({
@@ -190,10 +190,10 @@ describe("postgres errors", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id
     }).pipe(
-      Postgres.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const executor = Postgres.Executor.make()
@@ -245,10 +245,10 @@ describe("postgres errors", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id
     }).pipe(
-      Postgres.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const executor = Postgres.Executor.make()
@@ -286,10 +286,10 @@ describe("postgres errors", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id
     }).pipe(
-      Postgres.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const cause = new Error("socket closed")
@@ -317,10 +317,10 @@ describe("postgres errors", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id
     }).pipe(
-      Postgres.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const executor = Postgres.Executor.make({
@@ -350,10 +350,10 @@ describe("postgres errors", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id
     }).pipe(
-      Postgres.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const executor = Postgres.Executor.make({

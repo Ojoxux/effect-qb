@@ -23,10 +23,10 @@ describe("postgres dialect behavior", () => {
     })
     const aliased = unsafeAny(StdRoot.Table.alias(unsafeAny(events), "daily\"rollup"))
 
-    const plan = Postgres.Query.select({
-      payload: Postgres.Query.as(unsafeAny(aliased["event\"payload"]), "payload\"alias")
+    const plan = StdRoot.Query.select({
+      payload: StdRoot.Query.as(unsafeAny(aliased["event\"payload"]), "payload\"alias")
     }).pipe(
-      Postgres.Query.from(unsafeAny(aliased))
+      StdRoot.Query.from(unsafeAny(aliased))
     )
 
     expect(render(plan).sql).toBe(
@@ -37,13 +37,13 @@ describe("postgres dialect behavior", () => {
   test("inlines null and booleans while numbering bound literals", () => {
     const timestamp = new Date("2024-01-02T03:04:05.000Z")
 
-    const plan = Postgres.Query.select({
-      truthy: Postgres.Query.literal(true),
-      falsy: Postgres.Query.literal(false),
-      missing: Postgres.Query.literal(null),
-      createdAt: Postgres.Query.literal(timestamp),
-      visits: Postgres.Query.literal(7),
-      label: Postgres.Query.literal("user")
+    const plan = StdRoot.Query.select({
+      truthy: StdRoot.Query.literal(true),
+      falsy: StdRoot.Query.literal(false),
+      missing: StdRoot.Query.literal(null),
+      createdAt: StdRoot.Query.literal(timestamp),
+      visits: StdRoot.Query.literal(7),
+      label: StdRoot.Query.literal("user")
     })
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -58,7 +58,7 @@ describe("postgres dialect behavior", () => {
     const { users } = makePostgresSocialGraph()
 
     const rendered = Postgres.Renderer.make().render(
-      Postgres.Query.select({}).pipe(Postgres.Query.from(users))
+      StdRoot.Query.select({}).pipe(StdRoot.Query.from(users))
     )
 
     expect(rendered.sql).toBe('select from "users"')
@@ -69,7 +69,7 @@ describe("postgres dialect behavior", () => {
     const { users } = makePostgresSocialGraph()
 
     const rendered = Postgres.Renderer.make().render(
-      Postgres.Query.select().pipe(Postgres.Query.from(users))
+      StdRoot.Query.select().pipe(StdRoot.Query.from(users))
     )
 
     expect(rendered.sql).toBe('select from "users"')
@@ -96,14 +96,14 @@ describe("postgres dialect behavior", () => {
   test("dedupes repeated exact group-by expressions", () => {
     const { users, posts } = makePostgresSocialGraph()
 
-    const valid = Postgres.Query.select({
-      loweredEmail: Postgres.Function.lower(users.email),
-      postCount: Postgres.Function.count(posts.id)
+    const valid = StdRoot.Query.select({
+      loweredEmail: StdRoot.Function.lower(users.email),
+      postCount: StdRoot.Function.count(posts.id)
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.innerJoin(posts, Postgres.Query.eq(users.id, posts.userId)),
-      Postgres.Query.groupBy(Postgres.Function.lower(users.email)),
-      Postgres.Query.groupBy(Postgres.Function.lower(users.email))
+      StdRoot.Query.from(users),
+      StdRoot.Query.innerJoin(posts, StdRoot.Query.eq(users.id, posts.userId)),
+      StdRoot.Query.groupBy(StdRoot.Function.lower(users.email)),
+      StdRoot.Query.groupBy(StdRoot.Function.lower(users.email))
     )
 
     expect(Postgres.Renderer.make().render(valid).sql).toBe(
@@ -113,14 +113,14 @@ describe("postgres dialect behavior", () => {
 
   test("groups by regex predicate expressions", () => {
     const { users } = makePostgresSocialGraph()
-    const matchesExample = Postgres.Query.regexMatch(users.email, "@example\\.com$")
+    const matchesExample = StdRoot.Query.regexMatch(users.email, "@example\\.com$")
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       matchesExample,
-      userCount: Postgres.Function.count(users.id)
+      userCount: StdRoot.Function.count(users.id)
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.groupBy(matchesExample)
+      StdRoot.Query.from(users),
+      StdRoot.Query.groupBy(matchesExample)
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -132,13 +132,13 @@ describe("postgres dialect behavior", () => {
   })
 
   test("renders literal-only scalar operators with stable postgres parameter ordering", () => {
-    const plan = Postgres.Query.select({
-      stitched: Postgres.Function.concat("a", "b", "c"),
-      fallback: Postgres.Function.coalesce(null, null, "done"),
-      missing: Postgres.Query.isNull(null),
-      present: Postgres.Query.isNotNull("x"),
-      caps: Postgres.Function.upper("mix"),
-      lowered: Postgres.Function.lower("MIX")
+    const plan = StdRoot.Query.select({
+      stitched: StdRoot.Function.concat("a", "b", "c"),
+      fallback: StdRoot.Function.coalesce(null, null, "done"),
+      missing: StdRoot.Query.isNull(null),
+      present: StdRoot.Query.isNotNull("x"),
+      caps: StdRoot.Function.upper("mix"),
+      lowered: StdRoot.Function.lower("MIX")
     })
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -151,7 +151,7 @@ describe("postgres dialect behavior", () => {
 
   test("renders nextval sequence definitions with quoted regclass names", () => {
     const sequence = Postgres.Schema.make("Audit\"Schema").sequence("User\"ID_seq")
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       id: Postgres.Function.nextVal(sequence)
     })
 
@@ -162,9 +162,9 @@ describe("postgres dialect behavior", () => {
   })
 
   test("renders explicit collations with postgres syntax", () => {
-    const plan = Postgres.Query.select({
-      cEmail: Postgres.Query.collate(Postgres.Query.literal("alice@example.com"), "C"),
-      cQualified: Postgres.Query.collate(Postgres.Query.literal("alice@example.com"), ["pg_catalog", "default"])
+    const plan = StdRoot.Query.select({
+      cEmail: StdRoot.Query.collate(StdRoot.Query.literal("alice@example.com"), "C"),
+      cQualified: StdRoot.Query.collate(StdRoot.Query.literal("alice@example.com"), ["pg_catalog", "default"])
     })
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -177,14 +177,14 @@ describe("postgres dialect behavior", () => {
 
   test("groups by collated expressions", () => {
     const { users } = makePostgresSocialGraph()
-    const collatedEmail = Postgres.Query.collate(users.email, "C")
+    const collatedEmail = StdRoot.Query.collate(users.email, "C")
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       collatedEmail,
-      userCount: Postgres.Function.count(users.id)
+      userCount: StdRoot.Function.count(users.id)
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.groupBy(collatedEmail)
+      StdRoot.Query.from(users),
+      StdRoot.Query.groupBy(collatedEmail)
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -198,9 +198,9 @@ describe("postgres dialect behavior", () => {
   test("renders explicit casts with postgres syntax", () => {
     const { users } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       idAsText: Postgres.Cast.to(users.id, Postgres.Type.text())
-    }).pipe(Postgres.Query.from(users))
+    }).pipe(StdRoot.Query.from(users))
 
     const rendered = Postgres.Renderer.make().render(plan)
 
@@ -209,9 +209,9 @@ describe("postgres dialect behavior", () => {
   })
 
   test("renders parameterized custom datatypes through explicit casts", () => {
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       sizedText: Postgres.Cast.to(
-        Postgres.Query.literal("alice@example.com"),
+        StdRoot.Query.literal("alice@example.com"),
         Postgres.Type.custom("varchar(255)")
       )
     })
@@ -223,9 +223,9 @@ describe("postgres dialect behavior", () => {
   })
 
   test("renders array-style custom datatypes through explicit casts", () => {
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       textArray: Postgres.Cast.to(
-        Postgres.Query.literal(null),
+        StdRoot.Query.literal(null),
         Postgres.Type.custom("text[]")
       )
     })
@@ -237,28 +237,28 @@ describe("postgres dialect behavior", () => {
   })
 
   test("renders structured datatype casts with postgres syntax", () => {
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       arrayValue: Postgres.Cast.to(
-        Postgres.Query.literal("{}"),
+        StdRoot.Query.literal("{}"),
         Postgres.Type.array(Postgres.Type.text())
       ),
       rangeValue: Postgres.Cast.to(
-        Postgres.Query.literal("int4range(1,10)"),
+        StdRoot.Query.literal("int4range(1,10)"),
         Postgres.Type.range("int4range", Postgres.Type.int4())
       ),
       recordValue: Postgres.Cast.to(
-        Postgres.Query.literal("{}"),
+        StdRoot.Query.literal("{}"),
         Postgres.Type.record("user_profile", {
           displayName: Postgres.Type.text(),
           age: Postgres.Type.int4()
         })
       ),
       domainValue: Postgres.Cast.to(
-        Postgres.Query.literal("alice@example.com"),
+        StdRoot.Query.literal("alice@example.com"),
         Postgres.Type.domain("email_domain", Postgres.Type.text())
       ),
       enumValue: Postgres.Cast.to(
-        Postgres.Query.literal("status_enum"),
+        StdRoot.Query.literal("status_enum"),
         Postgres.Type.enum("status_enum")
       )
     })
@@ -272,18 +272,18 @@ describe("postgres dialect behavior", () => {
   })
 
   test("renders array and range container operators with postgres syntax", () => {
-    const plan = Postgres.Query.select({
-      arrayContains: Postgres.Query.contains(
-        Postgres.Cast.to(Postgres.Query.literal("{}"), Postgres.Type.array(Postgres.Type.text())),
-        Postgres.Cast.to(Postgres.Query.literal("{}"), Postgres.Type.array(Postgres.Type.text()))
+    const plan = StdRoot.Query.select({
+      arrayContains: StdRoot.Query.contains(
+        Postgres.Cast.to(StdRoot.Query.literal("{}"), Postgres.Type.array(Postgres.Type.text())),
+        Postgres.Cast.to(StdRoot.Query.literal("{}"), Postgres.Type.array(Postgres.Type.text()))
       ),
-      arrayContainedBy: Postgres.Query.containedBy(
-        Postgres.Cast.to(Postgres.Query.literal("{}"), Postgres.Type.array(Postgres.Type.text())),
-        Postgres.Cast.to(Postgres.Query.literal("{}"), Postgres.Type.array(Postgres.Type.text()))
+      arrayContainedBy: StdRoot.Query.containedBy(
+        Postgres.Cast.to(StdRoot.Query.literal("{}"), Postgres.Type.array(Postgres.Type.text())),
+        Postgres.Cast.to(StdRoot.Query.literal("{}"), Postgres.Type.array(Postgres.Type.text()))
       ),
-      rangeOverlap: Postgres.Query.overlaps(
-        Postgres.Cast.to(Postgres.Query.literal("int4range(1,10)"), Postgres.Type.range("int4range", Postgres.Type.int4())),
-        Postgres.Cast.to(Postgres.Query.literal("int4range(5,15)"), Postgres.Type.range("int4range", Postgres.Type.int4()))
+      rangeOverlap: StdRoot.Query.overlaps(
+        Postgres.Cast.to(StdRoot.Query.literal("int4range(1,10)"), Postgres.Type.range("int4range", Postgres.Type.int4())),
+        Postgres.Cast.to(StdRoot.Query.literal("int4range(5,15)"), Postgres.Type.range("int4range", Postgres.Type.int4()))
       )
     })
 
@@ -296,14 +296,14 @@ describe("postgres dialect behavior", () => {
   })
 
   test("rejects incompatible built-in postgres range and multirange operands", () => {
-    const plan = Postgres.Query.select({
-      badOverlap: Postgres.Query.overlaps(
-        Postgres.Cast.to(Postgres.Query.literal("int4range(1,10)"), Postgres.Type.int4range()),
-        Postgres.Cast.to(Postgres.Query.literal("[2026-01-01,2026-01-02)"), Postgres.Type.tstzrange())
+    const plan = StdRoot.Query.select({
+      badOverlap: StdRoot.Query.overlaps(
+        Postgres.Cast.to(StdRoot.Query.literal("int4range(1,10)"), Postgres.Type.int4range()),
+        Postgres.Cast.to(StdRoot.Query.literal("[2026-01-01,2026-01-02)"), Postgres.Type.tstzrange())
       ),
-      badMultiOverlap: Postgres.Query.overlaps(
-        Postgres.Cast.to(Postgres.Query.literal("{[1,10)}"), Postgres.Type.int4multirange()),
-        Postgres.Cast.to(Postgres.Query.literal("{[2026-01-01,2026-01-02)}"), Postgres.Type.tstzmultirange())
+      badMultiOverlap: StdRoot.Query.overlaps(
+        Postgres.Cast.to(StdRoot.Query.literal("{[1,10)}"), Postgres.Type.int4multirange()),
+        Postgres.Cast.to(StdRoot.Query.literal("{[2026-01-01,2026-01-02)}"), Postgres.Type.tstzmultirange())
       )
     })
 
@@ -313,34 +313,34 @@ describe("postgres dialect behavior", () => {
   test("renders boolean combinators and clause-level parameter ordering across postgres queries", () => {
     const { users, posts } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.select({
-      summary: Postgres.Function.concat(
-        Postgres.Function.lower(users.email),
+    const plan = StdRoot.Query.select({
+      summary: StdRoot.Function.concat(
+        StdRoot.Function.lower(users.email),
         "::",
-        Postgres.Function.upper(Postgres.Function.coalesce(posts.title, "missing"))
+        StdRoot.Function.upper(StdRoot.Function.coalesce(posts.title, "missing"))
       ),
-      draftOrMissing: Postgres.Query.or(
-        Postgres.Query.isNull(posts.title),
-        unsafeAny(Postgres.Query.eq(Postgres.Function.lower(unsafeAny(posts.title)), "draft"))
+      draftOrMissing: StdRoot.Query.or(
+        StdRoot.Query.isNull(posts.title),
+        unsafeAny(StdRoot.Query.eq(StdRoot.Function.lower(unsafeAny(posts.title)), "draft"))
       ),
-      active: Postgres.Query.and(
-        Postgres.Query.isNotNull(posts.id),
-        Postgres.Query.not(Postgres.Query.eq(users.email, "banned@example.com"))
+      active: StdRoot.Query.and(
+        StdRoot.Query.isNotNull(posts.id),
+        StdRoot.Query.not(StdRoot.Query.eq(users.email, "banned@example.com"))
       )
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.leftJoin(posts, Postgres.Query.eq(users.id, posts.userId)),
-      Postgres.Query.where(Postgres.Query.and(
-        Postgres.Query.or(
-          Postgres.Query.eq(users.email, "alice@example.com"),
-          Postgres.Query.eq(users.email, "bob@example.com")
+      StdRoot.Query.from(users),
+      StdRoot.Query.leftJoin(posts, StdRoot.Query.eq(users.id, posts.userId)),
+      StdRoot.Query.where(StdRoot.Query.and(
+        StdRoot.Query.or(
+          StdRoot.Query.eq(users.email, "alice@example.com"),
+          StdRoot.Query.eq(users.email, "bob@example.com")
         ),
-        Postgres.Query.not(
-          Postgres.Query.eq(Postgres.Function.coalesce(posts.title, "missing"), "archived")
+        StdRoot.Query.not(
+          StdRoot.Query.eq(StdRoot.Function.coalesce(posts.title, "missing"), "archived")
         )
       )),
-      Postgres.Query.orderBy(
-        Postgres.Function.upper(Postgres.Function.coalesce(posts.title, "missing")),
+      StdRoot.Query.orderBy(
+        StdRoot.Function.upper(StdRoot.Function.coalesce(posts.title, "missing")),
         "desc"
       )
     )
@@ -366,15 +366,15 @@ describe("postgres dialect behavior", () => {
   test("renders distinct, limit, and offset with postgres parameter ordering", () => {
     const { users } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       email: users.email
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.where(Postgres.Query.like(users.email, "%@example.com")),
-      Postgres.Query.distinct(),
-      Postgres.Query.orderBy(users.email),
-      Postgres.Query.limit(5),
-      Postgres.Query.offset(10)
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.like(users.email, "%@example.com")),
+      StdRoot.Query.distinct(),
+      StdRoot.Query.orderBy(users.email),
+      StdRoot.Query.limit(5),
+      StdRoot.Query.offset(10)
     )
 
     const rendered = render(plan)
@@ -388,11 +388,11 @@ describe("postgres dialect behavior", () => {
   test("rejects NaN postgres limit values", () => {
     const { users } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       email: users.email
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.limit(Number.NaN)
+      StdRoot.Query.from(users),
+      StdRoot.Query.limit(Number.NaN)
     )
 
     expect(() => render(plan)).toThrow("Expected a finite numeric value")
@@ -401,11 +401,11 @@ describe("postgres dialect behavior", () => {
   test("rejects NaN postgres offset values", () => {
     const { users } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       email: users.email
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.offset(Number.NaN)
+      StdRoot.Query.from(users),
+      StdRoot.Query.offset(Number.NaN)
     )
 
     expect(() => render(plan)).toThrow("Expected a finite numeric value")
@@ -414,14 +414,14 @@ describe("postgres dialect behavior", () => {
   test("renders distinct on with postgres parameter ordering", () => {
     const { users } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id,
       email: users.email
     }).pipe(
-      Postgres.Query.from(users),
+      StdRoot.Query.from(users),
       Postgres.Query.distinctOn(users.email),
-      Postgres.Query.orderBy(users.email),
-      Postgres.Query.orderBy(users.id)
+      StdRoot.Query.orderBy(users.email),
+      StdRoot.Query.orderBy(users.id)
     )
 
     const rendered = render(plan)
@@ -435,14 +435,14 @@ describe("postgres dialect behavior", () => {
   test("rejects distinct on ordering that does not start with distinct expressions", () => {
     const { users } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id,
       email: users.email
     }).pipe(
-      Postgres.Query.from(users),
+      StdRoot.Query.from(users),
       Postgres.Query.distinctOn(users.email),
-      Postgres.Query.orderBy(users.id),
-      Postgres.Query.orderBy(users.email)
+      StdRoot.Query.orderBy(users.id),
+      StdRoot.Query.orderBy(users.email)
     )
 
     expect(() => render(plan)).toThrow(
@@ -453,18 +453,18 @@ describe("postgres dialect behavior", () => {
   test("renders the extended read predicate surface with postgres-specific operators", () => {
     const { users } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.select({
-      notEqual: Postgres.Query.neq(users.id, 5),
-      lessThan: Postgres.Query.lt(users.id, 10),
-      lessThanOrEqual: Postgres.Query.lte(users.id, 11),
-      greaterThan: Postgres.Query.gt(users.id, 1),
-      greaterThanOrEqual: Postgres.Query.gte(users.id, 0),
-      emailLike: Postgres.Query.like(users.email, "%@example.com"),
-      emailInsensitive: Postgres.Query.ilike(users.email, "%@EXAMPLE.COM%"),
-      idRange: Postgres.Query.between(users.id, 2, 4),
-      idSet: Postgres.Query.in(users.id, 7, 8, 9)
+    const plan = StdRoot.Query.select({
+      notEqual: StdRoot.Query.neq(users.id, 5),
+      lessThan: StdRoot.Query.lt(users.id, 10),
+      lessThanOrEqual: StdRoot.Query.lte(users.id, 11),
+      greaterThan: StdRoot.Query.gt(users.id, 1),
+      greaterThanOrEqual: StdRoot.Query.gte(users.id, 0),
+      emailLike: StdRoot.Query.like(users.email, "%@example.com"),
+      emailInsensitive: StdRoot.Query.ilike(users.email, "%@EXAMPLE.COM%"),
+      idRange: StdRoot.Query.between(users.id, 2, 4),
+      idSet: StdRoot.Query.in(users.id, 7, 8, 9)
     }).pipe(
-      Postgres.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -478,23 +478,23 @@ describe("postgres dialect behavior", () => {
   test("renders the remaining read predicate helpers with postgres-specific syntax", () => {
     const { users } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.select({
-      notInIds: Postgres.Query.notIn(users.id, 4, 5, 6),
-      distinctEmail: Postgres.Query.isDistinctFrom(users.email, "alice@example.com"),
-      sameEmail: Postgres.Query.isNotDistinctFrom(users.email, "alice@example.com"),
-      combined: Postgres.Query.all(
-        Postgres.Query.eq(users.id, 1),
-        Postgres.Query.any(
-          Postgres.Query.eq(users.email, "alice@example.com"),
-          Postgres.Query.eq(users.email, "bob@example.com")
+    const plan = StdRoot.Query.select({
+      notInIds: StdRoot.Query.notIn(users.id, 4, 5, 6),
+      distinctEmail: StdRoot.Query.isDistinctFrom(users.email, "alice@example.com"),
+      sameEmail: StdRoot.Query.isNotDistinctFrom(users.email, "alice@example.com"),
+      combined: StdRoot.Query.all(
+        StdRoot.Query.eq(users.id, 1),
+        StdRoot.Query.any(
+          StdRoot.Query.eq(users.email, "alice@example.com"),
+          StdRoot.Query.eq(users.email, "bob@example.com")
         )
       ),
-      label: Postgres.Query.match(users.email)
+      label: StdRoot.Query.match(users.email)
         .when("alice@example.com", "Alice")
         .when("bob@example.com", "Bob")
         .else("Other")
     }).pipe(
-      Postgres.Query.from(users)
+      StdRoot.Query.from(users)
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -522,14 +522,14 @@ describe("postgres dialect behavior", () => {
   test("renders searched case expressions with postgres placeholders", () => {
     const { users, posts } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.select({
-      titleState: Postgres.Query.case()
-        .when(Postgres.Query.isNull(posts.title), "missing")
-        .when(Postgres.Query.eq(Postgres.Function.lower(posts.title), "draft"), "draft")
-        .else(Postgres.Function.upper(Postgres.Function.coalesce(posts.title, "published")))
+    const plan = StdRoot.Query.select({
+      titleState: StdRoot.Query.case()
+        .when(StdRoot.Query.isNull(posts.title), "missing")
+        .when(StdRoot.Query.eq(StdRoot.Function.lower(posts.title), "draft"), "draft")
+        .else(StdRoot.Function.upper(StdRoot.Function.coalesce(posts.title, "published")))
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.leftJoin(posts, Postgres.Query.eq(users.id, posts.userId))
+      StdRoot.Query.from(users),
+      StdRoot.Query.leftJoin(posts, StdRoot.Query.eq(users.id, posts.userId))
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -543,28 +543,28 @@ describe("postgres dialect behavior", () => {
   test("renders right, full, and cross joins with postgres syntax", () => {
     const { users, posts } = makePostgresSocialGraph()
 
-    const rightJoinPlan = Postgres.Query.select({
+    const rightJoinPlan = StdRoot.Query.select({
       userId: users.id,
       postId: posts.id
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.rightJoin(posts, Postgres.Query.eq(users.id, posts.userId))
+      StdRoot.Query.from(users),
+      StdRoot.Query.rightJoin(posts, StdRoot.Query.eq(users.id, posts.userId))
     )
 
-    const fullJoinPlan = Postgres.Query.select({
+    const fullJoinPlan = StdRoot.Query.select({
       userId: users.id,
       postId: posts.id
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.fullJoin(posts, Postgres.Query.eq(users.id, posts.userId))
+      StdRoot.Query.from(users),
+      StdRoot.Query.fullJoin(posts, StdRoot.Query.eq(users.id, posts.userId))
     )
 
-    const crossJoinPlan = Postgres.Query.select({
+    const crossJoinPlan = StdRoot.Query.select({
       userId: users.id,
       postId: posts.id
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.crossJoin(posts)
+      StdRoot.Query.from(users),
+      StdRoot.Query.crossJoin(posts)
     )
 
     expect(Postgres.Renderer.make().render(rightJoinPlan).sql).toBe(
@@ -581,15 +581,15 @@ describe("postgres dialect behavior", () => {
   test("renders distinct, limit, and offset with postgres placeholders", () => {
     const { users } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       userId: users.id,
       email: users.email
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.distinct(),
-      Postgres.Query.orderBy(users.email),
-      Postgres.Query.limit(10),
-      Postgres.Query.offset(20)
+      StdRoot.Query.from(users),
+      StdRoot.Query.distinct(),
+      StdRoot.Query.orderBy(users.email),
+      StdRoot.Query.limit(10),
+      StdRoot.Query.offset(20)
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -603,19 +603,19 @@ describe("postgres dialect behavior", () => {
   test("renders exists subqueries with shared postgres parameter ordering", () => {
     const { users, posts } = makePostgresSocialGraph()
 
-    const postExists = Postgres.Query.select({
+    const postExists = StdRoot.Query.select({
       id: posts.id
     }).pipe(
-      Postgres.Query.from(posts),
-      Postgres.Query.where(Postgres.Query.eq(posts.title, "hello"))
+      StdRoot.Query.from(posts),
+      StdRoot.Query.where(StdRoot.Query.eq(posts.title, "hello"))
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       email: users.email,
-      hasHelloPost: Postgres.Query.exists(postExists)
+      hasHelloPost: StdRoot.Query.exists(postExists)
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.where(Postgres.Query.eq(users.email, "alice@example.com"))
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.eq(users.email, "alice@example.com"))
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -629,19 +629,19 @@ describe("postgres dialect behavior", () => {
   test("renders correlated exists subqueries against outer postgres sources", () => {
     const { users, posts } = makePostgresSocialGraph()
 
-    const postExists = Postgres.Query.select({
+    const postExists = StdRoot.Query.select({
       id: posts.id
     }).pipe(
-      Postgres.Query.from(posts),
-      Postgres.Query.where(Postgres.Query.eq(posts.userId, users.id))
+      StdRoot.Query.from(posts),
+      StdRoot.Query.where(StdRoot.Query.eq(posts.userId, users.id))
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       email: users.email,
-      hasPosts: Postgres.Query.exists(postExists)
+      hasPosts: StdRoot.Query.exists(postExists)
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.where(Postgres.Query.eq(users.email, "alice@example.com"))
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.eq(users.email, "alice@example.com"))
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -655,20 +655,20 @@ describe("postgres dialect behavior", () => {
   test("groups by exists subquery expressions", () => {
     const { users, posts } = makePostgresSocialGraph()
 
-    const postExists = Postgres.Query.select({
+    const postExists = StdRoot.Query.select({
       id: posts.id
     }).pipe(
-      Postgres.Query.from(posts),
-      Postgres.Query.where(Postgres.Query.eq(posts.userId, users.id))
+      StdRoot.Query.from(posts),
+      StdRoot.Query.where(StdRoot.Query.eq(posts.userId, users.id))
     )
-    const hasPosts = Postgres.Query.exists(postExists)
+    const hasPosts = StdRoot.Query.exists(postExists)
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       hasPosts,
-      userCount: Postgres.Function.count(users.id)
+      userCount: StdRoot.Function.count(users.id)
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.groupBy(hasPosts)
+      StdRoot.Query.from(users),
+      StdRoot.Query.groupBy(hasPosts)
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -682,26 +682,26 @@ describe("postgres dialect behavior", () => {
   test("renders window functions and windowed aggregates with postgres syntax", () => {
     const { users, posts } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       userId: users.id,
-      rowNumber: Postgres.Function.rowNumber({
+      rowNumber: StdRoot.Function.rowNumber({
         partitionBy: [users.id],
         orderBy: [{ value: posts.id, direction: "asc" }]
       }),
-      rankByTitle: Postgres.Function.rank({
+      rankByTitle: StdRoot.Function.rank({
         partitionBy: [users.id],
-        orderBy: [{ value: Postgres.Function.lower(posts.title), direction: "desc" }]
+        orderBy: [{ value: StdRoot.Function.lower(posts.title), direction: "desc" }]
       }),
-      postCount: Postgres.Function.over(Postgres.Function.count(posts.id), {
+      postCount: StdRoot.Function.over(StdRoot.Function.count(posts.id), {
         partitionBy: [users.id],
         orderBy: [{ value: posts.id, direction: "asc" }]
       }),
-      latestTitle: Postgres.Function.over(Postgres.Function.max(posts.title), {
+      latestTitle: StdRoot.Function.over(StdRoot.Function.max(posts.title), {
         partitionBy: [users.id]
       })
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.leftJoin(posts, Postgres.Query.eq(users.id, posts.userId))
+      StdRoot.Query.from(users),
+      StdRoot.Query.leftJoin(posts, StdRoot.Query.eq(users.id, posts.userId))
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -715,22 +715,22 @@ describe("postgres dialect behavior", () => {
   test("renders aliased postgres subqueries as derived tables", () => {
     const { users, posts } = makePostgresSocialGraph()
 
-    const activePosts = Postgres.Query.select({
+    const activePosts = StdRoot.Query.select({
       userId: posts.userId,
       title: posts.title
     }).pipe(
-      Postgres.Query.from(posts),
-      Postgres.Query.where(Postgres.Query.isNotNull(posts.title))
+      StdRoot.Query.from(posts),
+      StdRoot.Query.where(StdRoot.Query.isNotNull(posts.title))
     )
 
-    const derivedPosts = Postgres.Query.as(activePosts, "active_posts")
+    const derivedPosts = StdRoot.Query.as(activePosts, "active_posts")
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       userId: users.id,
       title: derivedPosts.title
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.innerJoin(derivedPosts, Postgres.Query.eq(users.id, derivedPosts.userId))
+      StdRoot.Query.from(users),
+      StdRoot.Query.innerJoin(derivedPosts, StdRoot.Query.eq(users.id, derivedPosts.userId))
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -744,21 +744,21 @@ describe("postgres dialect behavior", () => {
   test("renders postgres common table expressions as aliased sources", () => {
     const { users, posts } = makePostgresSocialGraph()
 
-    const activePostsSubquery = Postgres.Query.select({
+    const activePostsSubquery = StdRoot.Query.select({
       userId: posts.userId,
       title: posts.title
     }).pipe(
-      Postgres.Query.from(posts),
-      Postgres.Query.where(Postgres.Query.isNotNull(posts.title))
+      StdRoot.Query.from(posts),
+      StdRoot.Query.where(StdRoot.Query.isNotNull(posts.title))
     )
-    const activePosts = activePostsSubquery.pipe(Postgres.Query.with("active_posts"))
+    const activePosts = activePostsSubquery.pipe(StdRoot.Query.with("active_posts"))
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       userId: users.id,
       title: activePosts.title
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.innerJoin(activePosts, Postgres.Query.eq(users.id, activePosts.userId))
+      StdRoot.Query.from(users),
+      StdRoot.Query.innerJoin(activePosts, StdRoot.Query.eq(users.id, activePosts.userId))
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -775,25 +775,25 @@ describe("postgres dialect behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const insertedUsers = Postgres.Query.insert(users, {
+    const insertedUsers = StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com",
       bio: null
     }).pipe(
-      Postgres.Query.returning({
+      StdRoot.Query.returning({
         id: users.id,
         email: users.email,
         bio: users.bio
       }),
-      Postgres.Query.with("inserted_users")
+      StdRoot.Query.with("inserted_users")
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       id: insertedUsers.id,
       email: insertedUsers.email,
       bio: insertedUsers.bio
     }).pipe(
-      Postgres.Query.from(insertedUsers)
+      StdRoot.Query.from(insertedUsers)
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -817,28 +817,28 @@ describe("postgres dialect behavior", () => {
       userId: StdRoot.Column.uuid()
     })
 
-    const insertedUsers = Postgres.Query.insert(users, {
+    const insertedUsers = StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com"
     }).pipe(
-      Postgres.Query.returning({
+      StdRoot.Query.returning({
         id: users.id
       }),
-      Postgres.Query.with("inserted_users")
+      StdRoot.Query.with("inserted_users")
     )
-    const postIds = Postgres.Query.select({
+    const postIds = StdRoot.Query.select({
       postId: posts.id
     }).pipe(
-      Postgres.Query.from(posts),
-      Postgres.Query.as("post_ids")
+      StdRoot.Query.from(posts),
+      StdRoot.Query.as("post_ids")
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       id: insertedUsers.id,
       postId: postIds.postId
     }).pipe(
-      Postgres.Query.from(insertedUsers),
-      Postgres.Query.crossJoin(postIds)
+      StdRoot.Query.from(insertedUsers),
+      StdRoot.Query.crossJoin(postIds)
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -855,21 +855,21 @@ describe("postgres dialect behavior", () => {
   test("renders postgres lateral joins with correlated outer references", () => {
     const { users, posts } = makePostgresSocialGraph()
 
-    const lateralPosts = Postgres.Query.select({
+    const lateralPosts = StdRoot.Query.select({
         postId: posts.id,
         userId: posts.userId
       }).pipe(
-        Postgres.Query.from(posts),
-        Postgres.Query.where(Postgres.Query.eq(posts.userId, users.id)),
-        Postgres.Query.lateral("user_posts")
+        StdRoot.Query.from(posts),
+        StdRoot.Query.where(StdRoot.Query.eq(posts.userId, users.id)),
+        StdRoot.Query.lateral("user_posts")
       )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       userId: users.id,
       postId: lateralPosts.postId
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.innerJoin(lateralPosts, true)
+      StdRoot.Query.from(users),
+      StdRoot.Query.innerJoin(lateralPosts, true)
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -883,17 +883,17 @@ describe("postgres dialect behavior", () => {
   test("renders recursive postgres ctes with the recursive keyword", () => {
     const { posts } = makePostgresSocialGraph()
 
-    const recursivePosts = Postgres.Query.select({
+    const recursivePosts = StdRoot.Query.select({
         userId: posts.userId
       }).pipe(
-        Postgres.Query.from(posts),
-        Postgres.Query.withRecursive("recursive_posts")
+        StdRoot.Query.from(posts),
+        StdRoot.Query.withRecursive("recursive_posts")
       )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       userId: recursivePosts.userId
     }).pipe(
-      Postgres.Query.from(recursivePosts)
+      StdRoot.Query.from(recursivePosts)
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -911,10 +911,10 @@ describe("postgres dialect behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const upsertPlan = Postgres.Query.returning({
+    const upsertPlan = StdRoot.Query.returning({
       id: users.id,
       email: users.email
-    })(Postgres.Query.upsert(users, {
+    })(StdRoot.Query.upsert(users, {
       id: userId,
       email: "alice@example.com",
       bio: null
@@ -937,11 +937,11 @@ describe("postgres dialect behavior", () => {
   test("renders postgres locking clauses at the end of select queries", () => {
     const { users } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       id: users.id
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.lock("update", { nowait: true })
+      StdRoot.Query.from(users),
+      StdRoot.Query.lock("update", { nowait: true })
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -955,30 +955,30 @@ describe("postgres dialect behavior", () => {
   test("renders postgres set operators with stable operand ordering", () => {
     const { users } = makePostgresSocialGraph()
 
-    const alice = Postgres.Query.select({
+    const alice = StdRoot.Query.select({
       email: users.email
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.where(Postgres.Query.eq(users.email, "alice@example.com"))
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.eq(users.email, "alice@example.com"))
     )
 
-    const bob = Postgres.Query.select({
+    const bob = StdRoot.Query.select({
       email: users.email
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.where(Postgres.Query.eq(users.email, "bob@example.com"))
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.eq(users.email, "bob@example.com"))
     )
 
-    const carol = Postgres.Query.select({
+    const carol = StdRoot.Query.select({
       email: users.email
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.where(Postgres.Query.eq(users.email, "carol@example.com"))
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.eq(users.email, "carol@example.com"))
     )
 
-    const unionPlan = Postgres.Query.union(Postgres.Query.union(alice, bob), carol)
-    const intersectPlan = Postgres.Query.intersect(alice, bob)
-    const exceptPlan = Postgres.Query.except(alice, bob)
+    const unionPlan = StdRoot.Query.union(StdRoot.Query.union(alice, bob), carol)
+    const intersectPlan = StdRoot.Query.intersect(alice, bob)
+    const exceptPlan = StdRoot.Query.except(alice, bob)
 
     expect(Postgres.Renderer.make().render(unionPlan).sql).toBe(
       '(select "users"."email" as "email" from "users" where ("users"."email" = $1)) union (select "users"."email" as "email" from "users" where ("users"."email" = $2)) union (select "users"."email" as "email" from "users" where ("users"."email" = $3))'
@@ -1016,31 +1016,31 @@ describe("postgres dialect behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const insertPlan = Postgres.Query.returning({
+    const insertPlan = StdRoot.Query.returning({
       id: users.id,
       email: users.email,
       bio: users.bio
-    })(Postgres.Query.insert(users, {
+    })(StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com",
       bio: null
     }))
 
-    const updatePlan = Postgres.Query.returning({
+    const updatePlan = StdRoot.Query.returning({
       id: users.id,
       email: users.email,
       bio: users.bio
-    })(Postgres.Query.where(Postgres.Query.eq(users.id, userId))(
-      Postgres.Query.update(users, {
+    })(StdRoot.Query.where(StdRoot.Query.eq(users.id, userId))(
+      StdRoot.Query.update(users, {
         email: "updated@example.com",
         bio: null
       })
     ))
 
-    const deletePlan = Postgres.Query.returning({
+    const deletePlan = StdRoot.Query.returning({
       id: users.id
-    })(Postgres.Query.where(Postgres.Query.eq(users.id, userId))(
-      Postgres.Query.delete(users)
+    })(StdRoot.Query.where(StdRoot.Query.eq(users.id, userId))(
+      StdRoot.Query.delete(users)
     ))
 
     expect(Postgres.Renderer.make().render(insertPlan).sql).toBe(
@@ -1068,12 +1068,12 @@ describe("postgres dialect behavior", () => {
   test("renders postgres update from joined sources", () => {
     const { users, posts } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.returning({
+    const plan = StdRoot.Query.returning({
       id: users.id,
       email: users.email
-    })(Postgres.Query.where(Postgres.Query.eq(posts.title, "hello"))(
-      Postgres.Query.innerJoin(posts, Postgres.Query.eq(posts.userId, users.id))(
-        Postgres.Query.update(users, {
+    })(StdRoot.Query.where(StdRoot.Query.eq(posts.title, "hello"))(
+      StdRoot.Query.innerJoin(posts, StdRoot.Query.eq(posts.userId, users.id))(
+        StdRoot.Query.update(users, {
           email: "author@example.com"
         })
       )
@@ -1093,11 +1093,11 @@ describe("postgres dialect behavior", () => {
   test("renders postgres delete using joined sources", () => {
     const { users, posts } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.returning({
+    const plan = StdRoot.Query.returning({
       id: users.id
-    })(Postgres.Query.where(Postgres.Query.eq(posts.title, "hello"))(
-      Postgres.Query.innerJoin(posts, Postgres.Query.eq(posts.userId, users.id))(
-        Postgres.Query.delete(users)
+    })(StdRoot.Query.where(StdRoot.Query.eq(posts.title, "hello"))(
+      StdRoot.Query.innerJoin(posts, StdRoot.Query.eq(posts.userId, users.id))(
+        StdRoot.Query.delete(users)
       )
     ))
 
@@ -1121,26 +1121,26 @@ describe("postgres dialect behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const valuesSource = unsafeAny(Postgres.Query.as(Postgres.Query.values([
-      { id: Postgres.Query.literal(userId), email: "alice@example.com", bio: null },
-      { id: Postgres.Query.literal(secondUserId), email: "bob@example.com", bio: "writer" }
+    const valuesSource = unsafeAny(StdRoot.Query.as(StdRoot.Query.values([
+      { id: StdRoot.Query.literal(userId), email: "alice@example.com", bio: null },
+      { id: StdRoot.Query.literal(secondUserId), email: "bob@example.com", bio: "writer" }
     ] as const), "seed"))
 
-    const multiRowPlan = Postgres.Query.insert(users).pipe(
-      Postgres.Query.from(valuesSource)
+    const multiRowPlan = StdRoot.Query.insert(users).pipe(
+      StdRoot.Query.from(valuesSource)
     )
 
-    const insertSelectPlan = Postgres.Query.insert(archivedUsers).pipe(
-      Postgres.Query.from(Postgres.Query.select({
+    const insertSelectPlan = StdRoot.Query.insert(archivedUsers).pipe(
+      StdRoot.Query.from(StdRoot.Query.select({
       id: users.id,
       email: users.email,
       bio: users.bio
     }).pipe(
-      Postgres.Query.from(users)
+      StdRoot.Query.from(users)
     )))
 
-    const insertUnnestPlan = Postgres.Query.insert(users).pipe(
-      Postgres.Query.from(Postgres.Query.unnest({
+    const insertUnnestPlan = StdRoot.Query.insert(users).pipe(
+      StdRoot.Query.from(StdRoot.Query.unnest({
       id: [userId, secondUserId],
       email: ["alice@example.com", "bob@example.com"],
       bio: [null, "writer"]
@@ -1175,7 +1175,7 @@ describe("postgres dialect behavior", () => {
 
   test("renders postgres default-values and rich conflict clauses", () => {
     const auditLogs = StdRoot.Table.make("audit_logs", {
-      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey, StdRoot.Column.default(Postgres.Query.literal("audit-log-id"))),
+      id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey, StdRoot.Column.default(StdRoot.Query.literal("audit-log-id"))),
       note: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
     const users = StdRoot.Table.make("users", {
@@ -1184,27 +1184,27 @@ describe("postgres dialect behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const defaultInsertPlan = Postgres.Query.insert(auditLogs)
-    const partialIndexConflictPlan = Postgres.Query.onConflict({
+    const defaultInsertPlan = StdRoot.Query.insert(auditLogs)
+    const partialIndexConflictPlan = StdRoot.Query.onConflict({
       columns: ["email"] as const,
-      where: Postgres.Query.isNotNull(users.bio)
+      where: StdRoot.Query.isNotNull(users.bio)
     }, {
       update: {
-        bio: Postgres.Query.excluded(users.bio)
+        bio: StdRoot.Query.excluded(users.bio)
       },
-      where: Postgres.Query.isNotNull(Postgres.Query.excluded(users.bio))
-    })(Postgres.Query.insert(users, {
+      where: StdRoot.Query.isNotNull(StdRoot.Query.excluded(users.bio))
+    })(StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com",
       bio: "writer"
     }))
-    const namedConstraintPlan = Postgres.Query.onConflict({
+    const namedConstraintPlan = StdRoot.Query.onConflict({
       constraint: "users_email_key"
     }, {
       update: {
-        email: Postgres.Query.excluded(users.email)
+        email: StdRoot.Query.excluded(users.email)
       }
-    })(Postgres.Query.insert(users, {
+    })(StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com",
       bio: null
@@ -1245,31 +1245,31 @@ describe("postgres dialect behavior", () => {
     }
     const membershipsBase = StdRoot.Table.make("memberships", membershipsFields)
     const memberships = membershipsBase.pipe(
-      Postgres.Table.foreignKey("orgId", () => orgs, "id"),
-      Postgres.Table.unique(["orgId", "role"] as const),
-      Postgres.Table.index(["role", "orgId"] as const),
-      Postgres.Table.check("role_not_empty", Postgres.Query.neq(membershipsBase.role, Postgres.Query.literal("")))
+      StdRoot.Table.foreignKey("orgId", () => orgs, "id"),
+      StdRoot.Table.unique(["orgId", "role"] as const),
+      StdRoot.Table.index(["role", "orgId"] as const),
+      StdRoot.Table.check("role_not_empty", StdRoot.Query.neq(membershipsBase.role, StdRoot.Query.literal("")))
     )
 
-    expect(Postgres.Renderer.make().render(Postgres.Query.createTable(memberships, {
+    expect(Postgres.Renderer.make().render(StdRoot.Query.createTable(memberships, {
       ifNotExists: true
     })).sql).toBe(
       'create table if not exists "memberships" ("id" uuid not null, "orgId" uuid not null, "role" text not null, "note" text, primary key ("id"), foreign key ("orgId") references "orgs" ("id"), unique ("orgId", "role"), constraint "role_not_empty" check (("role" <> \'\')))'
     )
-    expect(Postgres.Renderer.make().render(Postgres.Query.createTable(memberships, {
+    expect(Postgres.Renderer.make().render(StdRoot.Query.createTable(memberships, {
       ifNotExists: true
     })).params).toEqual([])
-    expect(Postgres.Renderer.make().render(Postgres.Query.createIndex(memberships, ["role", "orgId"] as const, {
+    expect(Postgres.Renderer.make().render(StdRoot.Query.createIndex(memberships, ["role", "orgId"] as const, {
       ifNotExists: true
     })).sql).toBe(
       'create index if not exists "memberships_role_orgId_idx" on "memberships" ("role", "orgId")'
     )
-    expect(Postgres.Renderer.make().render(Postgres.Query.dropIndex(memberships, ["role", "orgId"] as const, {
+    expect(Postgres.Renderer.make().render(StdRoot.Query.dropIndex(memberships, ["role", "orgId"] as const, {
       ifExists: true
     })).sql).toBe(
       'drop index if exists "memberships_role_orgId_idx"'
     )
-    expect(Postgres.Renderer.make().render(Postgres.Query.dropTable(memberships, {
+    expect(Postgres.Renderer.make().render(StdRoot.Query.dropTable(memberships, {
       ifExists: true
     })).sql).toBe(
       'drop table if exists "memberships"'
@@ -1286,16 +1286,16 @@ describe("postgres dialect behavior", () => {
       userId: StdRoot.Column.uuid().pipe(StdRoot.Column.references(() => users.id))
     })
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       eventId: events.id
     }).pipe(
-      Postgres.Query.from(events)
+      StdRoot.Query.from(events)
     )
 
     expect(Postgres.Renderer.make().render(plan).sql).toBe(
       'select "events"."id" as "eventId" from "analytics"."events"'
     )
-    expect(Postgres.Renderer.make().render(Postgres.Query.createTable(events, {
+    expect(Postgres.Renderer.make().render(StdRoot.Query.createTable(events, {
       ifNotExists: true
     })).sql).toBe(
       'create table if not exists "analytics"."events" ("id" uuid not null, "userId" uuid not null, primary key ("id"), foreign key ("userId") references "analytics"."users" ("id"))'
@@ -1305,19 +1305,19 @@ describe("postgres dialect behavior", () => {
   test("decodes nullable joined rows through the postgres executor pipeline", () => {
     const { users, posts } = makePostgresSocialGraph()
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       profile: {
         id: users.id,
-        email: Postgres.Function.lower(users.email)
+        email: StdRoot.Function.lower(users.email)
       },
       post: {
         id: posts.id,
-        title: Postgres.Function.lower(posts.title)
+        title: StdRoot.Function.lower(posts.title)
       },
-      hasPost: Postgres.Query.isNotNull(posts.id)
+      hasPost: StdRoot.Query.isNotNull(posts.id)
     }).pipe(
-      Postgres.Query.from(users),
-      Postgres.Query.leftJoin(posts, Postgres.Query.eq(users.id, posts.userId))
+      StdRoot.Query.from(users),
+      StdRoot.Query.leftJoin(posts, StdRoot.Query.eq(users.id, posts.userId))
     )
 
     const rows = Effect.runSync(unsafeAny(Postgres.Executor.make({
@@ -1353,7 +1353,7 @@ describe("postgres dialect behavior", () => {
       [ExpressionAst.TypeId]: {
         kind: "unsupported"
       }
-    } as unknown as Postgres.Scalar.Any
+    } as unknown as StdRoot.Scalar.Any
 
     expect(() => renderExpression(unsupportedExpression, {
       params: [],

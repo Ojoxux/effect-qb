@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema"
 import { Column, Table } from "effect-qb"
-import { Column as PgColumn, Json, Jsonb, Query as PgQuery } from "effect-qb/postgres"
+import { Query as PgQuery } from "effect-qb"
+import { Column as PgColumn, Json, Jsonb } from "effect-qb/postgres"
 
 const payloadSchema = Schema.Struct({
   profile: Schema.Struct({

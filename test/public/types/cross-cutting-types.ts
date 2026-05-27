@@ -1,7 +1,8 @@
+import * as StdRoot from "effect-qb"
 import * as Std from "effect-qb"
 import * as Mysql from "effect-qb/mysql";
 import * as Postgres from "effect-qb/postgres";
-import { Query as Q } from "effect-qb/postgres"
+import { Query as Q } from "effect-qb"
 
 const users = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),
@@ -77,7 +78,7 @@ Q.merge(users, incomingUsers, Q.eq(users.id, incomingUsers.id), {
 const badMergeMysqlPredicate = Q.merge(
   users,
   incomingUsers,
-  Mysql.Query.literal(true),
+  StdRoot.Query.literal(true),
   {
     whenMatched: {
       delete: true,
@@ -98,7 +99,7 @@ const badMergeMatchedPredicate = Q.merge(
   {
     whenMatched: {
       delete: true,
-      predicate: Mysql.Query.literal(true),
+      predicate: StdRoot.Query.literal(true),
     },
   },
 );
@@ -112,7 +113,7 @@ void badMergeMatchedPredicateRendered;
 const badMergeMatchedUpdate = Q.merge(users, incomingUsers, Q.eq(users.id, incomingUsers.id), {
   whenMatched: {
     update: {
-      email: Mysql.Query.literal("alice@example.com"),
+      email: StdRoot.Query.literal("alice@example.com"),
     },
   },
 });
@@ -129,7 +130,7 @@ const badMergeNotMatchedPredicate = Q.merge(
   Q.eq(users.id, incomingUsers.id),
   {
     whenNotMatched: {
-      predicate: Mysql.Query.literal(true),
+      predicate: StdRoot.Query.literal(true),
       values: {
         id: incomingUsers.id,
         email: incomingUsers.email,
@@ -148,7 +149,7 @@ const badMergeNotMatchedValues = Q.merge(users, incomingUsers, Q.eq(users.id, in
   whenNotMatched: {
     values: {
       id: incomingUsers.id,
-      email: Mysql.Query.literal("alice@example.com"),
+      email: StdRoot.Query.literal("alice@example.com"),
     },
   },
 });

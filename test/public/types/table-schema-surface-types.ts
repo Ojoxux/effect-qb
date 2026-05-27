@@ -1,3 +1,4 @@
+import * as StdRoot from "effect-qb"
 import * as Std from "effect-qb"
 import * as Schema from "effect/Schema"
 
@@ -15,7 +16,7 @@ type IsExact<A, B> =
 type _AssertNoPortableTableSchemaFactory = Assert<IsExact<Extract<"schema", keyof typeof Std.Table>, never>>
 
 const postgresUsers = Std.Table.make("users", {
-  id: Std.Column.uuid().pipe(Std.Column.primaryKey, Std.Column.generated(Postgres.Query.literal("generated-user-id"))),
+  id: Std.Column.uuid().pipe(Std.Column.primaryKey, Std.Column.generated(StdRoot.Query.literal("generated-user-id"))),
   email: Std.Column.text(),
   bio: Std.Column.text().pipe(Std.Column.nullable)
 })

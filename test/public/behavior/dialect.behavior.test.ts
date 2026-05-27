@@ -20,18 +20,18 @@ describe("dialect behavior", () => {
     const { users: pgUsers } = makePostgresSocialGraph();
     const { users: myUsers } = makeMysqlSocialGraph();
 
-    const pgPlan = Postgres.Query.select({
+    const pgPlan = StdRoot.Query.select({
       profile: {
         id: pgUsers.id,
-        email: Postgres.Function.lower(pgUsers.email),
+        email: StdRoot.Function.lower(pgUsers.email),
       },
-    }).pipe(Postgres.Query.from(pgUsers));
-    const myPlan = Mysql.Query.select({
+    }).pipe(StdRoot.Query.from(pgUsers));
+    const myPlan = StdRoot.Query.select({
       profile: {
         id: myUsers.id,
-        email: Mysql.Function.lower(myUsers.email),
+        email: StdRoot.Function.lower(myUsers.email),
       },
-    }).pipe(Mysql.Query.from(myUsers));
+    }).pipe(StdRoot.Query.from(myUsers));
 
     const row = {
       profile__id: userId,
@@ -61,19 +61,19 @@ describe("dialect behavior", () => {
     const myManager = StdRoot.Table.alias(myEmployees, "manager");
     const myReport = StdRoot.Table.alias(myEmployees, "report");
 
-    const pgPlan = Postgres.Query.select({
+    const pgPlan = StdRoot.Query.select({
       managerId: pgManager.id,
       reportName: pgReport.name,
     }).pipe(
-      Postgres.Query.from(pgManager),
-      Postgres.Query.leftJoin(pgReport, Postgres.Query.eq(pgReport.managerId, pgManager.id)),
+      StdRoot.Query.from(pgManager),
+      StdRoot.Query.leftJoin(pgReport, StdRoot.Query.eq(pgReport.managerId, pgManager.id)),
     );
-    const myPlan = Mysql.Query.select({
+    const myPlan = StdRoot.Query.select({
       managerId: myManager.id,
       reportName: myReport.name,
     }).pipe(
-      Mysql.Query.from(myManager),
-      Mysql.Query.leftJoin(myReport, Mysql.Query.eq(myReport.managerId, myManager.id)),
+      StdRoot.Query.from(myManager),
+      StdRoot.Query.leftJoin(myReport, StdRoot.Query.eq(myReport.managerId, myManager.id)),
     );
 
     expect(Postgres.Renderer.make().render(pgPlan).sql).toBe(
@@ -84,15 +84,15 @@ describe("dialect behavior", () => {
     );
   });
 
-  test("dialect entrypoints brand operator outputs with their own db dialects", () => {
+  test("root function operators stay portable across dialect-shaped tables", () => {
     const { users: pgUsers } = makePostgresSocialGraph();
     const { users: myUsers } = makeMysqlSocialGraph();
 
-    const pgExpr = Postgres.Function.concat(Postgres.Function.lower(pgUsers.email), "-user");
-    const myExpr = Mysql.Function.concat(Mysql.Function.lower(myUsers.email), "-user");
+    const pgExpr = StdRoot.Function.concat(StdRoot.Function.lower(pgUsers.email), "-user");
+    const myExpr = StdRoot.Function.concat(StdRoot.Function.lower(myUsers.email), "-user");
 
-    expect(pgExpr[Postgres.Scalar.TypeId].dbType.dialect).toBe("postgres");
-    expect(myExpr[Mysql.Scalar.TypeId].dbType.dialect).toBe("mysql");
+    expect(pgExpr[StdRoot.Scalar.TypeId].dbType.dialect).toBe("standard");
+    expect(myExpr[StdRoot.Scalar.TypeId].dbType.dialect).toBe("standard");
   });
 
   test("mixed-dialect tables are rejected consistently from the shared table layer", () => {

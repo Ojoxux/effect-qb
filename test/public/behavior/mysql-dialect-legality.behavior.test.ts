@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test"
 
 import * as Mysql from "#mysql"
+import * as Postgres from "#postgres"
 import * as StdRoot from "#standard"
 
 const userId = "11111111-1111-1111-1111-111111111111"
@@ -17,12 +18,12 @@ describe("mysql dialect legality", () => {
       userId: StdRoot.Column.uuid()
     })
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       userId: users.id,
       postId: posts.id
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.fullJoin(posts, Mysql.Query.eq(users.id, posts.userId))
+      StdRoot.Query.from(users),
+      StdRoot.Query.fullJoin(posts, StdRoot.Query.eq(users.id, posts.userId))
     )
 
     expect(() => Mysql.Renderer.make().render(plan)).toThrow(
@@ -36,11 +37,11 @@ describe("mysql dialect legality", () => {
       email: StdRoot.Column.text()
     })
 
-    const plan = Mysql.Query.insert(users, {
+    const plan = StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com"
     }).pipe(
-      Mysql.Query.returning({
+      StdRoot.Query.returning({
         id: users.id
       })
     )
@@ -56,17 +57,17 @@ describe("mysql dialect legality", () => {
       email: StdRoot.Column.text()
     })
 
-    const insertedUsers = Mysql.Query.insert(users, {
+    const insertedUsers = StdRoot.Query.insert(users, {
       id: userId,
       email: "alice@example.com"
     }).pipe(
-      Mysql.Query.with("inserted_users")
+      StdRoot.Query.with("inserted_users")
     )
 
-    const plan = Mysql.Query.select({
-      ok: Mysql.Query.literal(1)
+    const plan = StdRoot.Query.select({
+      ok: StdRoot.Query.literal(1)
     }).pipe(
-      Mysql.Query.from(insertedUsers)
+      StdRoot.Query.from(insertedUsers)
     )
 
     expect(() => Mysql.Renderer.make().render(plan)).toThrow(
@@ -80,7 +81,7 @@ describe("mysql dialect legality", () => {
       email: StdRoot.Column.text()
     })
 
-    const plan = Mysql.Query.truncate(users, {
+    const plan = StdRoot.Query.truncate(users, {
       restartIdentity: true,
       cascade: true
     })
@@ -91,12 +92,12 @@ describe("mysql dialect legality", () => {
   })
 
   test("rejects generateSeries sources instead of rendering unsupported table-function sql", () => {
-    const series = Mysql.Query.generateSeries(1, 3, 1, "series")
+    const series = Postgres.Query.generateSeries(1, 3, 1, "series")
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       value: series.value
     }).pipe(
-      Mysql.Query.from(series)
+      StdRoot.Query.from(series)
     )
 
     expect(() => Mysql.Renderer.make().render(plan)).toThrow(

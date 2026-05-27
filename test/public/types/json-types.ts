@@ -2,7 +2,8 @@ import { Column as PgColumn } from "effect-qb/postgres"
 import * as Std from "effect-qb"
 import * as Schema from "effect/Schema"
 
-import { Scalar as E, Function as F, Json as J, Jsonb as Jb, Query as Q } from "effect-qb/postgres"
+import { Scalar as E, Function as F, Query as Q } from "effect-qb"
+import { Json as J, Jsonb as Jb } from "effect-qb/postgres"
 import type { BrandedErrorOf } from "../../helpers/branded-error.ts"
 
 type IsAny<Value> = 0 extends (1 & Value) ? true : false

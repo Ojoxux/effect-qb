@@ -4,13 +4,13 @@
 
 // README.md:426-485
 import * as Schema from "effect/Schema"
-import { Column, Table } from "effect-qb"
+import { Column, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
 const users = Table.make("users", {
   id: Column.uuid().pipe(
     Column.primaryKey,
-    Column.generated(Pg.Query.literal("generated-user-id"))
+    Column.generated(Query.literal("generated-user-id"))
   ),
   email: Column.text(),
   displayName: Column.text().pipe(Column.nullable)

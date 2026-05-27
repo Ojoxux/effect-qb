@@ -75,34 +75,34 @@ describe("casing rendering behavior", () => {
       tables: "snake_case",
       columns: "snake_case"
     } as const
-    const postgresSeed = Pg.Query.values([
-      { displayName: Pg.Query.literal("Alice") }
-    ] as const).pipe(Pg.Query.as("SeedRows"))
-    const mysqlSeed = Mysql.Query.values([
-      { displayName: Mysql.Query.literal("Alice") }
-    ] as const).pipe(Mysql.Query.as("SeedRows"))
-    const sqliteSeed = Sqlite.Query.values([
-      { displayName: Sqlite.Query.literal("Alice") }
-    ] as const).pipe(Sqlite.Query.as("SeedRows"))
+    const postgresSeed = StdRoot.Query.values([
+      { displayName: StdRoot.Query.literal("Alice") }
+    ] as const).pipe(StdRoot.Query.as("SeedRows"))
+    const mysqlSeed = StdRoot.Query.values([
+      { displayName: StdRoot.Query.literal("Alice") }
+    ] as const).pipe(StdRoot.Query.as("SeedRows"))
+    const sqliteSeed = StdRoot.Query.values([
+      { displayName: StdRoot.Query.literal("Alice") }
+    ] as const).pipe(StdRoot.Query.as("SeedRows"))
 
     expect(Pg.Renderer.make({ casing }).render(
-      Pg.Query.select({
+      StdRoot.Query.select({
         displayName: postgresSeed.displayName
-      }).pipe(Pg.Query.from(postgresSeed))
+      }).pipe(StdRoot.Query.from(postgresSeed))
     ).sql).toBe(
       'select "SeedRows"."displayName" as "displayName" from (select $1 as "displayName") as "SeedRows"("displayName")'
     )
     expect(Mysql.Renderer.make({ casing }).render(
-      Mysql.Query.select({
+      StdRoot.Query.select({
         displayName: mysqlSeed.displayName
-      }).pipe(Mysql.Query.from(mysqlSeed))
+      }).pipe(StdRoot.Query.from(mysqlSeed))
     ).sql).toBe(
       "select `SeedRows`.`displayName` as `displayName` from (select ? as `displayName`) as `SeedRows`(`displayName`)"
     )
     expect(Sqlite.Renderer.make({ casing }).render(
-      Sqlite.Query.select({
+      StdRoot.Query.select({
         displayName: sqliteSeed.displayName
-      }).pipe(Sqlite.Query.from(sqliteSeed))
+      }).pipe(StdRoot.Query.from(sqliteSeed))
     ).sql).toBe(
       'select "SeedRows"."displayName" as "displayName" from (select ? as "displayName") as "SeedRows"'
     )
@@ -117,49 +117,49 @@ describe("casing rendering behavior", () => {
       id: Column.uuid().pipe(Column.primaryKey),
       displayName: Column.text()
     })
-    const postgresActiveUsers = Pg.Query.select({
+    const postgresActiveUsers = StdRoot.Query.select({
       id: users.id,
       displayName: users.displayName
     }).pipe(
-      Pg.Query.from(users),
-      Pg.Query.where(Pg.Query.isNotNull(users.displayName)),
-      Pg.Query.as("ActiveUsers")
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.isNotNull(users.displayName)),
+      StdRoot.Query.as("ActiveUsers")
     )
-    const mysqlActiveUsers = Mysql.Query.select({
+    const mysqlActiveUsers = StdRoot.Query.select({
       id: users.id,
       displayName: users.displayName
     }).pipe(
-      Mysql.Query.from(users),
-      Mysql.Query.where(Mysql.Query.isNotNull(users.displayName)),
-      Mysql.Query.as("ActiveUsers")
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.isNotNull(users.displayName)),
+      StdRoot.Query.as("ActiveUsers")
     )
-    const sqliteActiveUsers = Sqlite.Query.select({
+    const sqliteActiveUsers = StdRoot.Query.select({
       id: users.id,
       displayName: users.displayName
     }).pipe(
-      Sqlite.Query.from(users),
-      Sqlite.Query.where(Sqlite.Query.isNotNull(users.displayName)),
-      Sqlite.Query.as("ActiveUsers")
+      StdRoot.Query.from(users),
+      StdRoot.Query.where(StdRoot.Query.isNotNull(users.displayName)),
+      StdRoot.Query.as("ActiveUsers")
     )
 
     expect(Pg.Renderer.make({ casing }).render(
-      Pg.Query.select({
+      StdRoot.Query.select({
         displayName: postgresActiveUsers.displayName
-      }).pipe(Pg.Query.from(postgresActiveUsers))
+      }).pipe(StdRoot.Query.from(postgresActiveUsers))
     ).sql).toBe(
       'select "ActiveUsers"."displayName" as "displayName" from (select "user_accounts"."id" as "id", "user_accounts"."display_name" as "displayName" from "user_accounts" where ("user_accounts"."display_name" is not null)) as "ActiveUsers"'
     )
     expect(Mysql.Renderer.make({ casing }).render(
-      Mysql.Query.select({
+      StdRoot.Query.select({
         displayName: mysqlActiveUsers.displayName
-      }).pipe(Mysql.Query.from(mysqlActiveUsers))
+      }).pipe(StdRoot.Query.from(mysqlActiveUsers))
     ).sql).toBe(
       "select `ActiveUsers`.`displayName` as `displayName` from (select `user_accounts`.`id` as `id`, `user_accounts`.`display_name` as `displayName` from `user_accounts` where (`user_accounts`.`display_name` is not null)) as `ActiveUsers`"
     )
     expect(Sqlite.Renderer.make({ casing }).render(
-      Sqlite.Query.select({
+      StdRoot.Query.select({
         displayName: sqliteActiveUsers.displayName
-      }).pipe(Sqlite.Query.from(sqliteActiveUsers))
+      }).pipe(StdRoot.Query.from(sqliteActiveUsers))
     ).sql).toBe(
       'select "ActiveUsers"."displayName" as "displayName" from (select "user_accounts"."id" as "id", "user_accounts"."display_name" as "displayName" from "user_accounts" where ("user_accounts"."display_name" is not null)) as "ActiveUsers"'
     )
@@ -177,31 +177,31 @@ describe("casing rendering behavior", () => {
       })
     )
 
-    const mysqlPlan = Mysql.Query.onConflict(["emailAddress"] as const, {
+    const mysqlPlan = StdRoot.Query.onConflict(["emailAddress"] as const, {
       update: {
-        displayName: Mysql.Query.excluded(users.displayName)
+        displayName: StdRoot.Query.excluded(users.displayName)
       }
-    })(Mysql.Query.insert(users, {
+    })(StdRoot.Query.insert(users, {
       id: "11111111-1111-1111-1111-111111111111",
       emailAddress: "alice@example.com",
       displayName: "Alice"
     }))
 
-    const postgresPlan = Pg.Query.onConflict(["emailAddress"] as const, {
+    const postgresPlan = StdRoot.Query.onConflict(["emailAddress"] as const, {
       update: {
-        displayName: Pg.Query.excluded(users.displayName)
+        displayName: StdRoot.Query.excluded(users.displayName)
       }
-    })(Pg.Query.insert(users, {
+    })(StdRoot.Query.insert(users, {
       id: "11111111-1111-1111-1111-111111111111",
       emailAddress: "alice@example.com",
       displayName: "Alice"
     }))
 
-    const sqlitePlan = Sqlite.Query.onConflict(["emailAddress"] as const, {
+    const sqlitePlan = StdRoot.Query.onConflict(["emailAddress"] as const, {
       update: {
-        displayName: Sqlite.Query.excluded(users.displayName)
+        displayName: StdRoot.Query.excluded(users.displayName)
       }
-    })(Sqlite.Query.insert(users, {
+    })(StdRoot.Query.insert(users, {
       id: "11111111-1111-1111-1111-111111111111",
       emailAddress: "alice@example.com",
       displayName: "Alice"
@@ -230,15 +230,15 @@ describe("casing rendering behavior", () => {
     )
 
     const id = "11111111-1111-1111-1111-111111111111"
-    const mysqlPlan = Mysql.Query.update(users, {
+    const mysqlPlan = StdRoot.Query.update(users, {
       displayName: "Alice"
     }).pipe(
-      Mysql.Query.where(Mysql.Query.eq(users.id, id))
+      StdRoot.Query.where(StdRoot.Query.eq(users.id, id))
     )
-    const sqlitePlan = Sqlite.Query.update(users, {
+    const sqlitePlan = StdRoot.Query.update(users, {
       displayName: "Alice"
     }).pipe(
-      Sqlite.Query.where(Sqlite.Query.eq(users.id, id))
+      StdRoot.Query.where(StdRoot.Query.eq(users.id, id))
     )
 
     expect(Mysql.Renderer.make().render(mysqlPlan).sql).toBe(
@@ -269,8 +269,8 @@ describe("casing rendering behavior", () => {
       })
     )
 
-    const plan = Mysql.Query.innerJoin(posts, Mysql.Query.eq(posts.userId, users.id))(
-      Mysql.Query.delete(users)
+    const plan = StdRoot.Query.innerJoin(posts, StdRoot.Query.eq(posts.userId, users.id))(
+      StdRoot.Query.delete(users)
     )
 
     expect(Mysql.Renderer.make().render(plan).sql).toBe(

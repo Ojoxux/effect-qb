@@ -6,7 +6,8 @@ import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 
 import { Column as C, Table } from "#standard"
-import { Executor, Function as F, Query as Q, Type } from "#postgres"
+import { Function as F, Query as Q } from "#standard"
+import { Executor, Type } from "#postgres"
 import { createDeferred, execPostgres, runPostgres } from "./helpers.ts"
 
 const eventsTableName = "integration_pg_events"

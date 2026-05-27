@@ -1,7 +1,8 @@
 // @ts-nocheck
 import { describe, expect, test } from "bun:test"
 
-import { RowSet, Query as Q, Function as F, Renderer, Table } from "#postgres"
+import { RowSet, Query as Q, Function as F, Table } from "#standard"
+import { Renderer } from "#postgres"
 import { Column as C } from "#postgres"
 import { makeRootEmployees, makeRootSocialGraph } from "../../fixtures/schema.ts"
 import { unsafeAny } from "../../helpers/unsafe.ts"

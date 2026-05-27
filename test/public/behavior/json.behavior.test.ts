@@ -48,19 +48,19 @@ describe("json behavior", () => {
       Postgres.Json.key("city")
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       profileJson: Postgres.Json.get(docs.payload, Postgres.Json.key("profile")),
       profileText: Postgres.Json.text(docs.payload, Postgres.Json.key("profile")),
       cityJson: Postgres.Json.get(docs.payload, exactPath),
       cityText: Postgres.Json.text(docs.payload, exactPath),
       builtObject: Postgres.Json.buildObject({ a: 1, b: "x" }),
       builtArray: Postgres.Json.buildArray(1, "x", true),
-      toJson: Postgres.Json.toJson(Postgres.Query.literal(1)),
+      toJson: Postgres.Json.toJson(StdRoot.Query.literal(1)),
       typeName: Postgres.Json.typeOf(docs.payload),
       length: Postgres.Json.length(docs.payload),
       keys: Postgres.Json.keys(docs.payload),
       stripNulls: Postgres.Json.stripNulls(docs.payload)
-    }).pipe(Postgres.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Postgres.Renderer.make().render(plan)
 
@@ -95,12 +95,12 @@ describe("json behavior", () => {
       Postgres.Json.key("city")
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       cityJson: Postgres.Json.get(docs.payload, cityPath),
       cityText: Postgres.Json.text(docs.payload, cityPath),
       typeName: Postgres.Json.typeOf(docs.payload),
       stripNulls: Postgres.Json.stripNulls(docs.payload)
-    }).pipe(Postgres.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Postgres.Renderer.make().render(plan)
 
@@ -139,11 +139,11 @@ describe("json behavior", () => {
       )
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       payload: docs.payload
     }).pipe(
-      Postgres.Query.from(docs),
-      Postgres.Query.where(Postgres.Query.eq(flatKind, "flat"))
+      StdRoot.Query.from(docs),
+      StdRoot.Query.where(StdRoot.Query.eq(flatKind, "flat"))
     )
 
     const rows = Effect.runSync(Postgres.Executor.make({
@@ -188,12 +188,12 @@ describe("json behavior", () => {
     )
     const city = Postgres.Jsonb.text(docs.payload, cityPath)
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       city,
-      count: Postgres.Function.count(docs.id)
+      count: StdRoot.Function.count(docs.id)
     }).pipe(
-      Postgres.Query.from(docs),
-      Postgres.Query.groupBy(city)
+      StdRoot.Query.from(docs),
+      StdRoot.Query.groupBy(city)
     )
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -217,11 +217,11 @@ describe("json behavior", () => {
       payload: Postgres.Column.jsonb(Schema.Array(Schema.String))
     })
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       firstJson: Postgres.Jsonb.get(docs.payload, Postgres.Jsonb.index(0)),
       secondText: Postgres.Jsonb.text(docs.payload, Postgres.Jsonb.index(1)),
       withoutFirst: Postgres.Jsonb.delete(docs.payload, Postgres.Jsonb.index(0))
-    }).pipe(Postgres.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Postgres.Renderer.make().render(plan)
 
@@ -238,9 +238,9 @@ describe("json behavior", () => {
   test("postgres renders json keys as json values", () => {
     const docs = makeJsonTable(Postgres)
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       keys: Postgres.Json.keys(docs.payload)
-    }).pipe(Postgres.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Postgres.Renderer.make().render(plan)
 
@@ -264,7 +264,7 @@ describe("json behavior", () => {
       Postgres.Jsonb.wildcard()
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       profileJson: Postgres.Jsonb.get(docs.payload, Postgres.Jsonb.key("profile")),
       profileText: Postgres.Jsonb.text(docs.payload, Postgres.Jsonb.key("profile")),
       cityJson: Postgres.Jsonb.get(docs.payload, exactPath),
@@ -303,14 +303,14 @@ describe("json behavior", () => {
       mergeValue: Postgres.Jsonb.merge({ a: 1 }, { b: 2 }),
       builtObject: Postgres.Jsonb.buildObject({ a: 1, b: "x" }),
       builtArray: Postgres.Jsonb.buildArray(1, "x", true),
-      toJsonb: Postgres.Jsonb.toJsonb(Postgres.Query.literal(1)),
+      toJsonb: Postgres.Jsonb.toJsonb(StdRoot.Query.literal(1)),
       typeName: Postgres.Jsonb.typeOf(docs.payload),
       length: Postgres.Jsonb.length(docs.payload),
       keys: Postgres.Jsonb.keys(docs.payload),
       pathExists: Postgres.Jsonb.pathExists(docs.payload, wildcardPath),
       pathMatch: Postgres.Jsonb.pathMatch(docs.payload, '$.profile.address[*] ? (@.city == "Paris")'),
       stripNulls: Postgres.Jsonb.stripNulls(docs.payload)
-    }).pipe(Postgres.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Postgres.Renderer.make().render(plan)
 
@@ -389,12 +389,12 @@ describe("json behavior", () => {
       Postgres.Jsonb.key("city")
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       cityJson: Postgres.Jsonb.get(docs.payload, cityPath),
       cityText: Postgres.Jsonb.text(docs.payload, cityPath),
       setCity: Postgres.Jsonb.set(docs.payload, cityPath, "Paris"),
       deleteCity: Postgres.Jsonb.delete(docs.payload, cityPath)
-    }).pipe(Postgres.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Postgres.Renderer.make().render(plan)
 
@@ -425,9 +425,9 @@ describe("json behavior", () => {
       Postgres.Jsonb.key("tab\tkey")
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       exists: Postgres.Jsonb.pathExists(docs.payload, controlPath)
-    }).pipe(Postgres.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Postgres.Renderer.make().render(plan)
 
@@ -448,11 +448,11 @@ describe("json behavior", () => {
       Postgres.Jsonb.key("suite")
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       setSuite: Postgres.Jsonb.set(docs.payload, suitePath, "12A", {
         createMissing: false
       })
-    }).pipe(Postgres.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Postgres.Renderer.make().render(plan)
 
@@ -475,10 +475,10 @@ describe("json behavior", () => {
       Postgres.Jsonb.key("suite")
     )
 
-    const plan = Postgres.Query.select({
+    const plan = StdRoot.Query.select({
       setSuite: Postgres.Jsonb.set(docs.payload, suitePath, "42"),
       builtObject: Postgres.Jsonb.buildObject({ code: "42" })
-    }).pipe(Postgres.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Postgres.Renderer.make().render(plan)
 
@@ -495,9 +495,9 @@ describe("json behavior", () => {
   test("mysql rejects unsupported json path match", () => {
     const docs = makeJsonTable(Mysql)
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       pathMatch: Mysql.Json.pathMatch(docs.payload, '$.profile.address[*] ? (@.city == "Paris")')
-    }).pipe(Mysql.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     expect(() => Mysql.Renderer.make().render(plan)).toThrow(
       "Unsupported JSON feature for mysql: jsonPathMatch"
@@ -518,7 +518,7 @@ describe("json behavior", () => {
       Mysql.Json.wildcard()
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       profileJson: Mysql.Json.get(docs.payload, Mysql.Json.key("profile")),
       profileText: Mysql.Json.text(docs.payload, Mysql.Json.key("profile")),
       cityJson: Mysql.Json.get(docs.payload, exactPath),
@@ -557,13 +557,13 @@ describe("json behavior", () => {
       mergeValue: Mysql.Json.merge({ a: 1 }, { b: 2 }),
       builtObject: Mysql.Json.buildObject({ a: 1, b: "x" }),
       builtArray: Mysql.Json.buildArray(1, "x", true),
-      toJson: Mysql.Json.toJson(Mysql.Query.literal(1)),
-      toJsonb: Mysql.Json.toJsonb(Mysql.Query.literal(1)),
+      toJson: Mysql.Json.toJson(StdRoot.Query.literal(1)),
+      toJsonb: Mysql.Json.toJsonb(StdRoot.Query.literal(1)),
       typeName: Mysql.Json.typeOf(docs.payload),
       length: Mysql.Json.length(docs.payload),
       keys: Mysql.Json.keys(docs.payload),
       pathExists: Mysql.Json.pathExists(docs.payload, wildcardPath)
-    }).pipe(Mysql.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Mysql.Renderer.make().render(plan)
 
@@ -618,12 +618,12 @@ describe("json behavior", () => {
       Mysql.Json.key("city")
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       cityJson: Mysql.Json.get(docs.payload, cityPath),
       cityText: Mysql.Json.text(docs.payload, cityPath),
       setCity: Mysql.Json.set(docs.payload, cityPath, "Paris"),
       deleteCity: Mysql.Json.delete(docs.payload, cityPath)
-    }).pipe(Mysql.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Mysql.Renderer.make().render(plan)
 
@@ -642,7 +642,7 @@ describe("json behavior", () => {
   test("mysql renders nested JSON value arguments as JSON instead of raw driver objects", () => {
     const docs = makeJsonTable(Mysql)
 
-    const rendered = Mysql.Renderer.make().render(Mysql.Query.select({
+    const rendered = Mysql.Renderer.make().render(StdRoot.Query.select({
       built: Mysql.Json.buildObject({
         nested: { ok: true },
         tags: ["mysql"]
@@ -652,7 +652,7 @@ describe("json behavior", () => {
         Mysql.Json.path(Mysql.Json.key("nested")),
         { ok: true }
       )
-    }).pipe(Mysql.Query.from(docs)))
+    }).pipe(StdRoot.Query.from(docs)))
 
     expect(rendered.sql).toBe(
       "select json_object(?, cast(? as json), ?, cast(? as json)) as `built`, json_set(`docs`.`payload`, ?, cast(? as json)) as `patched` from `docs`"
@@ -674,9 +674,9 @@ describe("json behavior", () => {
       Mysql.Json.key("tab\tkey")
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       value: Mysql.Json.get(docs.payload, controlPath)
-    }).pipe(Mysql.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Mysql.Renderer.make().render(plan)
 
@@ -697,11 +697,11 @@ describe("json behavior", () => {
       Mysql.Json.key("suite")
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       setSuite: Mysql.Json.set(docs.payload, suitePath, "12A", {
         createMissing: false
       })
-    }).pipe(Mysql.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Mysql.Renderer.make().render(plan)
 
@@ -723,10 +723,10 @@ describe("json behavior", () => {
       Mysql.Json.key("suite")
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       setSuite: Mysql.Json.set(docs.payload, suitePath, "42"),
       builtObject: Mysql.Json.buildObject({ code: "42" })
-    }).pipe(Mysql.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Mysql.Renderer.make().render(plan)
 
@@ -747,12 +747,12 @@ describe("json behavior", () => {
       Mysql.Json.index(1)
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       insertTag: Mysql.Json.insert(docs.payload, firstTagPath, "city"),
       insertTagAfter: Mysql.Json.insert(docs.payload, firstTagPath, "country", {
         insertAfter: true
       })
-    }).pipe(Mysql.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Mysql.Renderer.make().render(plan)
 
@@ -781,10 +781,10 @@ describe("json behavior", () => {
       Mysql.Json.index(-2)
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       lastTag: Mysql.Json.get(docs.payload, lastTagPath),
       penultimateTag: Mysql.Json.get(docs.payload, penultimateTagPath)
-    }).pipe(Mysql.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Mysql.Renderer.make().render(plan)
 
@@ -806,9 +806,9 @@ describe("json behavior", () => {
       Mysql.Json.slice(-3, -1)
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       recentTags: Mysql.Json.get(docs.payload, recentTagsPath)
-    }).pipe(Mysql.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Mysql.Renderer.make().render(plan)
 
@@ -828,9 +828,9 @@ describe("json behavior", () => {
       Mysql.Json.key("city")
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       cityValues: Mysql.Json.get(docs.payload, cityDescendPath)
-    }).pipe(Mysql.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Mysql.Renderer.make().render(plan)
 
@@ -850,9 +850,9 @@ describe("json behavior", () => {
       Mysql.Json.key("city")
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       deleteCity: Mysql.Json.delete(docs.payload, cityPath)
-    }).pipe(Mysql.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Mysql.Renderer.make().render(plan)
 
@@ -877,24 +877,24 @@ describe("json behavior", () => {
     const insertWildcard = Mysql.Json.insert(docs.payload as any, wildcardPath as any, "featured" as any)
 
     expect(() =>
-      Mysql.Renderer.make().render(Mysql.Query.select({ deleteWildcard }).pipe(Mysql.Query.from(docs)))
+      Mysql.Renderer.make().render(StdRoot.Query.select({ deleteWildcard }).pipe(StdRoot.Query.from(docs)))
     ).toThrow("MySQL JSON mutation paths require key/index segments")
     expect(() =>
-      Mysql.Renderer.make().render(Mysql.Query.select({ setWildcard }).pipe(Mysql.Query.from(docs)))
+      Mysql.Renderer.make().render(StdRoot.Query.select({ setWildcard }).pipe(StdRoot.Query.from(docs)))
     ).toThrow("MySQL JSON mutation paths require key/index segments")
     expect(() =>
-      Mysql.Renderer.make().render(Mysql.Query.select({ insertWildcard }).pipe(Mysql.Query.from(docs)))
+      Mysql.Renderer.make().render(StdRoot.Query.select({ insertWildcard }).pipe(StdRoot.Query.from(docs)))
     ).toThrow("MySQL JSON mutation paths require key/index segments")
   })
 
   test("mysql binds json_contains_path mode before path arguments", () => {
     const docs = makeJsonTable(Mysql)
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       hasProfile: Mysql.Json.hasKey(docs.payload, "profile"),
       hasAny: Mysql.Json.hasAnyKeys(docs.payload, "profile", "note"),
       hasAll: Mysql.Json.hasAllKeys(docs.payload, "profile", "note")
-    }).pipe(Mysql.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Mysql.Renderer.make().render(plan)
 
@@ -926,10 +926,10 @@ describe("json behavior", () => {
       Mysql.Json.key("city")
     )
 
-    const plan = Mysql.Query.select({
+    const plan = StdRoot.Query.select({
       hasLastTag: Mysql.Json.pathExists(docs.payload, lastTagPath),
       hasAnyCity: Mysql.Json.pathExists(docs.payload, cityDescendPath)
-    }).pipe(Mysql.Query.from(docs))
+    }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Mysql.Renderer.make().render(plan)
 
@@ -954,7 +954,7 @@ describe("json behavior", () => {
       payload: Postgres.Column.jsonb(mutationSchema)
     })
 
-    const insertPlan = Postgres.Query.insert(docsJson, {
+    const insertPlan = StdRoot.Query.insert(docsJson, {
       id: jsonDocId,
       payload: Postgres.Json.buildObject({
         profile: {
@@ -963,7 +963,7 @@ describe("json behavior", () => {
       })
     })
 
-    const updatePlan = Postgres.Query.update(docsJsonb, {
+    const updatePlan = StdRoot.Query.update(docsJsonb, {
       payload: Postgres.Jsonb.merge(
         docsJsonb.payload,
         Postgres.Jsonb.buildObject({
@@ -1004,7 +1004,7 @@ describe("json behavior", () => {
       payload: StdRoot.Column.json(mutationSchema)
     })
 
-    const insertPlan = Mysql.Query.insert(docs, {
+    const insertPlan = StdRoot.Query.insert(docs, {
       id: jsonDocId,
       payload: Mysql.Json.buildObject({
         profile: {
@@ -1013,7 +1013,7 @@ describe("json behavior", () => {
       })
     })
 
-    const updatePlan = Mysql.Query.update(docs, {
+    const updatePlan = StdRoot.Query.update(docs, {
       payload: Mysql.Json.merge(
         docs.payload,
         Mysql.Json.buildObject({

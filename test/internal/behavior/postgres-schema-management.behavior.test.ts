@@ -6,7 +6,8 @@ import { describe, expect, test } from "bun:test"
 import * as Schema from "effect/Schema"
 
 import * as Pg from "#postgres"
-import { Column as C, Table } from "#postgres"
+import { Table } from "#standard"
+import { Column as C } from "#postgres"
 import * as ExpressionAst from "../../../packages/querybuilder/src/internal/expression-ast.js"
 import { Casing } from "../../../packages/querybuilder/src/index.ts"
 import { planPostgresSchemaDiff } from "../../../packages/database/src/internal/postgres-schema-diff.js"
@@ -2018,31 +2019,28 @@ const users = Table.make("users", {
         }
       } as const
 
-      const proposalProducts = StdRoot.Table.make("proposal_products", {
+      const proposalProductsBase = StdRoot.Table.make("proposal_products", {
         stripe: C.jsonb(Schema.Unknown).pipe(StdRoot.Column.nullable),
         quantity: StdRoot.Column.int()
-      }).pipe(
-        Table.check("quantity_matches_stripe", (t) => {
-          const stripePipe = (t.stripe as Pg.Scalar.Any).pipe as (
-            ...operations: ReadonlyArray<(value: Pg.Scalar.Any) => Pg.Scalar.Any>
-          ) => Pg.Scalar.Any
-          const eq = Pg.Query.eq as unknown as (
-            left: Pg.Scalar.Any,
-            right: Pg.Scalar.Any
-          ) => Pg.Scalar.Any
-
-          const stripeQuantity = stripePipe(
-            Pg.Json.json.get(Pg.Json.json.key("line_item")) as (value: Pg.Scalar.Any) => Pg.Scalar.Any,
-            Pg.Json.json.text(Pg.Json.json.key("quantity")) as (value: Pg.Scalar.Any) => Pg.Scalar.Any,
-            Pg.Cast.to(Pg.Type.text()) as (value: Pg.Scalar.Any) => Pg.Scalar.Any,
-            Pg.Cast.to(Pg.Type.int4()) as (value: Pg.Scalar.Any) => Pg.Scalar.Any
-          )
-
-          return Pg.Query.or(
-            Pg.Query.isNull(t.stripe),
-            eq(stripeQuantity, t.quantity as Pg.Scalar.Any)
-          )
-        })
+      })
+      const stripePipe = (proposalProductsBase.stripe as StdRoot.Scalar.Any).pipe as (
+        ...operations: ReadonlyArray<(value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any>
+      ) => StdRoot.Scalar.Any
+      const eq = StdRoot.Query.eq as unknown as (
+        left: StdRoot.Scalar.Any,
+        right: StdRoot.Scalar.Any
+      ) => StdRoot.Scalar.Any
+      const stripeQuantity = stripePipe(
+        Pg.Json.get(Pg.Json.key("line_item")) as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any,
+        Pg.Json.text(Pg.Json.key("quantity")) as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any,
+        Pg.Cast.to(Pg.Type.text()) as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any,
+        Pg.Cast.to(Pg.Type.int4()) as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any
+      )
+      const proposalProducts = proposalProductsBase.pipe(
+        Table.check("quantity_matches_stripe", StdRoot.Query.or(
+          StdRoot.Query.isNull(proposalProductsBase.stripe),
+          eq(stripeQuantity, proposalProductsBase.quantity as StdRoot.Scalar.Any)
+        ))
       )
 
       const plan = await planPostgresPull(tempDir, { include: ["src/**/*.ts"] }, discovered, {
@@ -2053,7 +2051,7 @@ const users = Table.make("users", {
 
       expect(plan.updates).toHaveLength(1)
       const after = plan.updates[0]?.after ?? ""
-      expect(after).toContain(`stripe.pipe(`)
+      expect(after).toContain(`stripe: Pg.Column.jsonb(Schema.Unknown).pipe(Column.nullable)`)
       expect(after).toContain(`Pg.Json.get(Pg.Json.key("line_item"))`)
       expect(after).toContain(`Pg.Json.text(Pg.Json.key("quantity"))`)
       expect(after).toContain(`Pg.Cast.to(Pg.Type.text())`)
@@ -2064,37 +2062,37 @@ const users = Table.make("users", {
   })
 
   test("extends boolean groups with raw predicates through pipe", () => {
-    type AnyInput = Pg.Scalar.Any | string | number | boolean | Date | null
+    type AnyInput = StdRoot.Scalar.Any | string | number | boolean | Date | null
 
-    const stripe = Pg.Query.column("stripe", Pg.Type.jsonb(), true) as Pg.Scalar.Any
-    const quantity = Pg.Query.column("quantity", Pg.Type.int4()) as Pg.Scalar.Any
-    const viewedAt = Pg.Query.column("viewed_at", Pg.Type.timestamp(), true) as Pg.Scalar.Any
-    const zero = Pg.Query.literal(0) as Pg.Scalar.Any
-    const threshold = Pg.Query.literal(new Date("2024-01-01T00:00:00.000Z")) as Pg.Scalar.Any
-    const and = Pg.Query.and as (
+    const stripe = StdRoot.Query.column("stripe", Pg.Type.jsonb(), true) as StdRoot.Scalar.Any
+    const quantity = StdRoot.Query.column("quantity", Pg.Type.int4()) as StdRoot.Scalar.Any
+    const viewedAt = StdRoot.Query.column("viewed_at", Pg.Type.timestamp(), true) as StdRoot.Scalar.Any
+    const zero = StdRoot.Query.literal(0) as StdRoot.Scalar.Any
+    const threshold = StdRoot.Query.literal(new Date("2024-01-01T00:00:00.000Z")) as StdRoot.Scalar.Any
+    const and = StdRoot.Query.and as (
       ...values: readonly [AnyInput, ...AnyInput[]]
-    ) => Pg.Scalar.Any & {
-      pipe: (...values: readonly [AnyInput, ...AnyInput[]]) => Pg.Scalar.Any
+    ) => StdRoot.Scalar.Any & {
+      pipe: (...values: readonly [AnyInput, ...AnyInput[]]) => StdRoot.Scalar.Any
     }
-    const or = Pg.Query.or as (
+    const or = StdRoot.Query.or as (
       ...values: readonly [AnyInput, ...AnyInput[]]
-    ) => Pg.Scalar.Any
-    const eq = Pg.Query.eq as unknown as (
+    ) => StdRoot.Scalar.Any
+    const eq = StdRoot.Query.eq as unknown as (
       left: AnyInput,
       right: AnyInput
-    ) => Pg.Scalar.Any
-    const gte = Pg.Query.gte as unknown as (
+    ) => StdRoot.Scalar.Any
+    const gte = StdRoot.Query.gte as unknown as (
       left: AnyInput,
       right: AnyInput
-    ) => Pg.Scalar.Any
+    ) => StdRoot.Scalar.Any
 
     const predicate = and(
-      Pg.Query.isNull(stripe),
+      StdRoot.Query.isNull(stripe),
       eq(quantity, zero)
     ).pipe(
       gte(quantity, 0),
       or(
-        Pg.Query.isNull(viewedAt),
+        StdRoot.Query.isNull(viewedAt),
         gte(viewedAt, threshold)
       )
     )
@@ -2137,11 +2135,7 @@ const users = Table.make("users", {
         connection_id: StdRoot.Column.uuid()
       }).pipe(
         Table.primaryKey("id"),
-        Table.foreignKey({
-          columns: ["connection_id"],
-          target: () => connections,
-          referencedColumns: ["id"]
-        })
+        Table.foreignKey(["connection_id"], () => connections, ["id"])
       )
 
       const database: SchemaModel = {

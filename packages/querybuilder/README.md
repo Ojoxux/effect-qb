@@ -12,11 +12,10 @@ bun add effect-qb
 
 - `effect-qb`
 - `effect-qb/postgres`
-- `effect-qb/standard`
 - `effect-qb/mysql`
 - `effect-qb/sqlite`
 - `effect-qb/postgres/metadata`
 
 `effect-qb/postgres/metadata` exposes normalized table and enum metadata helpers used by `effectdb`.
 
-Use the root modules from `effect-qb` for portable query plans that should render through the built-in SQL renderers. `effect-qb/standard` remains available as an explicit portable subpath.
+Use the root modules from `effect-qb` for portable query plans that should render through the built-in SQL renderers.

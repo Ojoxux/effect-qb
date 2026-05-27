@@ -1,3 +1,4 @@
+import * as StdRoot from "effect-qb"
 import * as Std from "effect-qb"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
@@ -14,14 +15,14 @@ type IsEqual<Left, Right> =
     ? true
     : false
 
-const pgMapping: Pg.Scalar.DriverValueMapping = {
+const pgMapping: StdRoot.Scalar.DriverValueMapping = {
   fromDriver: (value) => value,
   toDriver: (value) => value,
   selectSql: (sql) => sql,
   jsonSelectSql: (sql) => sql
 }
 
-const invalidPgMapping: Pg.Scalar.DriverValueMapping = {
+const invalidPgMapping: StdRoot.Scalar.DriverValueMapping = {
   // @ts-expect-error driver value mappings should expose only driver-boundary hooks
   encode: (value: unknown) => value
 }
@@ -34,7 +35,7 @@ type _AssertMappedTextDialect = Assert<IsEqual<typeof mappedTextType.dialect, "p
 
 const mappedTextColumn = Pg.Column.custom(Schema.String, mappedTextType)
 const mappedTextCast = Pg.Cast.to("mapped", mappedTextType)
-const mappedTextRuntime: Pg.Scalar.RuntimeOf<typeof mappedTextCast> = "mapped"
+const mappedTextRuntime: StdRoot.Scalar.RuntimeOf<typeof mappedTextCast> = "mapped"
 
 void mappedTextColumn
 void mappedTextRuntime
@@ -52,13 +53,13 @@ const pgEvents = Std.Table.make("driver_value_mapping_type_events", {
   note: Std.Column.text().pipe(Std.Column.driverValueMapping(pgMapping))
 })
 
-const pgPlan = Pg.Query.select({
+const pgPlan = StdRoot.Query.select({
   id: pgEvents.id,
   happenedOn: pgEvents.happenedOn,
   note: pgEvents.note
-}).pipe(Pg.Query.from(pgEvents))
+}).pipe(StdRoot.Query.from(pgEvents))
 
-type PgRow = Pg.Query.ResultRow<typeof pgPlan>
+type PgRow = StdRoot.Query.ResultRow<typeof pgPlan>
 const pgId: PgRow["id"] = "event-id"
 const pgHappenedOn: PgRow["happenedOn"] = new Date()
 const pgHappenedOnNull: PgRow["happenedOn"] = null
@@ -67,13 +68,13 @@ const pgNote: PgRow["note"] = "note"
 // @ts-expect-error driver mapping must not erase the DateFromString column schema
 const pgHappenedOnEncoded: PgRow["happenedOn"] = "2026-03-18"
 
-Pg.Query.insert(pgEvents, {
+StdRoot.Query.insert(pgEvents, {
   id: "event-id",
   happenedOn: new Date(),
   note: "note"
 })
 
-Pg.Query.insert(pgEvents, {
+StdRoot.Query.insert(pgEvents, {
   id: "event-id",
   // @ts-expect-error insert input must stay the schema type, not the encoded driver type
   happenedOn: "2026-03-18",
@@ -172,7 +173,7 @@ void pgHappenedOnNull
 void pgHappenedOnEncoded
 void pgNote
 
-const mysqlMapping: Mysql.Scalar.DriverValueMapping = {
+const mysqlMapping: StdRoot.Scalar.DriverValueMapping = {
   fromDriver: (value) => value,
   toDriver: (value) => value
 }
@@ -189,12 +190,12 @@ const mysqlEvents = Std.Table.make("driver_value_mapping_type_events", {
   )
 })
 
-const mysqlPlan = Mysql.Query.select({
+const mysqlPlan = StdRoot.Query.select({
   id: mysqlEvents.id,
   happenedOn: mysqlEvents.happenedOn
-}).pipe(Mysql.Query.from(mysqlEvents))
+}).pipe(StdRoot.Query.from(mysqlEvents))
 
-type MysqlRow = Mysql.Query.ResultRow<typeof mysqlPlan>
+type MysqlRow = StdRoot.Query.ResultRow<typeof mysqlPlan>
 const mysqlId: MysqlRow["id"] = "event-id"
 const mysqlHappenedOn: MysqlRow["happenedOn"] = new Date()
 const mysqlHappenedOnNull: MysqlRow["happenedOn"] = null
@@ -202,12 +203,12 @@ const mysqlHappenedOnNull: MysqlRow["happenedOn"] = null
 // @ts-expect-error MySQL driver mapping must not erase the DateFromString column schema
 const mysqlHappenedOnEncoded: MysqlRow["happenedOn"] = "2026-03-18"
 
-Mysql.Query.insert(mysqlEvents, {
+StdRoot.Query.insert(mysqlEvents, {
   id: "event-id",
   happenedOn: new Date()
 })
 
-Mysql.Query.insert(mysqlEvents, {
+StdRoot.Query.insert(mysqlEvents, {
   id: "event-id",
   // @ts-expect-error MySQL insert input must stay the schema type, not the encoded driver type
   happenedOn: "2026-03-18"

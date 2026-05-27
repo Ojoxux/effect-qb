@@ -1,11 +1,12 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 864-883
+// Code fences: 864-884
 
-// README.md:864-883
+// README.md:864-884
+import { Scalar } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
-const mapping: Pg.Scalar.DriverValueMapping = {
+const mapping: Scalar.DriverValueMapping = {
   fromDriver: (value) => value,
   toDriver: (value) => value,
   selectSql: (sql) => sql,

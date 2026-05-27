@@ -1,7 +1,7 @@
 import { Column as PgColumn } from "effect-qb/postgres"
 import * as Std from "effect-qb"
 import * as Pg from "effect-qb/postgres"
-import { Query as Q, Scalar as E } from "effect-qb/postgres"
+import { Query as Q, Scalar as E } from "effect-qb"
 import * as Schema from "effect/Schema"
 
 const users = Std.Table.make("users", {

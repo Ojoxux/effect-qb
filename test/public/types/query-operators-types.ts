@@ -1,8 +1,9 @@
+import * as StdRoot from "effect-qb"
 import * as Std from "effect-qb"
 import * as Mysql from "effect-qb/mysql"
 import * as Postgres from "effect-qb/postgres"
 import * as Sqlite from "effect-qb/sqlite"
-import { Query as Q, Function as F } from "effect-qb/postgres"
+import { Query as Q, Function as F } from "effect-qb"
 import type { BrandedErrorOf } from "../../helpers/branded-error.ts"
 
 const users = Std.Table.make("users", {
@@ -74,11 +75,11 @@ declare const dynamicFunctionName: string
 // @ts-expect-error standard function names must be literal strings
 Std.Function.call(dynamicFunctionName, users.email)
 // @ts-expect-error postgres function names must be literal strings
-Postgres.Function.call(dynamicFunctionName, users.email)
+StdRoot.Function.call(dynamicFunctionName, users.email)
 // @ts-expect-error mysql function names must be literal strings
-Mysql.Function.call(dynamicFunctionName, users.email)
+StdRoot.Function.call(dynamicFunctionName, users.email)
 // @ts-expect-error sqlite function names must be literal strings
-Sqlite.Function.call(dynamicFunctionName, users.email)
+StdRoot.Function.call(dynamicFunctionName, users.email)
 // @ts-expect-error function names must be non-empty
 F.call("", users.email)
 // @ts-expect-error function names must be safe SQL identifiers
@@ -88,11 +89,11 @@ F.call("pg_catalog.lower", users.email)
 // @ts-expect-error standard current_date calls do not accept arguments
 Std.Function.call("current_date", users.email)
 // @ts-expect-error postgres current_date calls do not accept arguments
-Postgres.Function.call("current_date", users.email)
+StdRoot.Function.call("current_date", users.email)
 // @ts-expect-error mysql current_date calls do not accept arguments
-Mysql.Function.call("current_date", users.email)
+StdRoot.Function.call("current_date", users.email)
 // @ts-expect-error sqlite current_date calls do not accept arguments
-Sqlite.Function.call("current_date", users.email)
+StdRoot.Function.call("current_date", users.email)
 // @ts-expect-error extract calls require field and source arguments
 F.call("extract", Q.literal("year"))
 // @ts-expect-error extract calls require exactly field and source arguments
@@ -105,7 +106,7 @@ declare const dynamicCollation: string
 // @ts-expect-error standard collation identifiers must be literal strings
 Std.Query.collate(users.email, dynamicCollation)
 // @ts-expect-error postgres collation identifiers must be literal strings
-Postgres.Query.collate(users.email, dynamicCollation)
+StdRoot.Query.collate(users.email, dynamicCollation)
 // @ts-expect-error collation identifiers must be non-empty
 Q.collate(users.email, "")
 // @ts-expect-error collation path identifiers must be non-empty
@@ -161,7 +162,7 @@ Q.like(users.id, "%@example.com")
 Q.match(users.id).when(users.email, "bad").else("ok")
 
 const idAsText = Postgres.Cast.to(users.id, Postgres.Type.text())
-type IdAsText = Postgres.Scalar.RuntimeOf<typeof idAsText>
+type IdAsText = StdRoot.Scalar.RuntimeOf<typeof idAsText>
 const castRowId: IdAsText = "user-1"
 void castRowId
 
@@ -234,25 +235,25 @@ Q.insert(users, {
   })
 )
 
-const postgresDistinctOnPlan = Postgres.Query.select({
+const postgresDistinctOnPlan = StdRoot.Query.select({
   id: users.id,
   email: users.email
 }).pipe(
-  Postgres.Query.from(users),
+  StdRoot.Query.from(users),
   Postgres.Query.distinctOn(users.email),
-  Postgres.Query.orderBy(users.email),
-  Postgres.Query.orderBy(users.id)
+  StdRoot.Query.orderBy(users.email),
+  StdRoot.Query.orderBy(users.id)
 )
 
-type PostgresDistinctOnRow = Postgres.Query.ResultRow<typeof postgresDistinctOnPlan>
+type PostgresDistinctOnRow = StdRoot.Query.ResultRow<typeof postgresDistinctOnPlan>
 const postgresDistinctOnEmail: PostgresDistinctOnRow["email"] = "alice@example.com"
 void postgresDistinctOnEmail
 void postgresDistinctOnPlan
 
-const postgresDistinctOnMissingSource = Postgres.Query.select({
+const postgresDistinctOnMissingSource = StdRoot.Query.select({
   id: users.id
 }).pipe(
-  Postgres.Query.from(users),
+  StdRoot.Query.from(users),
   Postgres.Query.distinctOn(posts.title)
 )
 
@@ -260,7 +261,7 @@ const postgresDistinctOnMissingSource = Postgres.Query.select({
 const postgresDistinctOnMissingSourceRendered = Postgres.Renderer.make().render(postgresDistinctOnMissingSource)
 void postgresDistinctOnMissingSourceRendered
 
-type MysqlDistinctOnError = BrandedErrorOf<typeof Mysql.Query.distinctOn>
+type MysqlDistinctOnError = BrandedErrorOf<typeof StdRoot.Query.distinctOn>
 const mysqlDistinctOnError: MysqlDistinctOnError =
   "effect-qb: distinctOn(...) is only supported by the postgres dialect"
 void mysqlDistinctOnError

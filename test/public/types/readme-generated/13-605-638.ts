@@ -4,7 +4,7 @@
 
 // README.md:605-638
 import * as Schema from "effect/Schema"
-import { Column, Table } from "effect-qb"
+import { Column, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
 const payloadSchema = Schema.Struct({
@@ -31,7 +31,7 @@ const cityPath = Pg.Jsonb.path(
 
 const missingRequiredCity = Pg.Jsonb.delete(docs.payload, cityPath)
 
-Pg.Query.update(docs, {
+Query.update(docs, {
   // @ts-expect-error payload no longer satisfies payloadSchema
   payload: missingRequiredCity
 })

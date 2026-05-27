@@ -19,11 +19,11 @@ describe("cross-cutting statement behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const truncatePlan = Postgres.Query.truncate(users, {
+    const truncatePlan = StdRoot.Query.truncate(users, {
       restartIdentity: true,
       cascade: true
     })
-    const mergePlan = Postgres.Query.merge(users, incomingUsers, Postgres.Query.eq(users.id, incomingUsers.id), {
+    const mergePlan = StdRoot.Query.merge(users, incomingUsers, StdRoot.Query.eq(users.id, incomingUsers.id), {
       whenMatched: {
         update: {
           email: incomingUsers.email,
@@ -45,15 +45,15 @@ describe("cross-cutting statement behavior", () => {
     expect(Postgres.Renderer.make().render(mergePlan).sql).toBe(
       'merge into "users" using "incoming_users" on ("users"."id" = "incoming_users"."id") when matched then update set "email" = "incoming_users"."email", "bio" = "incoming_users"."bio" when not matched then insert ("id", "email", "bio") values ("incoming_users"."id", "incoming_users"."email", "incoming_users"."bio")'
     )
-    expect(Postgres.Renderer.make().render(Postgres.Query.transaction({
+    expect(Postgres.Renderer.make().render(StdRoot.Query.transaction({
       isolationLevel: "serializable",
       readOnly: true
     })).sql).toBe("start transaction isolation level serializable, read only")
-    expect(Postgres.Renderer.make().render(Postgres.Query.commit()).sql).toBe("commit")
-    expect(Postgres.Renderer.make().render(Postgres.Query.rollback()).sql).toBe("rollback")
-    expect(Postgres.Renderer.make().render(Postgres.Query.savepoint("before_merge")).sql).toBe('savepoint "before_merge"')
-    expect(Postgres.Renderer.make().render(Postgres.Query.rollbackTo("before_merge")).sql).toBe('rollback to savepoint "before_merge"')
-    expect(Postgres.Renderer.make().render(Postgres.Query.releaseSavepoint("before_merge")).sql).toBe('release savepoint "before_merge"')
+    expect(Postgres.Renderer.make().render(StdRoot.Query.commit()).sql).toBe("commit")
+    expect(Postgres.Renderer.make().render(StdRoot.Query.rollback()).sql).toBe("rollback")
+    expect(Postgres.Renderer.make().render(StdRoot.Query.savepoint("before_merge")).sql).toBe('savepoint "before_merge"')
+    expect(Postgres.Renderer.make().render(StdRoot.Query.rollbackTo("before_merge")).sql).toBe('rollback to savepoint "before_merge"')
+    expect(Postgres.Renderer.make().render(StdRoot.Query.releaseSavepoint("before_merge")).sql).toBe('release savepoint "before_merge"')
   })
 
   test("renders mysql truncate and transaction-control statements and rejects merge", () => {
@@ -68,12 +68,12 @@ describe("cross-cutting statement behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     })
 
-    const truncatePlan = Mysql.Query.truncate(users)
-    const unsupportedTruncatePlan = Mysql.Query.truncate(users, {
+    const truncatePlan = StdRoot.Query.truncate(users)
+    const unsupportedTruncatePlan = StdRoot.Query.truncate(users, {
       restartIdentity: true,
       cascade: true
     })
-    const mergePlan = Mysql.Query.merge(users, incomingUsers, Mysql.Query.eq(users.id, incomingUsers.id), {
+    const mergePlan = StdRoot.Query.merge(users, incomingUsers, StdRoot.Query.eq(users.id, incomingUsers.id), {
       whenMatched: {
         update: {
           email: incomingUsers.email
@@ -87,15 +87,15 @@ describe("cross-cutting statement behavior", () => {
     expect(() => Mysql.Renderer.make().render(unsupportedTruncatePlan)).toThrow(
       "Unsupported mysql truncate options"
     )
-    expect(Mysql.Renderer.make().render(Mysql.Query.transaction({
+    expect(Mysql.Renderer.make().render(StdRoot.Query.transaction({
       isolationLevel: "serializable",
       readOnly: true
     })).sql).toBe("start transaction isolation level serializable, read only")
-    expect(Mysql.Renderer.make().render(Mysql.Query.commit()).sql).toBe("commit")
-    expect(Mysql.Renderer.make().render(Mysql.Query.rollback()).sql).toBe("rollback")
-    expect(Mysql.Renderer.make().render(Mysql.Query.savepoint("before_merge")).sql).toBe("savepoint `before_merge`")
-    expect(Mysql.Renderer.make().render(Mysql.Query.rollbackTo("before_merge")).sql).toBe("rollback to savepoint `before_merge`")
-    expect(Mysql.Renderer.make().render(Mysql.Query.releaseSavepoint("before_merge")).sql).toBe("release savepoint `before_merge`")
+    expect(Mysql.Renderer.make().render(StdRoot.Query.commit()).sql).toBe("commit")
+    expect(Mysql.Renderer.make().render(StdRoot.Query.rollback()).sql).toBe("rollback")
+    expect(Mysql.Renderer.make().render(StdRoot.Query.savepoint("before_merge")).sql).toBe("savepoint `before_merge`")
+    expect(Mysql.Renderer.make().render(StdRoot.Query.rollbackTo("before_merge")).sql).toBe("rollback to savepoint `before_merge`")
+    expect(Mysql.Renderer.make().render(StdRoot.Query.releaseSavepoint("before_merge")).sql).toBe("release savepoint `before_merge`")
     expect(() => Mysql.Renderer.make().render(mergePlan)).toThrow("Unsupported merge statement for mysql")
   })
 
@@ -105,24 +105,24 @@ describe("cross-cutting statement behavior", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
 
-    const emptySavepointPlan = Postgres.Query.savepoint("" as any)
+    const emptySavepointPlan = StdRoot.Query.savepoint("" as any)
     expect(Postgres.Renderer.make().render(emptySavepointPlan).sql).toBe('savepoint ""')
 
-    const emptyRollbackToPlan = Postgres.Query.rollbackTo("" as any)
+    const emptyRollbackToPlan = StdRoot.Query.rollbackTo("" as any)
     expect(Postgres.Renderer.make().render(emptyRollbackToPlan).sql).toBe('rollback to savepoint ""')
 
-    const emptyCreateIndexPlan = Postgres.Query.createIndex(users, "id", { name: "" } as any)
+    const emptyCreateIndexPlan = StdRoot.Query.createIndex(users, "id", { name: "" } as any)
     expect(Postgres.Renderer.make().render(emptyCreateIndexPlan).sql).toBe('create index "" on "users" ("id")')
 
-    const emptyDropIndexPlan = Postgres.Query.dropIndex(users, "id", { name: "" } as any)
+    const emptyDropIndexPlan = StdRoot.Query.dropIndex(users, "id", { name: "" } as any)
     expect(Postgres.Renderer.make().render(emptyDropIndexPlan).sql).toBe('drop index ""')
 
-    const savepointPlan = Postgres.Query.savepoint("before_merge")
+    const savepointPlan = StdRoot.Query.savepoint("before_merge")
     ;(savepointPlan as any)[queryAst].transaction.name = ""
 
     expect(Postgres.Renderer.make().render(savepointPlan).sql).toBe('savepoint ""')
 
-    const createIndexPlan = Postgres.Query.createIndex(users, "id")
+    const createIndexPlan = StdRoot.Query.createIndex(users, "id")
     ;(createIndexPlan as any)[queryAst].ddl.name = ""
 
     expect(Postgres.Renderer.make().render(createIndexPlan).sql).toBe('create index "" on "users" ("id")')
@@ -133,8 +133,8 @@ describe("cross-cutting statement behavior", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
 
-    const commitPlan = Postgres.Query.commit().pipe(
-      Postgres.Query.from(users as any)
+    const commitPlan = StdRoot.Query.commit().pipe(
+      StdRoot.Query.from(users as any)
     )
 
     expect(Postgres.Renderer.make().render(commitPlan).sql).toBe("commit")
@@ -143,13 +143,13 @@ describe("cross-cutting statement behavior", () => {
   test("transaction builders trust typed clause kinds without renderer-time validation", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
 
-    const postgresPlan = Postgres.Query.transaction()
+    const postgresPlan = StdRoot.Query.transaction()
     ;(postgresPlan as any)[queryAst].transaction.kind = "begin"
     expect(Postgres.Renderer.make().render(postgresPlan).sql).toBe(
       "start transaction"
     )
 
-    const mysqlPlan = Mysql.Query.transaction()
+    const mysqlPlan = StdRoot.Query.transaction()
     ;(mysqlPlan as any)[queryAst].transaction.kind = "begin"
     expect(Mysql.Renderer.make().render(mysqlPlan).sql).toBe(
       "start transaction"
@@ -159,13 +159,13 @@ describe("cross-cutting statement behavior", () => {
   test("query builders trust typed statement kinds without renderer-time validation", () => {
     const queryAst = Symbol.for("effect-qb/QueryAst")
 
-    const postgresPlan = Postgres.Query.transaction()
+    const postgresPlan = StdRoot.Query.transaction()
     ;(postgresPlan as any)[queryAst].kind = "vacuum"
     expect(Postgres.Renderer.make().render(postgresPlan).sql).toBe(
       "start transaction"
     )
 
-    const mysqlPlan = Mysql.Query.transaction()
+    const mysqlPlan = StdRoot.Query.transaction()
     ;(mysqlPlan as any)[queryAst].kind = "vacuum"
     expect(Mysql.Renderer.make().render(mysqlPlan).sql).toBe(
       "start transaction"
@@ -178,7 +178,7 @@ describe("cross-cutting statement behavior", () => {
     const postgresUsers = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
-    const postgresPlan = Postgres.Query.truncate(postgresUsers)
+    const postgresPlan = StdRoot.Query.truncate(postgresUsers)
     ;(postgresPlan as any)[queryAst].truncate.kind = "dropTable"
     expect(Postgres.Renderer.make().render(postgresPlan).sql).toBe(
       'truncate table "users"'
@@ -187,7 +187,7 @@ describe("cross-cutting statement behavior", () => {
     const mysqlUsers = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey)
     })
-    const mysqlPlan = Mysql.Query.truncate(mysqlUsers)
+    const mysqlPlan = StdRoot.Query.truncate(mysqlUsers)
     ;(mysqlPlan as any)[queryAst].truncate.kind = "dropTable"
     expect(Mysql.Renderer.make().render(mysqlPlan).sql).toBe(
       "truncate table `users`"
@@ -205,10 +205,10 @@ describe("cross-cutting statement behavior", () => {
       email: StdRoot.Column.text()
     })
 
-    const mergePayloadPlan = Postgres.Query.merge(
+    const mergePayloadPlan = StdRoot.Query.merge(
       users,
       incomingUsers,
-      Postgres.Query.eq(users.id, incomingUsers.id),
+      StdRoot.Query.eq(users.id, incomingUsers.id),
       {
         whenMatched: {
           update: {
@@ -222,10 +222,10 @@ describe("cross-cutting statement behavior", () => {
       'merge into "users" using "incoming_users" on ("users"."id" = "incoming_users"."id") when matched then update set "email" = "incoming_users"."email"'
     )
 
-    const matchedPlan = Postgres.Query.merge(
+    const matchedPlan = StdRoot.Query.merge(
       users,
       incomingUsers,
-      Postgres.Query.eq(users.id, incomingUsers.id),
+      StdRoot.Query.eq(users.id, incomingUsers.id),
       {
         whenMatched: {
           update: {
@@ -239,10 +239,10 @@ describe("cross-cutting statement behavior", () => {
       'merge into "users" using "incoming_users" on ("users"."id" = "incoming_users"."id") when matched then update set "email" = "incoming_users"."email"'
     )
 
-    const notMatchedPlan = Postgres.Query.merge(
+    const notMatchedPlan = StdRoot.Query.merge(
       users,
       incomingUsers,
-      Postgres.Query.eq(users.id, incomingUsers.id),
+      StdRoot.Query.eq(users.id, incomingUsers.id),
       {
         whenNotMatched: {
           values: {
