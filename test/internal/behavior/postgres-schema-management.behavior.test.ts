@@ -1996,7 +1996,7 @@ const users = Table.make("users", {
 
       expect(plan.updates).toHaveLength(1)
       expect(plan.updates[0]?.after).toContain(`import * as Pg from "effect-qb/postgres"`)
-      expect(plan.updates[0]?.after).toContain(`import { Table, Column, PrimaryKey, Unique, Index, ForeignKey, Check } from "effect-qb"`)
+      expect(plan.updates[0]?.after).toContain(`import { Table, Column, Json, PrimaryKey, Unique, Index, ForeignKey, Check } from "effect-qb"`)
       expect(plan.updates[0]?.after).toContain(`import * as Schema from "effect/Schema"`)
       expect(plan.updates[0]?.after).toContain(`const users = Table.make("users"`)
       expect(plan.updates[0]?.after).toContain(`id: Column.uuid()`)
@@ -2031,8 +2031,9 @@ const users = Table.make("users", {
         right: StdRoot.Scalar.Any
       ) => StdRoot.Scalar.Any
       const stripeQuantity = stripePipe(
-        Pg.Json.get(Pg.Json.key("line_item")) as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any,
-        Pg.Json.text(Pg.Json.key("quantity")) as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any,
+        StdRoot.Json.key("line_item") as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any,
+        StdRoot.Json.key("quantity") as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any,
+        StdRoot.Json.text as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any,
         Pg.Cast.to(Pg.Type.text()) as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any,
         Pg.Cast.to(Pg.Type.int4()) as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any
       )
@@ -2052,8 +2053,9 @@ const users = Table.make("users", {
       expect(plan.updates).toHaveLength(1)
       const after = plan.updates[0]?.after ?? ""
       expect(after).toContain(`stripe: Pg.Column.jsonb(Schema.Unknown).pipe(Column.nullable)`)
-      expect(after).toContain(`Pg.Json.get(Pg.Json.key("line_item"))`)
-      expect(after).toContain(`Pg.Json.text(Pg.Json.key("quantity"))`)
+      expect(after).toContain(`Json.key("line_item")`)
+      expect(after).toContain(`Json.key("quantity")`)
+      expect(after).toContain(`Json.text`)
       expect(after).toContain(`Pg.Cast.to(Pg.Type.text())`)
       expect(after).toContain(`Pg.Cast.to(Pg.Type.int4())`)
     } finally {

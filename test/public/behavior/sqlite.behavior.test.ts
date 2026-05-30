@@ -9,6 +9,9 @@ import * as StdRoot from "#standard"
 
 const render = (plan: unknown) => Sqlite.Renderer.make().render(plan as any)
 
+const at = (base: any, ...segments: readonly any[]) =>
+  segments.reduce((value, segment) => value.pipe(segment), base)
+
 describe("sqlite behavior", () => {
   test("renders read queries with sqlite placeholders, quoting, and string concatenation", () => {
     const { users, posts } = makeSqliteSocialGraph()
@@ -222,28 +225,26 @@ describe("sqlite behavior", () => {
       id: StdRoot.Column.text().pipe(StdRoot.Column.primaryKey),
       payload: StdRoot.Column.json(Schema.Unknown)
     })
-    const tags = Sqlite.Json.get(
-      docs.payload,
-      Sqlite.Json.path(
-        Sqlite.Json.key("profile"),
-        Sqlite.Json.key("tags")
+    const tags = StdRoot.Json.get(
+      at(docs.payload,
+        StdRoot.Json.key("profile"),
+        StdRoot.Json.key("tags")
       )
     )
 
     const plan = StdRoot.Query.select({
-      city: Sqlite.Json.text(
-        docs.payload,
-        Sqlite.Json.path(
-          Sqlite.Json.key("profile"),
-          Sqlite.Json.key("address"),
-          Sqlite.Json.key("city")
+      city: StdRoot.Json.text(
+        at(docs.payload,
+          StdRoot.Json.key("profile"),
+          StdRoot.Json.key("address"),
+          StdRoot.Json.key("city")
         )
       ),
-      built: Sqlite.Json.buildObject({
+      built: StdRoot.Json.buildObject({
         source: "sqlite",
         ok: true
       }),
-      tags: Sqlite.Json.length(tags)
+      tags: StdRoot.Json.length(tags)
     }).pipe(StdRoot.Query.from(docs))
 
     const rendered = render(plan)
@@ -271,13 +272,12 @@ describe("sqlite behavior", () => {
     })
 
     const rendered = render(StdRoot.Query.select({
-      built: Sqlite.Json.buildObject({
+      built: StdRoot.Json.buildObject({
         nested: { ok: true },
         tags: ["sqlite"]
       }),
-      patched: Sqlite.Json.set(
-        docs.payload,
-        Sqlite.Json.path(Sqlite.Json.key("nested")),
+      patched: StdRoot.Json.set(
+        at(docs.payload, StdRoot.Json.key("nested")),
         { ok: true }
       )
     }).pipe(StdRoot.Query.from(docs)))
@@ -297,7 +297,7 @@ describe("sqlite behavior", () => {
 
   test("renders sqlite JSON merge operands as JSON instead of raw driver objects", () => {
     const rendered = render(StdRoot.Query.select({
-      merged: Sqlite.Json.merge(
+      merged: StdRoot.Json.merge(
         { nested: { left: true } },
         { tags: ["sqlite"] }
       )
@@ -318,22 +318,22 @@ describe("sqlite behavior", () => {
       payload: StdRoot.Column.json(Schema.Unknown)
     })
 
-    const lastTagPath = Sqlite.Json.path(
-      Sqlite.Json.key("profile"),
-      Sqlite.Json.key("tags"),
-      Sqlite.Json.index(-1)
+    const lastTagPath = at(docs.payload,
+      StdRoot.Json.key("profile"),
+      StdRoot.Json.key("tags"),
+      StdRoot.Json.index(-1)
     )
-    const descendPath = Sqlite.Json.path(
-      Sqlite.Json.descend(),
-      Sqlite.Json.key("city")
+    const descendPath = at(docs.payload,
+      StdRoot.Json.descend(),
+      StdRoot.Json.key("city")
     )
-    const wildcardPath = Sqlite.Json.path(
-      Sqlite.Json.key("profile"),
-      Sqlite.Json.wildcard()
+    const wildcardPath = at(docs.payload,
+      StdRoot.Json.key("profile"),
+      StdRoot.Json.wildcard()
     )
 
     const rendered = render(StdRoot.Query.select({
-      hasLastTag: Sqlite.Json.pathExists(docs.payload, lastTagPath)
+      hasLastTag: StdRoot.Json.pathExists(lastTagPath)
     }).pipe(StdRoot.Query.from(docs)))
 
     expect(rendered.sql).toBe(
@@ -341,10 +341,10 @@ describe("sqlite behavior", () => {
     )
     expect(rendered.params).toEqual(["$.profile.tags[#-1]"])
     expect(() => render(StdRoot.Query.select({
-      unsupported: Sqlite.Json.pathExists(docs.payload, descendPath)
+      unsupported: StdRoot.Json.pathExists(descendPath)
     }).pipe(StdRoot.Query.from(docs)))).toThrow("SQLite JSON paths do not support recursive descent segments")
     expect(() => render(StdRoot.Query.select({
-      unsupported: Sqlite.Json.get(docs.payload, wildcardPath)
+      unsupported: StdRoot.Json.get(wildcardPath)
     }).pipe(StdRoot.Query.from(docs)))).toThrow("SQLite JSON paths do not support wildcard segments")
   })
 
@@ -354,14 +354,14 @@ describe("sqlite behavior", () => {
       payload: StdRoot.Column.json(Schema.Unknown)
     })
 
-    const firstTagPath = Sqlite.Json.path(
-      Sqlite.Json.key("profile"),
-      Sqlite.Json.key("tags"),
-      Sqlite.Json.index(1)
+    const firstTagPath = at(docs.payload,
+      StdRoot.Json.key("profile"),
+      StdRoot.Json.key("tags"),
+      StdRoot.Json.index(1)
     )
 
     expect(() => render(StdRoot.Query.select({
-      inserted: Sqlite.Json.insert(docs.payload, firstTagPath, "city")
+      inserted: StdRoot.Json.insert(firstTagPath, "city")
     }).pipe(StdRoot.Query.from(docs)))).toThrow(
       "Unsupported JSON feature for sqlite: jsonInsertArrayIndex"
     )

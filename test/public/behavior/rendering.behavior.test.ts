@@ -587,12 +587,12 @@ describe("rendering behavior", () => {
       PgJsonb.buildObject({ email: "alice@example.com" }),
       "email"
     )
-    const mysqlHasKey = Mysql.Json.hasKey(
-      Mysql.Json.buildObject({ email: "alice@example.com" }),
+    const mysqlHasKey = StdRoot.Json.hasKey(
+      StdRoot.Json.buildObject({ email: "alice@example.com" }),
       "email"
     )
-    const sqliteHasKey = Sqlite.Json.hasKey(
-      Sqlite.Json.buildObject({ email: "alice@example.com" }),
+    const sqliteHasKey = StdRoot.Json.hasKey(
+      StdRoot.Json.buildObject({ email: "alice@example.com" }),
       "email"
     )
     ;(pgHasKey as any)[expressionAst].keys = [0]
@@ -616,12 +616,12 @@ describe("rendering behavior", () => {
       PgJsonb.buildObject({ email: "alice@example.com" }),
       "email"
     )
-    const mysqlHasKey = Mysql.Json.hasKey(
-      Mysql.Json.buildObject({ email: "alice@example.com" }),
+    const mysqlHasKey = StdRoot.Json.hasKey(
+      StdRoot.Json.buildObject({ email: "alice@example.com" }),
       "email"
     )
-    const sqliteHasKey = Sqlite.Json.hasKey(
-      Sqlite.Json.buildObject({ email: "alice@example.com" }),
+    const sqliteHasKey = StdRoot.Json.hasKey(
+      StdRoot.Json.buildObject({ email: "alice@example.com" }),
       "email"
     )
     const pgPlan = Q.select({
@@ -657,13 +657,13 @@ describe("rendering behavior", () => {
       PgJsonb.buildObject({ email: "alice@example.com" }),
       PgJsonb.key("email")
     )
-    const mysqlValue = Mysql.Json.get(
-      Mysql.Json.buildObject({ email: "alice@example.com" }),
-      Mysql.Json.key("email")
+    const mysqlValue = StdRoot.Json.get(
+      StdRoot.Json.buildObject({ email: "alice@example.com" }),
+      StdRoot.Json.key("email")
     )
-    const sqliteValue = Sqlite.Json.get(
-      Sqlite.Json.buildObject({ email: "alice@example.com" }),
-      Sqlite.Json.key("email")
+    const sqliteValue = StdRoot.Json.get(
+      StdRoot.Json.buildObject({ email: "alice@example.com" }),
+      StdRoot.Json.key("email")
     )
     ;(pgValue as any)[expressionAst].segments = [null]
     ;(mysqlValue as any)[expressionAst].segments = [null]
@@ -686,13 +686,13 @@ describe("rendering behavior", () => {
       PgJsonb.buildObject({ email: "alice@example.com" }),
       PgJsonb.key("email")
     )
-    const mysqlValue = Mysql.Json.get(
-      Mysql.Json.buildObject({ email: "alice@example.com" }),
-      Mysql.Json.key("email")
+    const mysqlValue = StdRoot.Json.get(
+      StdRoot.Json.buildObject({ email: "alice@example.com" }),
+      StdRoot.Json.key("email")
     )
-    const sqliteValue = Sqlite.Json.get(
-      Sqlite.Json.buildObject({ email: "alice@example.com" }),
-      Sqlite.Json.key("email")
+    const sqliteValue = StdRoot.Json.get(
+      StdRoot.Json.buildObject({ email: "alice@example.com" }),
+      StdRoot.Json.key("email")
     )
     const pgPlan = Q.select({
       value: pgValue,
@@ -726,12 +726,12 @@ describe("rendering behavior", () => {
       PgJsonb.buildObject({ email: "alice@example.com" }),
       ""
     )
-    const mysqlPathExists = Mysql.Json.pathExists(
-      Mysql.Json.buildObject({ email: "alice@example.com" }),
+    const mysqlPathExists = StdRoot.Json.pathExists(
+      StdRoot.Json.buildObject({ email: "alice@example.com" }),
       ""
     )
-    const sqlitePathExists = Sqlite.Json.pathExists(
-      Sqlite.Json.buildObject({ email: "alice@example.com" }),
+    const sqlitePathExists = StdRoot.Json.pathExists(
+      StdRoot.Json.buildObject({ email: "alice@example.com" }),
       ""
     )
 

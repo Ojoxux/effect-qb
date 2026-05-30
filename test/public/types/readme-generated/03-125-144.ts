@@ -3,7 +3,7 @@
 // Code fences: 125-144
 
 // README.md:125-144
-import { Column, Query, Table } from "effect-qb"
+import { Column, Json, Query, Table } from "effect-qb"
 import * as My from "effect-qb/mysql"
 import * as Pg from "effect-qb/postgres"
 import * as Sq from "effect-qb/sqlite"

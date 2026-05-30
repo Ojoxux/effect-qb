@@ -123,7 +123,7 @@ The query plan above is portable because it only uses root modules. It can be
 rendered by any built-in renderer.
 
 ```ts
-import { Column, Query, Table } from "effect-qb"
+import { Column, Json, Query, Table } from "effect-qb"
 import * as My from "effect-qb/mysql"
 import * as Pg from "effect-qb/postgres"
 import * as Sq from "effect-qb/sqlite"
@@ -540,7 +540,7 @@ const events = Table.make("events", {
   payload: Pg.Column.jsonb(payloadSchema)
 })
 
-const kind = Pg.Jsonb.text(events.payload, Pg.Jsonb.key("kind"))
+const kind = events.payload.pipe(Pg.Jsonb.key("kind"), Pg.Jsonb.text)
 
 const createdEvents = Query.select({
   payload: events.payload,
@@ -594,13 +594,12 @@ const docs = Table.make("docs", {
   payload: Pg.Column.jsonb(payloadSchema)
 })
 
-const cityPath = Pg.Jsonb.path(
+const missingRequiredCity = docs.payload.pipe(
   Pg.Jsonb.key("profile"),
   Pg.Jsonb.key("address"),
-  Pg.Jsonb.key("city")
+  Pg.Jsonb.key("city"),
+  Pg.Jsonb.delete
 )
-
-const missingRequiredCity = Pg.Jsonb.delete(docs.payload, cityPath)
 
 Query.update(docs, {
   // @ts-expect-error payload no longer satisfies payloadSchema
@@ -684,7 +683,7 @@ const docs = Table.make("docs", {
 })
 
 const postgresOnly = Query.select({
-  kind: Pg.Jsonb.text(docs.payload, Pg.Jsonb.key("kind"))
+  kind: docs.payload.pipe(Pg.Jsonb.key("kind"), Pg.Jsonb.text)
 }).pipe(Query.from(docs))
 
 Pg.Renderer.make().render(postgresOnly)
@@ -934,9 +933,9 @@ Dialect modules expose:
 
 | Module | Adds |
 | --- | --- |
-| `effect-qb/postgres` | Postgres column extensions, option modifiers, JSON/jsonb helpers, casts, types, schemas, enums, sequences, renderer, executor |
-| `effect-qb/mysql` | MySQL column extensions, JSON helpers, renderer, executor |
-| `effect-qb/sqlite` | SQLite column extensions, JSON helpers, renderer, executor |
+| `effect-qb/postgres` | Postgres column extensions, option modifiers, Postgres-only JSON/jsonb helpers, casts, types, schemas, enums, sequences, renderer, executor |
+| `effect-qb/mysql` | MySQL column extensions, MySQL-only JSON helpers, renderer, executor |
+| `effect-qb/sqlite` | SQLite column extensions, SQLite-only JSON helpers, renderer, executor |
 
 Portable columns and tables are created from `effect-qb`, not from dialect
 modules. For example, use `Column.uuid()`, not `Pg.Column.uuid()`.
@@ -970,14 +969,14 @@ const events = Table.make("events", {
   createdAt: Column.datetime()
 }).pipe(
   Index.make("createdAt").pipe(
-    Pg.Index.named("events_created_at_idx"),
+    Index.named("events_created_at_idx"),
     Pg.Index.using("btree")
   )
 )
 
 const eventKinds = Query.select({
   id: events.id,
-  kind: Pg.Jsonb.text(events.payload, Pg.Jsonb.key("kind"))
+  kind: events.payload.pipe(Pg.Jsonb.key("kind"), Pg.Jsonb.text)
 }).pipe(Query.from(events))
 
 Pg.Renderer.make().render(eventKinds)
@@ -1023,7 +1022,7 @@ helpers when the query depends on MySQL-specific SQL.
 
 ```ts
 import * as Schema from "effect/Schema"
-import { Column, Query, Table } from "effect-qb"
+import { Column, Json, Query, Table } from "effect-qb"
 import * as My from "effect-qb/mysql"
 
 const docs = Table.make("docs", {
@@ -1035,11 +1034,15 @@ const docs = Table.make("docs", {
 
 const readDocs = Query.select({
   id: docs.id,
-  title: My.Json.text(docs.payload, My.Json.key("title"))
+  title: docs.payload.pipe(Json.key("title"), Json.text)
 }).pipe(Query.from(docs))
 
 My.Renderer.make().render(readDocs)
 ```
+
+Use root `Json` for portable JSON access and construction. Reach for `My.Json`
+only when the behavior is MySQL-specific, such as MySQL's `json_type` result
+strings or unsupported-helper diagnostics.
 
 MySQL renderer differences include backtick quoting, question-mark placeholders,
 MySQL casts/functions where needed, and MySQL legality checks. MySQL does not
@@ -1053,7 +1056,7 @@ helpers for SQLite-specific SQL such as JSON1 functions.
 
 ```ts
 import * as Schema from "effect/Schema"
-import { Column, Query, Table } from "effect-qb"
+import { Column, Json, Query, Table } from "effect-qb"
 import * as Sq from "effect-qb/sqlite"
 
 const docs = Table.make("docs", {
@@ -1067,14 +1070,15 @@ const docs = Table.make("docs", {
 
 const readDocs = Query.select({
   id: docs.id,
-  city: Sq.Json.text(
-    docs.payload,
-    Sq.Json.path(Sq.Json.key("profile"), Sq.Json.key("city"))
-  )
+  city: docs.payload.pipe(Json.key("profile"), Json.key("city"), Json.text)
 }).pipe(Query.from(docs))
 
 Sq.Renderer.make().render(readDocs)
 ```
+
+Use root `Json` for portable JSON access and construction. Reach for `Sq.Json`
+only when the behavior is SQLite-specific, such as JSON1 insert restrictions or
+SQLite's `json_type` result strings.
 
 SQLite support includes DDL, mutations, reads, streams, transactions/savepoints,
 and JSON1 helpers. Some SQL features remain intentionally unsupported where
@@ -1143,13 +1147,11 @@ const docs = Table.make("docs", {
   }))
 })
 
-const city = Pg.Jsonb.text(
-  docs.payload,
-  Pg.Jsonb.path(
-    Pg.Jsonb.key("profile"),
-    Pg.Jsonb.key("address"),
-    Pg.Jsonb.key("city")
-  )
+const city = docs.payload.pipe(
+  Pg.Jsonb.key("profile"),
+  Pg.Jsonb.key("address"),
+  Pg.Jsonb.key("city"),
+  Pg.Jsonb.text
 )
 
 const plan = Query.select({ city }).pipe(Query.from(docs))
@@ -1203,9 +1205,9 @@ Concrete modules:
 
 | Module | Purpose |
 | --- | --- |
-| `effect-qb/postgres` | Postgres-specific columns, option modifiers, query helpers, JSON/jsonb, schemas, renderer, executor |
-| `effect-qb/mysql` | MySQL-specific helpers, renderer, executor |
-| `effect-qb/sqlite` | SQLite-specific helpers, renderer, executor |
+| `effect-qb/postgres` | Postgres-specific columns, option modifiers, query helpers, Postgres-only JSON/jsonb, schemas, renderer, executor |
+| `effect-qb/mysql` | MySQL-specific helpers, MySQL-only JSON helpers, renderer, executor |
+| `effect-qb/sqlite` | SQLite-specific helpers, SQLite-only JSON helpers, renderer, executor |
 | `effect-qb/postgres/metadata` | Postgres metadata normalization helpers |
 
 ### Development

@@ -1,9 +1,9 @@
-import { Column as PgColumn } from "effect-qb/postgres"
+import { Column as PgColumn, Json as PgJson } from "effect-qb/postgres"
 import * as Std from "effect-qb"
 import * as Schema from "effect/Schema"
 
-import { Scalar as E, Function as F, Query as Q } from "effect-qb"
-import { Json as J, Jsonb as Jb } from "effect-qb/postgres"
+import { Scalar as E, Function as F, Json, Query as Q } from "effect-qb"
+import { Jsonb as Jb } from "effect-qb/postgres"
 import type { BrandedErrorOf } from "../../helpers/branded-error.ts"
 
 type IsAny<Value> = 0 extends (1 & Value) ? true : false
@@ -115,97 +115,117 @@ const jsonPathCollisionDocs = Std.Table.make("json_path_collision_docs", {
   payload: PgColumn.jsonb(collisionPayloadSchema)
 })
 
-const cityPath = J.path(
-  J.key("profile"),
-  J.key("address"),
-  J.key("city")
+const cityExpr = docs.payload.pipe(
+  Json.key("profile"),
+  Json.key("address"),
+  Json.key("city")
 )
-const postcodePath = J.path(
-  J.key("profile"),
-  J.key("address"),
-  J.key("postcode")
+const cityTextExpr = cityExpr.pipe(Json.text)
+const metricCountTextExpr = metricDocs.payload.pipe(Json.key("count"), Json.text)
+const metricActiveTextExpr = metricDocs.payload.pipe(Json.key("active"), Json.text)
+const curriedCityExpr = docs.payload.pipe(
+  Json.key("profile"),
+  Json.key("address"),
+  Json.key("city")
 )
-const suitePath = Jb.path(
-  Jb.key("profile"),
-  Jb.key("address"),
-  Jb.key("suite")
-)
-const wildcardPath = Jb.path(
-  Jb.key("profile"),
-  Jb.key("tags"),
-  Jb.wildcard()
-)
+const curriedMetricCountTextExpr = metricDocs.payload.pipe(Json.key("count"), Json.text)
+const typeNameExpr = Json.typeOf(docs.payload)
+const lengthExpr = Json.length(docs.payload)
+const keysExpr = Json.keys(docs.payload)
+const strippedExpr = PgJson.stripNulls(docs.payload)
+const nullableObjectTypeNameExpr = Json.typeOf(nullableObjectDocs.payload)
+const nullableObjectLengthExpr = Json.length(nullableObjectDocs.payload)
+const nullableObjectKeysExpr = Json.keys(nullableObjectDocs.payload)
+const tagsExpr = docs.payload.pipe(Json.key("profile"), Json.key("tags"))
+const tagsKeysExpr = Json.keys(tagsExpr)
 
-const cityExpr = J.get(docs.payload, cityPath)
-const cityTextExpr = J.text(docs.payload, cityPath)
-const metricCountTextExpr = J.text(metricDocs.payload, J.key("count"))
-const metricActiveTextExpr = J.text(metricDocs.payload, J.key("active"))
-const curriedCityExpr = docs.payload.pipe(J.get(cityPath))
-const curriedMetricCountTextExpr = metricDocs.payload.pipe(J.text(J.key("count")))
-const typeNameExpr = J.typeOf(docs.payload)
-const lengthExpr = J.length(docs.payload)
-const keysExpr = J.keys(docs.payload)
-const strippedExpr = J.stripNulls(docs.payload)
-const nullableObjectTypeNameExpr = J.typeOf(nullableObjectDocs.payload)
-const nullableObjectLengthExpr = J.length(nullableObjectDocs.payload)
-const nullableObjectKeysExpr = J.keys(nullableObjectDocs.payload)
-const tagsExpr = J.get(
-  docs.payload,
-  J.path(J.key("profile"), J.key("tags"))
+const sharedJsonbProfileExpr = Json.get(docs.payloadJsonb, Json.key("profile"))
+const sharedJsonbCityExpr = docs.payloadJsonb.pipe(
+  Json.key("profile"),
+  Json.key("address"),
+  Json.key("city")
 )
-const tagsKeysExpr = J.keys(tagsExpr)
-
-const sharedJsonbProfileExpr = J.get(docs.payloadJsonb, J.key("profile"))
-const sharedJsonbCityExpr = J.get(docs.payloadJsonb, cityPath)
-const sharedJsonbTypeNameExpr = J.typeOf(docs.payloadJsonb)
-const sharedJsonbStrippedExpr = J.stripNulls(docs.payloadJsonb)
+const sharedJsonbTypeNameExpr = Json.typeOf(docs.payloadJsonb)
+const sharedJsonbStrippedExpr = Jb.stripNulls(docs.payloadJsonb)
 
 const jsonbHasAddressExpr = Jb.hasKey(sharedJsonbProfileExpr, "address")
 const jsonbHasProfileExpr = Jb.hasKey(docs.payloadJsonb, "profile")
 const jsonbHasAnyExpr = Jb.hasAnyKeys(docs.payloadJsonb, "profile", "note")
 const jsonbHasAllExpr = Jb.hasAllKeys(docs.payloadJsonb, "profile", "note")
-const jsonbSetExpr = Jb.set(docs.payloadJsonb, postcodePath, "1000")
-const jsonbInsertExpr = Jb.insert(docs.payloadJsonb, suitePath, "12A")
-const jsonbSetWithoutCreateExpr = Jb.set(docs.payloadJsonb, suitePath, "12A", {
-  createMissing: false
-})
-const jsonbDeleteExpr = Jb.delete(docs.payloadJsonb, Jb.key("note"))
-const jsonbFirstTagExpr = Jb.get(docs.payloadJsonb, wildcardPath)
+const jsonbSetExpr = docs.payloadJsonb.pipe(
+  Jb.key("profile"),
+  Jb.key("address"),
+  Jb.key("postcode"),
+  Jb.set("1000")
+)
+const jsonbInsertExpr = docs.payloadJsonb.pipe(
+  Jb.key("profile"),
+  Jb.key("address"),
+  Jb.key("suite"),
+  Jb.insert("12A")
+)
+const jsonbSetWithoutCreateExpr = docs.payloadJsonb.pipe(
+  Jb.key("profile"),
+  Jb.key("address"),
+  Jb.key("suite"),
+  Jb.set("12A", {
+    createMissing: false
+  })
+)
+const jsonbDeleteExpr = docs.payloadJsonb.pipe(Jb.key("note"), Jb.delete)
+const jsonbFirstTagExpr = docs.payloadJsonb.pipe(
+  Jb.key("profile"),
+  Jb.key("tags"),
+  Jb.wildcard()
+)
 const jsonbConcatExpr = Jb.concat({ a: 1 }, { b: "x" })
 const jsonbMergeExpr = Jb.merge({ a: 1 }, { b: "x" })
-const builtObjectExpr = J.buildObject({ a: 1, b: "x" })
-const builtArrayExpr = J.buildArray(1, "x", true)
+const builtObjectExpr = Json.buildObject({ a: 1, b: "x" })
+const builtArrayExpr = Json.buildArray(1, "x", true)
 const builtJsonbObjectExpr = Jb.buildObject({ a: 1, b: "x" })
 const builtJsonbArrayExpr = Jb.buildArray(1, "x", true)
-const toJsonExpr = J.toJson(1)
+const toJsonExpr = Json.toJson(1)
 const toJsonbExpr = Jb.toJsonb("x")
 const jsonbTypeNameExpr = Jb.typeOf(docs.payloadJsonb)
 const jsonbLengthExpr = Jb.length(docs.payloadJsonb)
 const jsonbKeysExpr = Jb.keys(docs.payloadJsonb)
-const jsonbPathExistsExpr = Jb.pathExists(docs.payloadJsonb, wildcardPath)
+const jsonbPathExistsExpr = docs.payloadJsonb.pipe(
+  Jb.key("profile"),
+  Jb.key("tags"),
+  Jb.wildcard(),
+  Jb.pathExists
+)
 const jsonbPathMatchExpr = Jb.pathMatch(docs.payloadJsonb, '$.profile.tags[*] ? (@ == "x")')
 // @ts-expect-error SQL/JSON path predicates require non-empty string paths
 Jb.pathExists(docs.payloadJsonb, "")
 // @ts-expect-error SQL/JSON path predicates require non-empty string paths
 Jb.pathMatch(docs.payloadJsonb, "")
 const jsonbStrippedExpr = Jb.stripNulls(docs.payloadJsonb)
-const jsonbStrippedSetExpr = Jb.set(sharedJsonbStrippedExpr, postcodePath, "1000")
-const variantKindExpr = Jb.text(variantDocs.payload, Jb.key("kind"))
-const nestedVariantKindExpr = Jb.text(
-  nestedVariantDocs.payload,
-  Jb.path(Jb.key("details"), Jb.key("kind"))
+const jsonbStrippedSetExpr = sharedJsonbStrippedExpr.pipe(
+  Jb.key("profile"),
+  Jb.key("address"),
+  Jb.key("postcode"),
+  Jb.set("1000")
 )
-const dottedFlatKindExpr = Jb.text(
-  dottedPathDocs.payload,
-  Jb.path(Jb.key("a.b"), Jb.key("kind"))
+const variantKindExpr = variantDocs.payload.pipe(Jb.key("kind"), Jb.text)
+const nestedVariantKindExpr = nestedVariantDocs.payload.pipe(
+  Jb.key("details"),
+  Jb.key("kind"),
+  Jb.text
 )
-const flatSegmentCollisionExpr = Jb.text(
-  jsonPathCollisionDocs.payload,
-  Jb.path(Jb.key("a,key:b"))
+const dottedFlatKindExpr = dottedPathDocs.payload.pipe(
+  Jb.key("a.b"),
+  Jb.key("kind"),
+  Jb.text
 )
-const nestedSegmentCollisionExpr = Jb.text(
-  jsonPathCollisionDocs.payload,
-  Jb.path(Jb.key("a"), Jb.key("b"))
+const flatSegmentCollisionExpr = jsonPathCollisionDocs.payload.pipe(
+  Jb.key("a,key:b"),
+  Jb.text
+)
+const nestedSegmentCollisionExpr = jsonPathCollisionDocs.payload.pipe(
+  Jb.key("a"),
+  Jb.key("b"),
+  Jb.text
 )
 
 const option3Payload = Q.select({
@@ -340,7 +360,7 @@ type DottedFlatPayloadRow = Q.ResultRow<typeof dottedFlatPayload>
 type GroupedCityTextRow = Q.ResultRow<typeof groupedCityText>
 type NullableObjectPayloadRow = Q.ResultRow<typeof nullableObjectPayload>
 type CurriedCityIsExact = Expect<IsExact<CurriedCity, string>>
-type CurriedMetricCountTextIsExact = Expect<IsExact<CurriedMetricCountText, `${number}`>>
+type CurriedMetricCountTextIsExact = Expect<IsExact<CurriedMetricCountText, string>>
 type NullableObjectTypeNameIsExact = Expect<IsExact<NullableObjectTypeName, "object" | "null">>
 type NullableObjectLengthIsExact = Expect<IsExact<NullableObjectLength, number | null>>
 type NullableObjectKeysIsExact = Expect<IsExact<NullableObjectKeys, readonly "a"[] | null>>
@@ -513,23 +533,20 @@ void (undefined as unknown as NullableObjectTypeNameIsExact)
 void (undefined as unknown as NullableObjectLengthIsExact)
 void (undefined as unknown as NullableObjectKeysIsExact)
 
-// @ts-expect-error wildcard paths require the jsonb helper surface
-J.path(J.key("profile"), Jb.wildcard())
+Json.get(docs.payload, Jb.wildcard())
 
-// @ts-expect-error shared json helpers only accept exact key/index paths
-J.get(docs.payloadJsonb, wildcardPath)
+Json.get(docs.payloadJsonb, Jb.wildcard())
+// @ts-expect-error jsonb mutation helpers only accept exact key/index paths
+Jb.set(docs.payloadJsonb, Jb.wildcard(), "featured")
 
 // @ts-expect-error jsonb mutation helpers only accept exact key/index paths
-Jb.set(docs.payloadJsonb, wildcardPath, "featured")
+Jb.insert(docs.payloadJsonb, Jb.wildcard(), "featured")
 
 // @ts-expect-error jsonb mutation helpers only accept exact key/index paths
-Jb.insert(docs.payloadJsonb, wildcardPath, "featured")
-
-// @ts-expect-error jsonb mutation helpers only accept exact key/index paths
-Jb.delete(docs.payloadJsonb, wildcardPath)
+Jb.delete(docs.payloadJsonb, Jb.wildcard())
 
 // @ts-expect-error jsonb helpers require a jsonb expression
-Jb.set(docs.payload, postcodePath, "1000")
+Jb.set(docs.payload, Json.key("profile"), "1000")
 
 // @ts-expect-error shared json helpers preserve plain json and should not become jsonb-compatible
-Jb.set(strippedExpr, postcodePath, "1000")
+Jb.set(strippedExpr, Json.key("profile"), "1000")

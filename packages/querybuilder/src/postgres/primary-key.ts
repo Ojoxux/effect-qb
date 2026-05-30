@@ -1,4 +1,3 @@
-export { named } from "../standard/primary-key.js"
 import * as BaseTable from "../internal/table.js"
 import type { TableOptionSpec } from "../internal/table-options.js"
 

@@ -4,7 +4,7 @@ export * as Column from "./sqlite/column-extension.js"
 export * as Datatypes from "./sqlite/datatypes/index.js"
 /** SQLite error catalog and error normalization helpers. */
 export * as Errors from "./sqlite/errors/index.js"
-/** SQLite-specialized JSON expression helpers. */
+/** SQLite-specific JSON expression helpers. Portable JSON helpers are exported from the root package. */
 export * as Json from "./sqlite/json.js"
 /** SQLite-specialized typed query execution contracts. */
 export * as Executor from "./sqlite/executor.js"

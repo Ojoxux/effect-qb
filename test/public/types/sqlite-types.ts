@@ -2,8 +2,8 @@ import * as Std from "effect-qb"
 import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
-import { Query as Q } from "effect-qb"
-import { Executor, Json, Query as SqliteQuery, Renderer } from "effect-qb/sqlite"
+import { Json, Query as Q } from "effect-qb"
+import { Executor, Json as SqliteJson, Query as SqliteQuery, Renderer } from "effect-qb/sqlite"
 import { Executor as PostgresExecutor } from "effect-qb/postgres"
 
 const users = Std.Table.make("users", {
@@ -195,25 +195,15 @@ Q.like(users.email, "%@example.com")
 Q.ilike(users.email, "%@example.com")
 Q.inSubquery(users.id, ids)
 Json.get(users.payload, Json.key("tags"))
-Json.path(Json.key("tags"), Json.index(-1))
-Json.pathExists(users.payload, Json.path(Json.key("tags"), Json.index(0)))
+Json.pathExists(Json.get(users.payload, Json.key("tags")), Json.index(0))
 // @ts-expect-error sqlite SQL/JSON path predicates require non-empty string paths
 Json.pathExists(users.payload, "")
-Json.insert(users.payload, Json.key("source"), "imported")
+SqliteJson.insert(users.payload, Json.key("source"), "imported")
 
-const tagsIndexPath = Json.path(Json.key("tags"), Json.index(0))
+const tagsExpr = Json.get(users.payload, Json.key("tags"))
 
 // @ts-expect-error sqlite json.insert does not support array index paths
-Json.insert(users.payload, tagsIndexPath, "city")
-
-// @ts-expect-error sqlite JSON paths do not support wildcard segments
-Json.wildcard()
-
-// @ts-expect-error sqlite JSON paths do not support slice segments
-Json.slice(0, 2)
-
-// @ts-expect-error sqlite JSON paths do not support recursive descent segments
-Json.descend()
+SqliteJson.insert(tagsExpr, Json.index(0), "city")
 
 Q.regexMatch(users.email, ".*@example.com")
 

@@ -44,15 +44,16 @@ const dropIndexPlan = Q.dropIndex(memberships, ["role", "orgId"], {
 const createSingleColumnIndexPlan = Q.createIndex(memberships, "role")
 const dropSingleColumnIndexPlan = Q.dropIndex(memberships, "role")
 const richColumnsOnlyIndexTable = memberships.pipe(Index.make("role"))
+ForeignKey.make("orgId", () => orgs, "id").pipe(ForeignKey.onUpdate("cascade"))
 
 // @ts-expect-error check constraint names must be non-empty
 Check.make("", Q.eq(memberships.role, "admin"))
 // @ts-expect-error postgres primary key option names must be non-empty
-PrimaryKey.make("id").pipe(Pg.PrimaryKey.named(""))
+PrimaryKey.make("id").pipe(PrimaryKey.named(""))
 // @ts-expect-error postgres unique option names must be non-empty
-Unique.make("role").pipe(Pg.Unique.named(""))
+Unique.make("role").pipe(Unique.named(""))
 // @ts-expect-error postgres index option names must be non-empty
-Index.make("role").pipe(Pg.Index.named(""))
+Index.make("role").pipe(Index.named(""))
 // @ts-expect-error postgres index methods must be non-empty
 Index.make("role").pipe(Pg.Index.using(""))
 // @ts-expect-error postgres index included columns must be non-empty
@@ -64,7 +65,7 @@ Index.make("role").pipe(Pg.Index.key({ column: "role", operatorClass: "" }))
 // @ts-expect-error postgres index collations must be non-empty
 Index.make("role").pipe(Pg.Index.key({ column: "role", collation: "" }))
 // @ts-expect-error postgres foreign key option names must be non-empty
-ForeignKey.make("orgId", () => orgs, "id").pipe(Pg.ForeignKey.named(""))
+ForeignKey.make("orgId", () => orgs, "id").pipe(ForeignKey.named(""))
 // @ts-expect-error postgres check constraint names must be non-empty
 Check.make("", Q.eq(memberships.role, "admin"))
 // @ts-expect-error postgres index modifiers only apply to index options
@@ -74,7 +75,7 @@ Index.make("role").pipe(Pg.Unique.nullsNotDistinct)
 // @ts-expect-error postgres primary-key modifiers only apply to primary-key options
 ForeignKey.make("orgId", () => orgs, "id").pipe(Pg.PrimaryKey.deferrable)
 // @ts-expect-error postgres foreign-key modifiers only apply to foreign-key options
-PrimaryKey.make("id").pipe(Pg.ForeignKey.onDelete("cascade"))
+PrimaryKey.make("id").pipe(ForeignKey.onDelete("cascade"))
 // @ts-expect-error inline unique constraint names must be non-empty
 Std.Column.text().pipe(Std.Column.unique.options({ name: "" }))
 // @ts-expect-error postgres inline unique constraint names must be non-empty
@@ -124,7 +125,6 @@ void dropIndexCapability
 void createSingleColumnIndexPlan
 void dropSingleColumnIndexPlan
 void richColumnsOnlyIndexTable
-void lowerCaseModuleIndexTable
 
 // @ts-expect-error ddl plans cannot be filtered
 Q.where(Q.eq(memberships.id, "membership-id"))(createTablePlan)

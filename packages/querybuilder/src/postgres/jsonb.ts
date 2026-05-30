@@ -7,7 +7,6 @@ export const index = jsonb.index
 export const wildcard = jsonb.wildcard
 export const slice = jsonb.slice
 export const descend = jsonb.descend
-export const path = jsonb.path
 export const get = jsonb.get
 export const access = jsonb.access
 export const traverse = jsonb.traverse

@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 576-609
+// Code fences: 576-608
 
-// README.md:576-609
+// README.md:576-608
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
@@ -23,13 +23,12 @@ const docs = Table.make("docs", {
   payload: Pg.Column.jsonb(payloadSchema)
 })
 
-const cityPath = Pg.Jsonb.path(
+const missingRequiredCity = docs.payload.pipe(
   Pg.Jsonb.key("profile"),
   Pg.Jsonb.key("address"),
-  Pg.Jsonb.key("city")
+  Pg.Jsonb.key("city"),
+  Pg.Jsonb.delete
 )
-
-const missingRequiredCity = Pg.Jsonb.delete(docs.payload, cityPath)
 
 Query.update(docs, {
   // @ts-expect-error payload no longer satisfies payloadSchema

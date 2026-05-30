@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 889-901
+// Code fences: 888-900
 
-// README.md:889-901
+// README.md:888-900
 import * as Effect from "effect/Effect"
 import * as Stream from "effect/Stream"
 import * as Pg from "effect-qb/postgres"

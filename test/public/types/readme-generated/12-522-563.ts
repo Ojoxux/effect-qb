@@ -23,7 +23,7 @@ const events = Table.make("events", {
   payload: Pg.Column.jsonb(payloadSchema)
 })
 
-const kind = Pg.Jsonb.text(events.payload, Pg.Jsonb.key("kind"))
+const kind = events.payload.pipe(Pg.Jsonb.key("kind"), Pg.Jsonb.text)
 
 const createdEvents = Query.select({
   payload: events.payload,

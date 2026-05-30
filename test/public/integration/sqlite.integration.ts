@@ -6,9 +6,9 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 import * as Stream from "effect/Stream"
 
-import { Column as C, Table } from "#standard"
+import { Column as C, Json as J, Table } from "#standard"
 import { Function as F, Query as Q } from "#standard"
-import { Executor, Json as J } from "#sqlite"
+import { Executor } from "#sqlite"
 
 const runSqlite = <A, E>(effect: Effect.Effect<A, E, never>) =>
   Effect.runPromise(Effect.provide(effect, SqliteClient.layer({
@@ -111,12 +111,9 @@ test("sqlite executor supports returning upserts, JSON1 queries, and savepoint r
     const inserted = yield* executor.execute(upsert)
     const updated = yield* executor.execute(upsert)
 
-    const tags = J.get(docs.payload, J.path(J.key("profile"), J.key("tags")))
+    const tags = docs.payload.pipe(J.key("profile"), J.key("tags"))
     const jsonRead = Q.select({
-      city: J.text(
-        docs.payload,
-        J.path(J.key("profile"), J.key("address"), J.key("city"))
-      ),
+      city: docs.payload.pipe(J.key("profile"), J.key("address"), J.key("city"), J.text),
       tags: J.length(tags)
     }).pipe(Q.from(docs))
 
@@ -779,9 +776,9 @@ test("sqlite JSON1 mutation and construction helpers execute against stored JSON
 
   const result = await runSqlite(Effect.gen(function*() {
     const executor = Executor.make()
-    const cityPath = J.path(J.key("profile"), J.key("address"), J.key("city"))
-    const postcodePath = J.path(J.key("profile"), J.key("address"), J.key("postcode"))
-    const metadataPath = J.path(J.key("metadata"))
+    const cityPath = docs.payload.pipe(J.key("profile"), J.key("address"), J.key("city"))
+    const postcodePath = docs.payload.pipe(J.key("profile"), J.key("address"), J.key("postcode"))
+    const metadataPath = docs.payload.pipe(J.key("metadata"))
 
     yield* executor.execute(Q.createTable(docs))
     yield* executor.execute(Q.insert(docs, {
@@ -807,10 +804,10 @@ test("sqlite JSON1 mutation and construction helpers execute against stored JSON
       keys: J.keys(docs.payload),
       hasProfile: J.hasKey(docs.payload, "profile"),
       hasAll: J.hasAllKeys(docs.payload, "profile", "note"),
-      pathExists: J.pathExists(docs.payload, cityPath),
-      city: J.text(docs.payload, cityPath),
-      setPostcode: J.set(docs.payload, postcodePath, "1000"),
-      insertMetadata: J.insert(docs.payload, metadataPath, { imported: true }),
+      pathExists: cityPath.pipe(J.pathExists),
+      city: cityPath.pipe(J.text),
+      setPostcode: postcodePath.pipe(J.set("1000")),
+      insertMetadata: metadataPath.pipe(J.insert({ imported: true })),
       deleteNote: J.delete(docs.payload, J.key("note")),
       removeNote: J.remove(docs.payload, J.key("note")),
       merged: J.merge(docs.payload, {

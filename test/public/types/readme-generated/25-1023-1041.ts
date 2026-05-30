@@ -1,10 +1,10 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 1024-1042
+// Code fences: 1023-1041
 
-// README.md:1024-1042
+// README.md:1023-1041
 import * as Schema from "effect/Schema"
-import { Column, Query, Table } from "effect-qb"
+import { Column, Json, Query, Table } from "effect-qb"
 import * as My from "effect-qb/mysql"
 
 const docs = Table.make("docs", {
@@ -16,7 +16,7 @@ const docs = Table.make("docs", {
 
 const readDocs = Query.select({
   id: docs.id,
-  title: My.Json.text(docs.payload, My.Json.key("title"))
+  title: docs.payload.pipe(Json.key("title"), Json.text)
 }).pipe(Query.from(docs))
 
 My.Renderer.make().render(readDocs)

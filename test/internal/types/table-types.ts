@@ -492,14 +492,14 @@ const badRichIndexColumn = StdRoot.Table.index("missing")(Std.Table.make("bad_ri
 }))
 void badRichIndexColumn
 
-const badRichIndexIncludeOption = StdRoot.Table.index("id").pipe(Postgres.Table.include(["missing"] as const))
+const badRichIndexIncludeOption = StdRoot.Table.index("id").pipe(Postgres.Index.include(["missing"] as const))
 // @ts-expect-error rich index included columns must exist on the target table
 const badRichIndexInclude = badRichIndexIncludeOption(Std.Table.make("bad_rich_index_include", {
   id: Std.Column.uuid()
 }))
 void badRichIndexInclude
 
-const badRichIndexKeyOption = StdRoot.Table.index("id").pipe(Postgres.Table.key({ column: "missing" }))
+const badRichIndexKeyOption = StdRoot.Table.index("id").pipe(Postgres.Index.key({ column: "missing" }))
 // @ts-expect-error rich index key columns must exist on the target table
 const badRichIndexKey = badRichIndexKeyOption(Std.Table.make("bad_rich_index_key", {
   id: Std.Column.uuid()

@@ -4,7 +4,7 @@ export * as Column from "./mysql/column-extension.js"
 export * as Datatypes from "./mysql/datatypes/index.js"
 /** MySQL error catalog and error normalization helpers. */
 export * as Errors from "./mysql/errors/index.js"
-/** MySQL-specialized JSON expression helpers. */
+/** MySQL-specific JSON expression helpers. Portable JSON helpers are exported from the root package. */
 export * as Json from "./mysql/json.js"
 /** MySQL-specialized typed query execution contracts. */
 export * as Executor from "./mysql/executor.js"

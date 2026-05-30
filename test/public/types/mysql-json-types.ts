@@ -1,8 +1,8 @@
 import * as Std from "effect-qb"
 import * as Schema from "effect/Schema"
 
-import { Scalar as E } from "effect-qb"
-import { Json as J } from "effect-qb/mysql"
+import { Json as J, Scalar as E } from "effect-qb"
+import { Json as MyJson } from "effect-qb/mysql"
 
 const payloadSchema = Schema.Struct({
   profile: Schema.Struct({
@@ -23,53 +23,53 @@ const scalarDocs = Std.Table.make("scalar_docs", {
   payload: Std.Column.json(Schema.String)
 })
 
-const suitePath = J.path(
+const suiteExpr = docs.payload.pipe(
   J.key("profile"),
   J.key("address"),
   J.key("suite")
 )
-const tagWildcardPath = J.path(
+const tagWildcardExpr = docs.payload.pipe(
   J.key("profile"),
   J.key("tags"),
   J.wildcard()
 )
-const tagWildcardExistsExpr = J.pathExists(docs.payload, tagWildcardPath)
+const tagWildcardExistsExpr = tagWildcardExpr.pipe(J.pathExists)
 // @ts-expect-error MySQL SQL/JSON path predicates require non-empty string paths
 J.pathExists(docs.payload, "")
 
-const setWithoutCreateExpr = J.set(docs.payload, suitePath, "12A", {
+const setWithoutCreateExpr = suiteExpr.pipe(J.set("12A", {
   createMissing: false
-})
-const tagsExpr = J.get(docs.payload, J.path(J.key("profile"), J.key("tags")))
+}))
+const tagsExpr = docs.payload.pipe(J.key("profile"), J.key("tags"))
 const tagsKeysExpr = J.keys(tagsExpr)
-const lastPairValueExpr = J.get(
-  docs.payload,
-  J.path(J.key("profile"), J.key("pair"), J.index(-1))
+const lastPairValueExpr = docs.payload.pipe(J.key("profile"), J.key("pair"), J.index(-1))
+const setLastPairValueExpr = docs.payload.pipe(
+  J.key("profile"),
+  J.key("pair"),
+  J.index(-1),
+  J.set(true)
 )
-const setLastPairValueExpr = J.set(
-  docs.payload,
-  J.path(J.key("profile"), J.key("pair"), J.index(-1)),
-  true
+const deleteLastPairValueExpr = docs.payload.pipe(
+  J.key("profile"),
+  J.key("pair"),
+  J.index(-1),
+  J.delete
 )
-const deleteLastPairValueExpr = J.delete(
-  docs.payload,
-  J.path(J.key("profile"), J.key("pair"), J.index(-1))
+const insertBeforeLastPairValueExpr = docs.payload.pipe(
+  J.key("profile"),
+  J.key("pair"),
+  J.index(-1),
+  J.insert(true)
 )
-const insertBeforeLastPairValueExpr = J.insert(
-  docs.payload,
-  J.path(J.key("profile"), J.key("pair"), J.index(-1)),
-  true
+const insertAfterLastPairValueExpr = docs.payload.pipe(
+  J.key("profile"),
+  J.key("pair"),
+  J.index(-1),
+  J.insert(true, { insertAfter: true })
 )
-const insertAfterLastPairValueExpr = J.insert(
-  docs.payload,
-  J.path(J.key("profile"), J.key("pair"), J.index(-1)),
-  true,
-  { insertAfter: true }
-)
-const scalarLengthExpr = J.length(scalarDocs.payload)
-const objectTypeExpr = J.typeOf(docs.payload)
-const scalarTypeExpr = J.typeOf(scalarDocs.payload)
-const wildcardPath = J.path(J.key("profile"), J.key("tags"), J.wildcard())
+const scalarLengthExpr = MyJson.length(scalarDocs.payload)
+const objectTypeExpr = MyJson.typeOf(docs.payload)
+const scalarTypeExpr = MyJson.typeOf(scalarDocs.payload)
 
 type SetWithoutCreate = E.RuntimeOf<typeof setWithoutCreateExpr>
 type TagsKeys = E.RuntimeOf<typeof tagsKeysExpr>
@@ -110,19 +110,19 @@ void scalarType
 setWithoutCreate.profile.address.suite
 
 // @ts-expect-error json mutation helpers only accept exact key/index paths
-J.set(docs.payload, tagWildcardPath, "featured")
+tagWildcardExpr.pipe(J.set("featured"))
 
 // @ts-expect-error json mutation helpers only accept exact key/index paths
-J.insert(docs.payload, tagWildcardPath, "featured")
+tagWildcardExpr.pipe(J.insert("featured"))
 
 // @ts-expect-error json mutation helpers only accept exact key/index paths
-J.delete(docs.payload, tagWildcardPath)
+tagWildcardExpr.pipe(J.delete)
 
 // @ts-expect-error MySQL does not support json path match predicates.
-J.pathMatch(docs.payload, wildcardPath)
+MyJson.pathMatch(docs.payload, "$.profile.tags[*]")
 
 // @ts-expect-error MySQL does not support json_strip_nulls-style helpers.
-J.stripNulls(docs.payload)
+MyJson.stripNulls(docs.payload)
 
 void setWithoutCreateExpr
 void tagsKeysExpr

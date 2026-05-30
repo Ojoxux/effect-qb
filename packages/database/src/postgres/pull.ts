@@ -11,6 +11,7 @@ import { parse, type Expr as PgSqlExpr } from "pgsql-ast-parser"
 
 const TABLE_ALIAS = "Table"
 const COLUMN_ALIAS = "Column"
+const JSON_ALIAS = "Json"
 const PG_ALIAS = "Pg"
 const PRIMARY_KEY_ALIAS = "PrimaryKey"
 const UNIQUE_ALIAS = "Unique"
@@ -570,6 +571,33 @@ const renderPipeRender = (
     return name === "text" || name === "varchar" || name === "char" || name === "character varying" || name === "character" || name === "bpchar"
   }
 
+  const extractStringLiteral = (value: PgSqlExpr): string | undefined => {
+    switch (value.type) {
+      case "string":
+        return value.value
+      case "cast":
+        return isTextCastTarget(value.to) ? extractStringLiteral(value.operand) : undefined
+      default:
+        return undefined
+    }
+  }
+
+  const extractStringArrayLiterals = (value: PgSqlExpr): readonly string[] | undefined => {
+    switch (value.type) {
+      case "array": {
+        const values = value.expressions.map((item) => extractStringLiteral(item))
+        return values.every((item): item is string => item !== undefined) ? values : undefined
+      }
+      case "cast":
+        return extractStringArrayLiterals(value.operand)
+      default:
+        return undefined
+    }
+  }
+
+  const renderJsonPathOperations = (members: readonly string[]): readonly string[] =>
+    members.map((member) => `${JSON_ALIAS}.key(${renderStringLiteral(member)})`)
+
   switch (expression.type) {
     case "cast": {
       const inner = renderPipeRender(expression.operand, context)
@@ -590,20 +618,43 @@ const renderPipeRender = (
         : expression.operand
       const member = expression.member as string | number
       const path = typeof member === "number"
-        ? `${PG_ALIAS}.Json.index(${member})`
-        : `${PG_ALIAS}.Json.key(${renderStringLiteral(member)})`
-      const operation = expression.op === "->>"
-        ? `${PG_ALIAS}.Json.text(${path})`
-        : `${PG_ALIAS}.Json.get(${path})`
+        ? `${JSON_ALIAS}.index(${member})`
+        : `${JSON_ALIAS}.key(${renderStringLiteral(member)})`
+      const operations = expression.op === "->>"
+        ? [path, `${JSON_ALIAS}.text`]
+        : [path]
       const inner = renderPipeRender(operand, context)
       return inner === undefined
         ? {
             baseExpression: operand,
-            operations: [operation]
+            operations
           }
         : {
             baseExpression: inner.baseExpression,
-            operations: [...inner.operations, operation]
+            operations: [...inner.operations, ...operations]
+          }
+    }
+    case "binary": {
+      const op = expression.op as string
+      if (op !== "#>" && op !== "#>>") {
+        return undefined
+      }
+      const members = extractStringArrayLiterals(expression.right)
+      if (members === undefined || members.length === 0) {
+        return undefined
+      }
+      const operations = op === "#>>"
+        ? [...renderJsonPathOperations(members), `${JSON_ALIAS}.text`]
+        : renderJsonPathOperations(members)
+      const inner = renderPipeRender(expression.left, context)
+      return inner === undefined
+        ? {
+            baseExpression: expression.left,
+            operations
+          }
+        : {
+            baseExpression: inner.baseExpression,
+            operations: [...inner.operations, ...operations]
           }
     }
     default:
@@ -676,6 +727,9 @@ const renderSqlExpressionCode = (
     }
   }
 
+  const renderJsonPathOperations = (members: readonly string[]): readonly string[] =>
+    members.map((member) => `${JSON_ALIAS}.key(${renderStringLiteral(member)})`)
+
   if (allowPipe) {
     const pipeRender = renderPipeRender(expression, context)
     if (pipeRender !== undefined) {
@@ -732,11 +786,11 @@ const renderSqlExpressionCode = (
         : renderSqlExpressionCode(expression.operand, context, false)
       const member = expression.member as string | number
       const path = typeof member === "number"
-        ? `${PG_ALIAS}.Json.index(${member})`
-        : `${PG_ALIAS}.Json.key(${renderStringLiteral(member)})`
-      return expression.op === "->>"
-        ? `${PG_ALIAS}.Json.text(${base}, ${path})`
-        : `${PG_ALIAS}.Json.get(${base}, ${path})`
+        ? `${JSON_ALIAS}.index(${member})`
+        : `${JSON_ALIAS}.key(${renderStringLiteral(member)})`
+     return expression.op === "->>"
+        ? `${JSON_ALIAS}.text(${base}, ${path})`
+        : `${JSON_ALIAS}.get(${base}, ${path})`
     }
     case "call": {
       const name = ((expression.function as { readonly name?: string }).name ?? "").toLowerCase()
@@ -793,7 +847,7 @@ const renderSqlExpressionCode = (
         case "jsonb_build_array":
           return `${PG_ALIAS}.Jsonb.buildArray(${args.map((arg) => renderSqlExpressionCode(arg, context)).join(", ")})`
         case "to_json":
-          return `${PG_ALIAS}.Json.toJson(${args.map((arg) => renderSqlExpressionCode(arg, context)).join(", ")})`
+          return `${JSON_ALIAS}.toJson(${args.map((arg) => renderSqlExpressionCode(arg, context)).join(", ")})`
         case "to_jsonb":
           return `${PG_ALIAS}.Jsonb.toJsonb(${args.map((arg) => renderSqlExpressionCode(arg, context)).join(", ")})`
         case "jsonb_strip_nulls":
@@ -811,6 +865,18 @@ const renderSqlExpressionCode = (
           const arrayValues = anyArgs[0].expressions.map((item: PgSqlExpr) => renderSqlExpressionCode(item, context))
           return `${PG_ALIAS}.Query.in(${renderSqlExpressionCode(expression.left, context)}, ${arrayValues.join(", ")})`
         }
+      }
+      if (op === "#>" || op === "#>>") {
+        const members = extractStringArrayLiterals(expression.right)
+        if (members === undefined || members.length === 0) {
+          throw new Error("Unsupported PostgreSQL expression: json path operators require a literal text array")
+        }
+        return renderPipeChain(
+          renderSqlExpressionCode(expression.left, context, false),
+          op === "#>>"
+            ? [...renderJsonPathOperations(members), `${JSON_ALIAS}.text`]
+            : renderJsonPathOperations(members)
+        )
       }
       const left = renderSqlExpressionCode(expression.left, context)
       const right = renderSqlExpressionCode(expression.right, context)
@@ -1759,7 +1825,7 @@ const renderIndexOption = (
   const base = `${INDEX_ALIAS}.make(${renderStringTuple(baseColumns)})`
   const pipes: string[] = []
   if (option.name) {
-    pipes.push(`${POSTGRES_INDEX_ALIAS}.named(${renderStringLiteral(option.name)})`)
+    pipes.push(`${INDEX_ALIAS}.named(${renderStringLiteral(option.name)})`)
   }
   if (option.unique === true) {
     pipes.push(`${POSTGRES_INDEX_ALIAS}.uniqueIndex`)
@@ -1993,7 +2059,7 @@ const renderTableOption = (
     case "primaryKey": {
       const pipes: string[] = []
       if (option.name) {
-        pipes.push(`${POSTGRES_PRIMARY_KEY_ALIAS}.named(${renderStringLiteral(option.name)})`)
+        pipes.push(`${PRIMARY_KEY_ALIAS}.named(${renderStringLiteral(option.name)})`)
       }
       if (option.deferrable === true) {
         pipes.push(`${POSTGRES_PRIMARY_KEY_ALIAS}.deferrable`)
@@ -2006,7 +2072,7 @@ const renderTableOption = (
     case "unique": {
       const pipes: string[] = []
       if (option.name) {
-        pipes.push(`${POSTGRES_UNIQUE_ALIAS}.named(${renderStringLiteral(option.name)})`)
+        pipes.push(`${UNIQUE_ALIAS}.named(${renderStringLiteral(option.name)})`)
       }
       if (option.nullsNotDistinct === true) {
         pipes.push(`${POSTGRES_UNIQUE_ALIAS}.nullsNotDistinct`)
@@ -2031,13 +2097,13 @@ const renderTableOption = (
       }
       const pipes: string[] = []
       if (option.name) {
-        pipes.push(`${POSTGRES_FOREIGN_KEY_ALIAS}.named(${renderStringLiteral(option.name)})`)
+        pipes.push(`${FOREIGN_KEY_ALIAS}.named(${renderStringLiteral(option.name)})`)
       }
       if (option.onUpdate) {
-        pipes.push(`${POSTGRES_FOREIGN_KEY_ALIAS}.onUpdate(${renderStringLiteral(option.onUpdate)})`)
+        pipes.push(`${FOREIGN_KEY_ALIAS}.onUpdate(${renderStringLiteral(option.onUpdate)})`)
       }
       if (option.onDelete) {
-        pipes.push(`${POSTGRES_FOREIGN_KEY_ALIAS}.onDelete(${renderStringLiteral(option.onDelete)})`)
+        pipes.push(`${FOREIGN_KEY_ALIAS}.onDelete(${renderStringLiteral(option.onDelete)})`)
       }
       if (option.deferrable === true) {
         pipes.push(`${POSTGRES_FOREIGN_KEY_ALIAS}.deferrable`)
@@ -2261,7 +2327,7 @@ const ensureImports = (contents: string): string => {
     .trimStart()
   const required = [
     `import * as ${PG_ALIAS} from "effect-qb/postgres"`,
-    `import { ${TABLE_ALIAS}, ${COLUMN_ALIAS}, ${PRIMARY_KEY_ALIAS}, ${UNIQUE_ALIAS}, ${INDEX_ALIAS}, ${FOREIGN_KEY_ALIAS}, ${CHECK_ALIAS} } from "effect-qb"`,
+    `import { ${TABLE_ALIAS}, ${COLUMN_ALIAS}, ${JSON_ALIAS}, ${PRIMARY_KEY_ALIAS}, ${UNIQUE_ALIAS}, ${INDEX_ALIAS}, ${FOREIGN_KEY_ALIAS}, ${CHECK_ALIAS} } from "effect-qb"`,
     `import * as ${SCHEMA_ALIAS} from "effect/Schema"`
   ]
   const missing = required.filter((line) => !cleaned.includes(line))
@@ -2634,7 +2700,7 @@ const renderCanonicalNewModule = (
 
   const lines: string[] = [
     `import * as ${PG_ALIAS} from "effect-qb/postgres"`,
-    `import { ${TABLE_ALIAS}, ${COLUMN_ALIAS}, ${PRIMARY_KEY_ALIAS}, ${UNIQUE_ALIAS}, ${INDEX_ALIAS}, ${FOREIGN_KEY_ALIAS}, ${CHECK_ALIAS} } from "effect-qb"`,
+    `import { ${TABLE_ALIAS}, ${COLUMN_ALIAS}, ${JSON_ALIAS}, ${PRIMARY_KEY_ALIAS}, ${UNIQUE_ALIAS}, ${INDEX_ALIAS}, ${FOREIGN_KEY_ALIAS}, ${CHECK_ALIAS} } from "effect-qb"`,
     `import * as ${SCHEMA_ALIAS} from "effect/Schema"`
   ]
   const body: string[] = []

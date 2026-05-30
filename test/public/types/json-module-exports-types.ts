@@ -1,7 +1,8 @@
 import * as Schema from "effect/Schema"
-import { Column, Table } from "effect-qb"
+import { Column, Json, Table } from "effect-qb"
 import { Query as PgQuery } from "effect-qb"
-import { Column as PgColumn, Json, Jsonb } from "effect-qb/postgres"
+import { Column as PgColumn, Jsonb } from "effect-qb/postgres"
+import * as Pg from "effect-qb/postgres"
 
 const payloadSchema = Schema.Struct({
   profile: Schema.Struct({
@@ -24,22 +25,33 @@ const jsonbDocs = Table.make("jsonb_docs", {
   payload: PgColumn.jsonb(payloadSchema)
 })
 
-const jsonCityPath = Json.path(
+const cityText = jsonDocs.payload.pipe(
   Json.key("profile"),
   Json.key("address"),
-  Json.key("city")
+  Json.key("city"),
+  Json.text
 )
 
-const jsonbCityPath = Jsonb.path(
+const jsonbCityText = jsonbDocs.payload.pipe(
   Jsonb.key("profile"),
   Jsonb.key("address"),
-  Jsonb.key("city")
+  Jsonb.key("city"),
+  Jsonb.text
 )
 
-const cityText = Json.text(jsonDocs.payload, jsonCityPath)
-const jsonbCityText = Jsonb.text(jsonbDocs.payload, jsonbCityPath)
+const missingRequiredCity = jsonbDocs.payload.pipe(
+  Jsonb.key("profile"),
+  Jsonb.key("address"),
+  Jsonb.key("city"),
+  Jsonb.delete
+)
 
-const missingRequiredCity = Jsonb.delete(jsonbDocs.payload, jsonbCityPath)
+// @ts-expect-error shared JSON path helpers are exported from effect-qb/Json
+Pg.Json.key("profile")
+// @ts-expect-error Json.path has been replaced by successive Json.key/Json.index pipes
+Json.path(Json.key("profile"))
+// @ts-expect-error Jsonb.path has been replaced by successive Jsonb.key/Jsonb.index pipes
+Jsonb.path(Jsonb.key("profile"))
 
 PgQuery.update(jsonbDocs, {
   // @ts-expect-error jsonb update values must still satisfy the target column schema

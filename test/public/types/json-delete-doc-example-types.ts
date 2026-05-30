@@ -1,8 +1,7 @@
 import * as Std from "effect-qb"
 import * as Schema from "effect/Schema";
 
-import { Function as F, Query as Q } from "effect-qb"
-import { Json as J } from "effect-qb/postgres"
+import { Function as F, Json, Query as Q } from "effect-qb"
 
 const docs = Std.Table.make("docs", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),
@@ -20,13 +19,7 @@ const docs = Std.Table.make("docs", {
   ),
 });
 
-const cityPath = J.path(
-  J.key("profile"),
-  J.key("address"),
-  J.key("city"),
-);
-
-const compatibleObject = J.buildObject({
+const compatibleObject = Json.buildObject({
   profile: {
     address: {
       city: "Macon",
@@ -37,7 +30,12 @@ const compatibleObject = J.buildObject({
   note: null,
 });
 
-const incompatibleObject = J.delete(compatibleObject, cityPath);
+const incompatibleObject = compatibleObject.pipe(
+  Json.key("profile"),
+  Json.key("address"),
+  Json.key("city"),
+  Json.delete,
+);
 
 Q.insert(docs, {
   id: "doc-1",

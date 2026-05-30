@@ -8,8 +8,8 @@ export * as Errors from "./postgres/errors/index.js"
 export { cast as Cast } from "./postgres/cast.js"
 /** Postgres-specific SQL function expressions. Portable functions are exported from the root package. */
 export * as Function from "./postgres/function/index.js"
-/** Postgres-specialized JSON expression helpers. */
-export * as Json from "./postgres/json.js"
+/** Postgres-specific JSON expression helpers. Portable JSON helpers are exported from the root package. */
+export * as Json from "./postgres/json-extension.js"
 /** Postgres jsonb-only expression helpers. */
 export * as Jsonb from "./postgres/jsonb.js"
 /** Postgres-specialized typed query execution contracts. */
@@ -28,8 +28,6 @@ export type { SchemaNamespace } from "./postgres/schema.js"
 /** Postgres enum and sequence definition helpers. */
 export { enumType as enum, sequence } from "./postgres/schema-management.js"
 export type { EnumDefinition, SequenceDefinition } from "./postgres/schema-management.js"
-/** Postgres-specific table-option extensions. Portable tables are exported from `effect-qb`. */
-export * as Table from "./postgres/table.js"
 /** Postgres-specific primary-key option modifiers. */
 export * as PrimaryKey from "./postgres/primary-key.js"
 /** Postgres-specific unique-constraint option modifiers. */

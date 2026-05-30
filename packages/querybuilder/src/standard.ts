@@ -6,6 +6,8 @@ export * as Datatypes from "./standard/datatypes/index.js"
 export * as Scalar from "./internal/scalar.js"
 /** Standard SQL function expressions. */
 export * as Function from "./standard/function/index.js"
+/** Standard SQL JSON expression helpers and path segments. */
+export * as Json from "./standard/json.js"
 /** Standard SQL typed query execution contracts. */
 export * as Executor from "./internal/executor.js"
 /** Shared logical row-set interfaces. */
