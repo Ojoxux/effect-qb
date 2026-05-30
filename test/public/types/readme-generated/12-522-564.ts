@@ -1,10 +1,11 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 522-563
+// Code fences: 522-564
 
-// README.md:522-563
+// README.md:522-564
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
+import { Jsonb } from "effect-qb/postgres"
 import * as Pg from "effect-qb/postgres"
 
 const payloadSchema = Schema.Union(
@@ -23,7 +24,7 @@ const events = Table.make("events", {
   payload: Pg.Column.jsonb(payloadSchema)
 })
 
-const kind = events.payload.pipe(Pg.Jsonb.key("kind"), Pg.Jsonb.text)
+const kind = events.payload.pipe(Jsonb.key("kind"), Jsonb.text)
 
 const createdEvents = Query.select({
   payload: events.payload,

@@ -1,10 +1,11 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 576-608
+// Code fences: 577-610
 
-// README.md:576-608
+// README.md:577-610
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
+import { Jsonb } from "effect-qb/postgres"
 import * as Pg from "effect-qb/postgres"
 
 const payloadSchema = Schema.Struct({
@@ -24,10 +25,10 @@ const docs = Table.make("docs", {
 })
 
 const missingRequiredCity = docs.payload.pipe(
-  Pg.Jsonb.key("profile"),
-  Pg.Jsonb.key("address"),
-  Pg.Jsonb.key("city"),
-  Pg.Jsonb.delete
+  Jsonb.key("profile"),
+  Jsonb.key("address"),
+  Jsonb.key("city"),
+  Jsonb.delete
 )
 
 Query.update(docs, {

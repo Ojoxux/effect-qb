@@ -179,7 +179,7 @@ dialects is rejected at type level.
 A plan that only uses `effect-qb` root modules has the standard dialect tag.
 Standard plans can render through Postgres, MySQL, and SQLite renderers.
 
-If a plan uses `Pg.Column.jsonb(...)`, `Pg.Jsonb.*`, or a standard table
+If a plan uses `Pg.Column.jsonb(...)`, `Jsonb.*` from `effect-qb/postgres`, or a standard table
 option piped through a Postgres modifier such as `Pg.Index.using("btree")`,
 it becomes a Postgres plan. Render and execute that plan with the Postgres
 renderer or executor.
@@ -522,6 +522,7 @@ columns and to selected expressions that retain enough path metadata.
 ```ts
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
+import { Jsonb } from "effect-qb/postgres"
 import * as Pg from "effect-qb/postgres"
 
 const payloadSchema = Schema.Union(
@@ -540,7 +541,7 @@ const events = Table.make("events", {
   payload: Pg.Column.jsonb(payloadSchema)
 })
 
-const kind = events.payload.pipe(Pg.Jsonb.key("kind"), Pg.Jsonb.text)
+const kind = events.payload.pipe(Jsonb.key("kind"), Jsonb.text)
 
 const createdEvents = Query.select({
   payload: events.payload,
@@ -576,6 +577,7 @@ required key is rejected before SQL rendering.
 ```ts
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
+import { Jsonb } from "effect-qb/postgres"
 import * as Pg from "effect-qb/postgres"
 
 const payloadSchema = Schema.Struct({
@@ -595,10 +597,10 @@ const docs = Table.make("docs", {
 })
 
 const missingRequiredCity = docs.payload.pipe(
-  Pg.Jsonb.key("profile"),
-  Pg.Jsonb.key("address"),
-  Pg.Jsonb.key("city"),
-  Pg.Jsonb.delete
+  Jsonb.key("profile"),
+  Jsonb.key("address"),
+  Jsonb.key("city"),
+  Jsonb.delete
 )
 
 Query.update(docs, {
@@ -657,6 +659,7 @@ plans compatible with their dialect.
 ```ts
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
+import { Jsonb } from "effect-qb/postgres"
 import * as My from "effect-qb/mysql"
 import * as Pg from "effect-qb/postgres"
 import * as Sq from "effect-qb/sqlite"
@@ -683,7 +686,7 @@ const docs = Table.make("docs", {
 })
 
 const postgresOnly = Query.select({
-  kind: docs.payload.pipe(Pg.Jsonb.key("kind"), Pg.Jsonb.text)
+  kind: docs.payload.pipe(Jsonb.key("kind"), Jsonb.text)
 }).pipe(Query.from(docs))
 
 Pg.Renderer.make().render(postgresOnly)
@@ -950,6 +953,7 @@ custom types, schemas, enums, and sequences.
 ```ts
 import * as Schema from "effect/Schema"
 import { Column, Index, Query, Table } from "effect-qb"
+import { Jsonb } from "effect-qb/postgres"
 import * as Pg from "effect-qb/postgres"
 
 const payloadSchema = Schema.Union(
@@ -976,7 +980,7 @@ const events = Table.make("events", {
 
 const eventKinds = Query.select({
   id: events.id,
-  kind: events.payload.pipe(Pg.Jsonb.key("kind"), Pg.Jsonb.text)
+  kind: events.payload.pipe(Jsonb.key("kind"), Jsonb.text)
 }).pipe(Query.from(events))
 
 Pg.Renderer.make().render(eventKinds)
@@ -1134,6 +1138,7 @@ const users = Table.make("Users", {
 ```ts
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
+import { Jsonb } from "effect-qb/postgres"
 import * as Pg from "effect-qb/postgres"
 
 const docs = Table.make("docs", {
@@ -1148,10 +1153,10 @@ const docs = Table.make("docs", {
 })
 
 const city = docs.payload.pipe(
-  Pg.Jsonb.key("profile"),
-  Pg.Jsonb.key("address"),
-  Pg.Jsonb.key("city"),
-  Pg.Jsonb.text
+  Jsonb.key("profile"),
+  Jsonb.key("address"),
+  Jsonb.key("city"),
+  Jsonb.text
 )
 
 const plan = Query.select({ city }).pipe(Query.from(docs))
