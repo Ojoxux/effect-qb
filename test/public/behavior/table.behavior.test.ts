@@ -15,7 +15,7 @@ describe("table behavior", () => {
       userId: StdRoot.Column.uuid(),
       role: StdRoot.Column.text()
     }).pipe(
-      Table.primaryKey(["orgId", "userId"] as const)
+      Table.primaryKey((table) => [table.orgId, table.userId])
     )
 
     expect(unsafeAny(memberships)[StdRoot.Table.TypeId].primaryKey).toEqual(["orgId", "userId"])
@@ -26,8 +26,8 @@ describe("table behavior", () => {
       orgId: StdRoot.Column.uuid(),
       userId: StdRoot.Column.uuid()
     }).pipe(
-      Table.primaryKey("orgId"),
-      Table.primaryKey("userId")
+      Table.primaryKey((table) => table.orgId),
+      Table.primaryKey((table) => table.userId)
     )
 
     expect(unsafeAny(memberships)[StdRoot.Table.TypeId].primaryKey).toEqual(["orgId"])
@@ -39,8 +39,8 @@ describe("table behavior", () => {
       userId: StdRoot.Column.uuid(),
       role: StdRoot.Column.text()
     }).pipe(
-      Table.primaryKey(["orgId", "userId"] as const),
-      Table.index(["role", "orgId"] as const)
+      Table.primaryKey((table) => [table.orgId, table.userId]),
+      Table.index((table) => [table.role, table.orgId])
     )
 
     expect(unsafeAny(memberships)[StdRoot.Table.TypeId].primaryKey).toEqual(["orgId", "userId"])
@@ -57,7 +57,7 @@ describe("table behavior", () => {
   })
 
   test("nullable columns in composite primary keys trust type-level constraints", () => {
-    const memberships = Table.primaryKey(["orgId", "slug"] as const)(
+    const memberships = Table.primaryKey((table) => [table.orgId, table.slug])(
       unsafeNever(StdRoot.Table.make("memberships", {
         orgId: StdRoot.Column.uuid(),
         slug: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
@@ -73,7 +73,7 @@ describe("table behavior", () => {
       slug: StdRoot.Column.text().pipe(C.unique),
       email: StdRoot.Column.text()
     }).pipe(
-      Table.index(["email", "slug"] as const)
+      Table.index((table) => [table.email, table.slug])
     )
 
     const onceAliased = StdRoot.Table.alias(users, "u1")
@@ -119,7 +119,7 @@ describe("table behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable),
       createdAt: StdRoot.Column.timestamp().pipe(StdRoot.Column.default(F.localTimestamp()))
     }).pipe(
-      Table.index("email")
+      Table.index((table) => table.email)
     )
 
     class ClassUsers extends StdRoot.Table.Class<ClassUsers>("users")({
@@ -128,7 +128,7 @@ describe("table behavior", () => {
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable),
       createdAt: StdRoot.Column.timestamp().pipe(StdRoot.Column.default(F.localTimestamp()))
     }) {
-      static readonly [StdRoot.Table.options] = [Table.index("email")]
+      static readonly [StdRoot.Table.options] = [Table.index((table) => table.email)]
     }
 
     const input = {

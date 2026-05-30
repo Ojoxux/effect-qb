@@ -49,7 +49,7 @@ describe("postgres schema management", () => {
       })
     )
     const memberships = membershipsBase.pipe(
-      StdRoot.Index.make("accountStatus"),
+      StdRoot.Index.make((table) => table.accountStatus),
       StdRoot.Check.make("AccountStatusCheck", StdRoot.Query.eq(membershipsBase.accountStatus, "active"))
     )
 
@@ -1126,7 +1126,7 @@ describe("postgres schema management", () => {
       email: StdRoot.Column.text(),
       nickname: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     }).pipe(
-      Index.make("email")
+      Index.make((table) => table.email)
     )
 
     const status = Pg.Schema.make("public").enum("status", ["pending", "active", "archived"] as const)
@@ -2000,7 +2000,7 @@ const users = Table.make("users", {
       expect(plan.updates[0]?.after).toContain(`import * as Schema from "effect/Schema"`)
       expect(plan.updates[0]?.after).toContain(`const users = Table.make("users"`)
       expect(plan.updates[0]?.after).toContain(`id: Column.uuid()`)
-      expect(plan.updates[0]?.after).toContain(`PrimaryKey.make(["id"])`)
+      expect(plan.updates[0]?.after).toContain(`PrimaryKey.make((table) => table.id)`)
     } finally {
       await rm(tempDir, { recursive: true, force: true })
     }
@@ -2129,15 +2129,15 @@ const users = Table.make("users", {
       const connections = Pg.Schema.make("payment").table("connections", {
         id: StdRoot.Column.uuid()
       }).pipe(
-        PrimaryKey.make("id")
+        PrimaryKey.make((table) => table.id)
       )
 
       const accountMappings = Pg.Schema.make("payment").table("account_mappings", {
         id: StdRoot.Column.uuid(),
         connection_id: StdRoot.Column.uuid()
       }).pipe(
-        PrimaryKey.make("id"),
-        ForeignKey.make(["connection_id"], () => connections, ["id"])
+        PrimaryKey.make((table) => table.id),
+        ForeignKey.make((table) => table.connection_id, () => connections.id)
       )
 
       const database: SchemaModel = {

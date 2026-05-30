@@ -16,14 +16,14 @@ const memberships = Table.make("memberships", {
   userId: Column.uuid(),
   role: Column.text()
 }).pipe(
-  ForeignKey.make("orgId", () => organizations, "id"),
-  PrimaryKey.make(["orgId", "userId"] as const),
-  Unique.make(["orgId", "role"] as const),
+  ForeignKey.make((table) => table.orgId, () => organizations.id),
+  PrimaryKey.make((table) => [table.orgId, table.userId]),
+  Unique.make((table) => [table.orgId, table.role]),
   Check.make(
     "memberships_role_check",
     (table) => Query.neq(table.role, "")
   ),
-  Index.make("userId")
+  Index.make((table) => table.userId)
 )
 
 type Organization = Table.SelectOf<typeof organizations>

@@ -22,7 +22,7 @@ describe("table definitions", () => {
       email: StdRoot.Column.text().pipe(C.unique),
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable),
       createdAt: StdRoot.Column.timestamp().pipe(StdRoot.Column.default(F.localTimestamp()))
-    }).pipe(Table.index("email"))
+    }).pipe(Table.index((table) => table.email))
 
     expect(users.columns.id).toBe(users.id)
     expect(users.columns.email).toBe(users.email)
@@ -97,7 +97,7 @@ describe("table definitions", () => {
       email: StdRoot.Column.text().pipe(C.unique),
       bio: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     }) {
-      static override readonly [StdRoot.Table.options] = [Table.index("email")]
+      static override readonly [StdRoot.Table.options] = [Table.index((table) => table.email)]
     }
 
     expect(Users.email).toBe(Users.columns.email)
@@ -146,7 +146,7 @@ describe("table definitions", () => {
     const memberships = StdRoot.Table.make("memberships", {
       orgId: StdRoot.Column.uuid()
     }).pipe(
-      Table.foreignKey("orgId", () => orgAlias, "id")
+      Table.foreignKey((table) => table.orgId, () => orgAlias.id)
     )
 
     const foreignKey = memberships[StdRoot.Table.OptionsSymbol].find((option: { kind: string }) => option.kind === "foreignKey")
@@ -158,37 +158,8 @@ describe("table definitions", () => {
       tableName: "orgs",
       schemaName: "public",
       casing: undefined,
-      columns: ["id"],
-      knownColumns: ["id", "slug"]
+      columns: ["id"]
     })
-
-    const brokenMemberships = StdRoot.Table.make("broken_memberships", {
-      orgId: StdRoot.Column.uuid()
-    }).pipe(
-      Table.foreignKey("orgId", () => orgs, "missing")
-    )
-    const brokenForeignKey = brokenMemberships[StdRoot.Table.OptionsSymbol].find((option: { kind: string }) => option.kind === "foreignKey")
-    if (!brokenForeignKey || brokenForeignKey.kind !== "foreignKey") {
-      throw new Error("expected a foreign key option")
-    }
-    expect(brokenForeignKey.references()).toEqual({
-      tableName: "orgs",
-      schemaName: "public",
-      casing: undefined,
-      columns: ["missing"],
-      knownColumns: ["id", "slug"]
-    })
-
-    const brokenLocalMemberships = StdRoot.Table.make("broken_local_memberships", {
-      orgId: StdRoot.Column.uuid()
-    }).pipe(
-      unsafeAny(Table.foreignKey("missing", () => orgs, "id"))
-    )
-    const brokenLocalForeignKey = brokenLocalMemberships[StdRoot.Table.OptionsSymbol].find((option: { kind: string }) => option.kind === "foreignKey")
-    if (!brokenLocalForeignKey || brokenLocalForeignKey.kind !== "foreignKey") {
-      throw new Error("expected a foreign key option")
-    }
-    expect(brokenLocalForeignKey.columns).toEqual(["missing"])
 
     const brokenKnownColumnsMemberships = StdRoot.Table.make("broken_known_columns_memberships", {
       orgId: StdRoot.Column.uuid()
@@ -292,7 +263,7 @@ describe("table definitions", () => {
       orgId: StdRoot.Column.uuid(),
       slug: StdRoot.Column.text()
     }).pipe(
-      unsafeAny(Table.foreignKey(["orgId", "slug"], () => orgs, "id"))
+      unsafeAny(Table.foreignKey((table) => [table.orgId, table.slug], () => orgs.id))
     )
     const brokenArityForeignKey = brokenMembershipsArity[StdRoot.Table.OptionsSymbol].find((option: { kind: string }) => option.kind === "foreignKey")
     if (!brokenArityForeignKey || brokenArityForeignKey.kind !== "foreignKey") {
@@ -307,7 +278,7 @@ describe("table definitions", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       email: StdRoot.Column.text()
     }).pipe(
-      Table.index(["email"] as const)
+      Table.index((table) => table.email)
     )
 
     expect(users[StdRoot.Table.OptionsSymbol].find((option) => option.kind === "index")).toMatchObject({
@@ -404,7 +375,7 @@ describe("table definitions", () => {
       id: StdRoot.Column.uuid(),
       slug: StdRoot.Column.text()
     }) {
-      static override readonly [StdRoot.Table.options] = [unsafeAny(Table.primaryKey(["id", "slug"] as const))]
+      static override readonly [StdRoot.Table.options] = [unsafeAny(Table.primaryKey((table) => [table.id, table.slug]))]
     }
 
     expect(BadClassTable[StdRoot.Table.OptionsSymbol]).toEqual(
@@ -419,7 +390,7 @@ describe("table definitions", () => {
     })
 
     const aliased = unsafeAny(StdRoot.Table.alias(users, "users_alias"))
-    const withIndex = Table.index("email")(aliased)
+    const withIndex = Table.index((table) => table.email)(aliased)
 
     expect(withIndex[StdRoot.Table.TypeId].kind).toBe("alias")
     expect(withIndex[StdRoot.Table.OptionsSymbol]).toEqual(

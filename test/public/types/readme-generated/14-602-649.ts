@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 586-619, 624-633
+// Code fences: 602-635, 640-649
 
-// README.md:586-619
+// README.md:602-635
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
 import { Jsonb } from "effect-qb/postgres"
@@ -37,7 +37,7 @@ Query.update(docs, {
 })
 
 {
-  // README.md:624-633
+  // README.md:640-649
   const withoutLegacyFields = docs.payload.pipe(
     Jsonb.key("profile"),
     Jsonb.key("legacyName"),

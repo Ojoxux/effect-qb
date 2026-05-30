@@ -327,7 +327,7 @@ describe("ddl rendering behavior", () => {
         tables: "snake_case",
         columns: "snake_case"
       }),
-      StdRoot.ForeignKey.make("organizationSlug", () => organizations, "accountSlug")
+      StdRoot.ForeignKey.make((table) => table.organizationSlug, () => organizations.accountSlug)
     )
 
     const rendered = Postgres.Renderer.make().render(StdRoot.Query.createTable(memberships))
@@ -366,7 +366,7 @@ describe("ddl rendering behavior", () => {
       })
     )
     const memberships = membershipsBase.pipe(
-      StdRoot.ForeignKey.make("organizationSlug", () => organizations, "accountSlug")
+      StdRoot.ForeignKey.make((table) => table.organizationSlug, () => organizations.accountSlug)
     )
 
     expect(Mysql.Renderer.make().render(StdRoot.Query.createTable(memberships)).sql).toContain(
@@ -540,7 +540,7 @@ describe("ddl rendering behavior", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       orgId: StdRoot.Column.uuid()
     }).pipe(
-      StdRoot.ForeignKey.make("orgId", () => orgs, "id")
+      StdRoot.ForeignKey.make((table) => table.orgId, () => orgs.id)
     )
     ;(users as any)[StdRoot.Table.OptionsSymbol] = (users as any)[StdRoot.Table.OptionsSymbol].map((option: any) =>
       option.kind === "foreignKey"
@@ -735,13 +735,13 @@ describe("ddl rendering behavior", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       email: StdRoot.Column.text()
     }).pipe(
-      StdRoot.Unique.make("email").pipe(Postgres.Unique.nullsNotDistinct)
+      StdRoot.Unique.make((table) => table.email).pipe(Postgres.Unique.nullsNotDistinct)
     )
     const standardPrimaryUsers = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid(),
       email: StdRoot.Column.text()
     }).pipe(
-      StdRoot.PrimaryKey.make("id").pipe(
+      StdRoot.PrimaryKey.make((table) => table.id).pipe(
         Postgres.PrimaryKey.deferrable,
         Postgres.PrimaryKey.initiallyDeferred
       )
@@ -749,7 +749,7 @@ describe("ddl rendering behavior", () => {
     const mysqlUsers = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid()
     }).pipe(
-      StdRoot.PrimaryKey.make("id").pipe(
+      StdRoot.PrimaryKey.make((table) => table.id).pipe(
         Postgres.PrimaryKey.deferrable,
         Postgres.PrimaryKey.initiallyDeferred
       )
@@ -757,7 +757,7 @@ describe("ddl rendering behavior", () => {
     const sqliteUsers = StdRoot.Table.make("users", {
       id: StdRoot.Column.text()
     }).pipe(
-      StdRoot.PrimaryKey.make("id").pipe(
+      StdRoot.PrimaryKey.make((table) => table.id).pipe(
         Postgres.PrimaryKey.deferrable,
         Postgres.PrimaryKey.initiallyDeferred
       )
@@ -769,7 +769,7 @@ describe("ddl rendering behavior", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       orgId: StdRoot.Column.uuid()
     }).pipe(
-      StdRoot.ForeignKey.make("orgId", () => orgs, "id").pipe(
+      StdRoot.ForeignKey.make((table) => table.orgId, () => orgs.id).pipe(
         Postgres.ForeignKey.deferrable,
         Postgres.ForeignKey.initiallyDeferred
       )
@@ -778,7 +778,7 @@ describe("ddl rendering behavior", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       orgId: StdRoot.Column.uuid()
     }).pipe(
-      StdRoot.ForeignKey.make("orgId", () => orgs, "id").pipe(
+      StdRoot.ForeignKey.make((table) => table.orgId, () => orgs.id).pipe(
         Postgres.ForeignKey.deferrable,
         Postgres.ForeignKey.initiallyDeferred
       )

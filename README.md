@@ -222,14 +222,14 @@ const memberships = Table.make("memberships", {
   userId: Column.uuid(),
   role: Column.text()
 }).pipe(
-  ForeignKey.make("orgId", () => organizations, "id"),
-  PrimaryKey.make(["orgId", "userId"] as const),
-  Unique.make(["orgId", "role"] as const),
+  ForeignKey.make((table) => table.orgId, () => organizations.id),
+  PrimaryKey.make((table) => [table.orgId, table.userId]),
+  Unique.make((table) => [table.orgId, table.role]),
   Check.make(
     "memberships_role_check",
     (table) => Query.neq(table.role, "")
   ),
-  Index.make("userId")
+  Index.make((table) => table.userId)
 )
 
 type Organization = Table.SelectOf<typeof organizations>
@@ -257,6 +257,22 @@ Root option modules cover portable constraints and metadata:
 `Table.Class` exists for class-style declarations and advanced schema-centric
 workflows. Prefer `Table.make` unless your codebase already uses class-style
 table definitions.
+
+```ts
+import { Column, Index, Table } from "effect-qb"
+
+class Users extends Table.Class<Users>("users")({
+  id: Column.uuid().pipe(Column.primaryKey),
+  email: Column.text(),
+  displayName: Column.text().pipe(Column.nullable)
+}) {
+  static readonly [Table.options] = [
+    Index.make((table) => table.email).pipe(Index.named("users_email_idx"))
+  ]
+}
+
+const usersByEmail = Users.email
+```
 
 </details>
 
@@ -1004,7 +1020,7 @@ const events = Table.make("events", {
   payload: Pg.Column.jsonb(payloadSchema),
   createdAt: Column.datetime()
 }).pipe(
-  Index.make("createdAt").pipe(
+  Index.make((table) => table.createdAt).pipe(
     Index.named("events_created_at_idx"),
     Pg.Index.using("btree")
   )

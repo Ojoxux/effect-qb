@@ -66,7 +66,7 @@ const db = Pg.Schema.make(${JSON.stringify(schemaName)})
 const users = db.table("users", {
 ${tableFields}
 }).pipe(
-  Table.primaryKey("id")
+  Table.primaryKey((table) => table.id)
 )
 
 export { users }
@@ -383,7 +383,7 @@ test("postgres cli blocks destructive push changes unless explicitly allowed", a
 test("postgres cli safe mode applies additive changes and skips destructive drift", async () => {
   const { workspace, schemaName } = await makeSourceWorkspace(`
 import * as Pg from "effect-qb/postgres"
-import { Function as F, Query as Q, Table } from "effect-qb"
+import { Check, Function as F, Index, PrimaryKey, Query as Q, Table, Unique } from "effect-qb"
 import { Column as C } from "effect-qb/postgres"
 
 const db = Pg.Schema.make("__SCHEMA__")
@@ -395,10 +395,10 @@ export const users = db.table("users", {
   displayName: C.text().pipe(C.default(Pg.Cast.to(Q.literal("guest"), Pg.Type.text()))),
   emailLower: C.text().pipe(C.generated(F.lower(Q.column("email", Pg.Type.text()))))
 }).pipe(
-  Table.primaryKey({ columns: ["id"], name: "users_pkey" }),
-  Table.unique({ columns: ["email"], name: "users_email_key" }),
-  Table.index({ name: "users_email_idx", columns: ["email"] }),
-  Table.check("users_email_check", Q.neq(Q.column("email", Pg.Type.text()), Q.literal("blocked")))
+  PrimaryKey.make((table) => table.id).pipe(PrimaryKey.named("users_pkey")),
+  Unique.make((table) => table.email).pipe(Unique.named("users_email_key")),
+  Index.make((table) => table.email).pipe(Index.named("users_email_idx")),
+  Check.make("users_email_check", Q.neq(Q.column("email", Pg.Type.text()), Q.literal("blocked")))
 )
 `)
   try {
@@ -411,7 +411,7 @@ export const users = db.table("users", {
 
     await writeFile(schemaFile(workspace), `
 import * as Pg from "effect-qb/postgres"
-import { Function as F, Query as Q, Table } from "effect-qb"
+import { Function as F, PrimaryKey, Query as Q, Table } from "effect-qb"
 import { Column as C } from "effect-qb/postgres"
 
 const db = Pg.Schema.make(${JSON.stringify(schemaName)})
@@ -424,7 +424,7 @@ export const users = db.table("users", {
   emailLower: C.text().pipe(C.generated(F.upper(Q.column("email", Pg.Type.text())))),
   notes: C.text().pipe(C.nullable)
 }).pipe(
-  Table.primaryKey({ columns: ["id"], name: "users_pkey" })
+  PrimaryKey.make((table) => table.id).pipe(PrimaryKey.named("users_pkey"))
 )
 `)
 
@@ -788,7 +788,7 @@ export const users = db.table("users", {
   id: C.text(),
   status: C.custom(Schema.String, Pg.Type.enum("status")).pipe(C.ddlType("\\"__SCHEMA__\\".\\"status\\""))
 }).pipe(
-  Table.primaryKey("id")
+  Table.primaryKey((table) => table.id)
 )
 
 export { status }
@@ -816,7 +816,7 @@ export const users = db.table("users", {
   id: C.text(),
   status: C.custom(Schema.String, Pg.Type.enum("status")).pipe(C.ddlType(${JSON.stringify(`"${schemaName}"."status"`)}))
 }).pipe(
-  Table.primaryKey("id")
+  Table.primaryKey((table) => table.id)
 )
 
 export { status }
@@ -848,7 +848,7 @@ export const users = db.table("users", {
   id: C.text(),
   status: C.custom(Schema.String, Pg.Type.enum("status")).pipe(C.ddlType(${JSON.stringify(`"${schemaName}"."status"`)}))
 }).pipe(
-  Table.primaryKey("id")
+  Table.primaryKey((table) => table.id)
 )
 
 export { status }
@@ -912,7 +912,7 @@ export const users = db.table("users", {
   id: C.uuid(),
   email: C.text()
 }).pipe(
-  Table.primaryKey("id")
+  Table.primaryKey((table) => table.id)
 )
 `
   }, {
@@ -1025,7 +1025,7 @@ export const users = db.table("users", {
   id: C.text(),
   email: C.text()
 }).pipe(
-  Table.primaryKey("id")
+  Table.primaryKey((table) => table.id)
 )
 `,
     "tables/orgs.ts": `
@@ -1039,7 +1039,7 @@ export const orgs = db.table("orgs", {
   id: C.text(),
   name: C.text()
 }).pipe(
-  Table.primaryKey("id")
+  Table.primaryKey((table) => table.id)
 )
 `,
     "tables/ignored.ts": `
@@ -1052,7 +1052,7 @@ const db = Pg.Schema.make("__SCHEMA__")
 export const audits = db.table("audits", {
   id: C.text()
 }).pipe(
-  Table.primaryKey("id")
+  Table.primaryKey((table) => table.id)
 )
 `
   }, {
@@ -1117,7 +1117,7 @@ test("postgres cli round-trips enum, foreign-key, generated, identity, and rich 
   const { workspace, schemaName } = await makeSourceWorkspace(`
 import * as Schema from "effect/Schema"
 import * as Pg from "effect-qb/postgres"
-import { Function as F, Query as Q, Table } from "effect-qb"
+import { ForeignKey, Function as F, Index, PrimaryKey, Query as Q, Table, Unique } from "effect-qb"
 import { Column as C } from "effect-qb/postgres"
 
 const tables = Pg.Schema.make("__SCHEMA__")
@@ -1129,8 +1129,8 @@ const orgs = tables.table("orgs", {
   id: C.uuid(),
   slug: C.text()
 }).pipe(
-  Table.primaryKey({ columns: ["id"], name: "orgs_pkey" }),
-  Table.unique({ columns: ["slug"], name: "orgs_slug_key" })
+  PrimaryKey.make((table) => table.id).pipe(PrimaryKey.named("orgs_pkey")),
+  Unique.make((table) => table.slug).pipe(Unique.named("orgs_slug_key"))
 )
 
 const users = tables.table("users", {
@@ -1143,42 +1143,31 @@ const users = tables.table("users", {
   emailLower: C.text().pipe(C.generated(F.lower(Q.column("email", Pg.Type.text())))),
   note: C.text().pipe(C.nullable)
 }).pipe(
-  Table.primaryKey({ columns: ["id"], name: "users_pkey" }),
-  Table.unique({ columns: ["alias"], name: "users_alias_key", nullsNotDistinct: true }),
-  Table.foreignKey({
-    columns: "orgId",
-    target: () => orgs,
-    referencedColumns: "id",
-    name: "users_org_id_fkey",
-    onDelete: "cascade",
-    onUpdate: "noAction",
-    deferrable: true,
-    initiallyDeferred: true
-  }),
-    Table.index({
-      name: "users_email_lookup_idx",
-      method: "btree",
-      keys: [
-        {
-          expression: F.lower(Q.column("email", Pg.Type.text())),
-          order: "desc",
-          nulls: "last"
-        }
-      ],
-      include: ["displayName"],
-      predicate: Q.isNotNull(Q.column("email", Pg.Type.text()))
-    }),
-    Table.index({
-      name: "users_note_idx",
-      keys: [
-        {
-          column: "note",
-          order: "asc",
-          nulls: "first"
-        }
-      ],
-      predicate: Q.isNotNull(Q.column("note", Pg.Type.text()))
-    })
+  PrimaryKey.make((table) => table.id).pipe(PrimaryKey.named("users_pkey")),
+  Unique.make((table) => table.alias).pipe(Unique.named("users_alias_key"), Pg.Unique.nullsNotDistinct),
+  ForeignKey.make((table) => table.orgId, () => orgs.id).pipe(
+    ForeignKey.named("users_org_id_fkey"),
+    ForeignKey.onDelete("cascade"),
+    ForeignKey.onUpdate("noAction"),
+    Pg.ForeignKey.deferrable,
+    Pg.ForeignKey.initiallyDeferred
+  ),
+  Index.make((table) => table.email).pipe(
+    Index.named("users_email_lookup_idx"),
+    Pg.Index.using("btree"),
+    Pg.Index.keys(() => [{
+      expression: F.lower(Q.column("email", Pg.Type.text())),
+      order: "desc",
+      nulls: "last"
+    }]),
+    Pg.Index.include((table) => table.displayName),
+    Pg.Index.where(Q.isNotNull(Q.column("email", Pg.Type.text())))
+  ),
+  Index.make((table) => table.note).pipe(
+    Index.named("users_note_idx"),
+    Pg.Index.key((table) => table.note, { order: "asc", nulls: "first" }),
+    Pg.Index.where(Q.isNotNull(Q.column("note", Pg.Type.text())))
+  )
   )
 
 export { status, orgs, users }
@@ -1252,7 +1241,7 @@ export { status, orgs, users }
 test("postgres cli pulls supported checks and deferrable constraints into canonical source definitions", async () => {
   const { workspace, schemaName } = await makeSourceWorkspace(`
 import * as Pg from "effect-qb/postgres"
-import { Table } from "effect-qb"
+import { PrimaryKey, Table } from "effect-qb"
 import { Column as C } from "effect-qb/postgres"
 
 const db = Pg.Schema.make("__SCHEMA__")
@@ -1408,7 +1397,7 @@ const orgs = db.table("orgs", {
   slug: C.text(),
   name: C.text()
 }).pipe(
-  Table.primaryKey({ columns: ["tenantId", "slug"], name: "orgs_pkey" })
+  PrimaryKey.make((table) => [table.tenantId, table.slug]).pipe(PrimaryKey.named("orgs_pkey"))
 )
 
 const memberships = db.table("memberships", {

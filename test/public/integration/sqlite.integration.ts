@@ -654,10 +654,10 @@ test("sqlite DDL constraints, generated columns, indexes, and drops execute", as
     role: C.text(),
     normalizedRole: C.text().pipe(C.generated(F.lower(Q.column("role", Q.type.text()))))
   }).pipe(
-    Table.foreignKey("orgId", () => orgs, "id"),
-    Table.unique(["orgId", "role"] as const),
+    Table.foreignKey((table) => table.orgId, () => orgs.id),
+    Table.unique((table) => [table.orgId, table.role]),
     Table.check("ddl_memberships_role_not_empty", Q.neq(Q.column("role", Q.type.text()), "")),
-    Table.index(["role", "orgId"] as const)
+    Table.index((table) => [table.role, table.orgId])
   )
 
   const result = await runSqlite(Effect.gen(function*() {

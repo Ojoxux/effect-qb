@@ -121,20 +121,7 @@ export const Class: ClassApi = ((
 export const primaryKey = BaseTable.primaryKey
 export const unique = BaseTable.unique
 export const index = BaseTable.index
-export const foreignKey = <
-  LocalColumns extends string | readonly string[],
-  TargetTable extends AnyTable,
-  TargetColumns extends string | readonly string[]
->(
-  columns: LocalColumns & BaseTable.NonEmptyColumnInput<LocalColumns>,
-  target: () => TargetTable,
-  referencedColumns: TargetColumns & BaseTable.NonEmptyColumnInput<TargetColumns> & BaseTable.MatchingColumnArityInput<LocalColumns, TargetColumns>
-) =>
-  BaseTable.foreignKey<LocalColumns, TargetTable, TargetColumns>(
-    columns as LocalColumns & BaseTable.NonEmptyColumnInput<LocalColumns>,
-    target,
-    referencedColumns as TargetColumns & BaseTable.NonEmptyColumnInput<TargetColumns> & BaseTable.MatchingColumnArityInput<LocalColumns, TargetColumns>
-  )
+export const foreignKey = BaseTable.foreignKey
 
 export const check = BaseTable.check
 

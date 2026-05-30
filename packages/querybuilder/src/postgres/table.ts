@@ -15,28 +15,20 @@ type IndexSpec = Extract<TableOptionSpec, { readonly kind: "index" }>
 type ForeignKeySpec = Extract<TableOptionSpec, { readonly kind: "foreignKey" }>
 type CheckSpec = Extract<TableOptionSpec, { readonly kind: "check" }>
 
-type NonEmptyStringArrayInput<Values extends readonly string[]> =
-  [Extract<Values[number], "">] extends [never] ? unknown : never
+type IndexKeyOptions = {
+  readonly order?: "asc" | "desc"
+  readonly nulls?: "first" | "last"
+  readonly operatorClass?: string
+  readonly collation?: string
+}
 
-type IndexKeyInput =
+type IndexKeyInput<Table extends BaseTable.SchemaTableDefinition = BaseTable.SchemaTableDefinition> =
   | {
-      readonly column: string
-      readonly order?: "asc" | "desc"
-      readonly nulls?: "first" | "last"
-      readonly operatorClass?: string
-      readonly collation?: string
-    }
+      readonly column: BaseTable.TableColumn<Table>
+    } & IndexKeyOptions
   | {
       readonly expression: BaseTable.DdlExpressionLike
-      readonly order?: "asc" | "desc"
-      readonly nulls?: "first" | "last"
-      readonly operatorClass?: string
-      readonly collation?: string
-    }
-
-type EmptyIndexKeyColumn<Key> = Key extends { readonly column: infer Column extends string }
-  ? BaseTable.NonEmptyStringInput<Column> extends never ? Key : never
-  : never
+    } & IndexKeyOptions
 
 type EmptyIndexKeyOperatorClass<Key> = Key extends { readonly operatorClass: infer OperatorClass extends string }
   ? BaseTable.NonEmptyStringInput<OperatorClass> extends never ? Key : never
@@ -47,7 +39,6 @@ type EmptyIndexKeyCollation<Key> = Key extends { readonly collation: infer Colla
   : never
 
 type InvalidIndexKeyMetadata<Key> =
-  | EmptyIndexKeyColumn<Key>
   | EmptyIndexKeyOperatorClass<Key>
   | EmptyIndexKeyCollation<Key>
 
@@ -63,25 +54,16 @@ type NormalizedIndexKey<Key> = Key extends { readonly expression: infer Expressi
       readonly operatorClass: Key extends { readonly operatorClass: infer OperatorClass extends string } ? OperatorClass : undefined
       readonly collation: Key extends { readonly collation: infer Collation extends string } ? Collation : undefined
     }
-  : Key extends { readonly column: infer Column extends string }
+  : Key extends { readonly column: infer Column extends BaseTable.AnyColumnSelection }
     ? {
         readonly kind: "column"
-        readonly column: Column
+        readonly column: BaseTable.SelectedColumns<Column>[number]
         readonly order: Key extends { readonly order: infer Order extends "asc" | "desc" } ? Order : undefined
         readonly nulls: Key extends { readonly nulls: infer Nulls extends "first" | "last" } ? Nulls : undefined
         readonly operatorClass: Key extends { readonly operatorClass: infer OperatorClass extends string } ? OperatorClass : undefined
         readonly collation: Key extends { readonly collation: infer Collation extends string } ? Collation : undefined
       }
     : never
-
-type NormalizedIndexKeys<Keys extends readonly [IndexKeyInput, ...IndexKeyInput[]]> = {
-  readonly [Index in keyof Keys]: NormalizedIndexKey<Keys[Index]>
-} & readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]]
-
-const mapOption = <Next extends TableOptionSpec>(
-  next: Next
-): BaseTable.TableOption<Next> =>
-  BaseTable.option(next)
 
 const normalizeIndexKey = (key: IndexKeyInput): BaseTable.IndexKeySpec =>
   "expression" in key
@@ -95,7 +77,7 @@ const normalizeIndexKey = (key: IndexKeyInput): BaseTable.IndexKeySpec =>
       }
     : {
         kind: "column",
-        column: key.column,
+        column: BaseTable.selectedColumnList(key.column)[0]!,
         order: key.order,
         nulls: key.nulls,
         operatorClass: key.operatorClass,
@@ -106,130 +88,146 @@ const normalizeIndexKey = (key: IndexKeyInput): BaseTable.IndexKeySpec =>
 export const named = <const Name extends string>(
   name: BaseTable.NonEmptyStringInput<Name>
 ) =>
-  <Spec extends NamedSpec>(option: BaseTable.TableOption<Spec>): BaseTable.TableOption<Spec & { readonly name: Name }> =>
-    mapOption({
-      ...option.option,
+  <Spec extends NamedSpec, TableContext extends BaseTable.SchemaTableDefinition>(
+    option: BaseTable.TableOption<Spec, TableContext>
+  ): BaseTable.TableOption<Spec & { readonly name: Name }, TableContext> =>
+    BaseTable.mapOption(option, (spec) => ({
+      ...spec,
       name
-    } as Spec & { readonly name: Name })
+    } as Spec & { readonly name: Name }))
 
 /** Marks a standard primary key, unique, or foreign-key option as deferrable. */
 export const deferrable = <
-  Spec extends PrimaryKeySpec | UniqueSpec | ForeignKeySpec
->(option: BaseTable.TableOption<Spec>): BaseTable.TableOption<Spec & { readonly deferrable: true }> =>
-  mapOption({
-    ...option.option,
+  Spec extends PrimaryKeySpec | UniqueSpec | ForeignKeySpec,
+  TableContext extends BaseTable.SchemaTableDefinition
+>(option: BaseTable.TableOption<Spec, TableContext>): BaseTable.TableOption<Spec & { readonly deferrable: true }, TableContext> =>
+  BaseTable.mapOption(option, (spec) => ({
+    ...spec,
     deferrable: true
-  } as Spec & { readonly deferrable: true })
+  } as Spec & { readonly deferrable: true }))
 
 /** Marks a deferrable standard primary key, unique, or foreign-key option as initially deferred. */
 export const initiallyDeferred = <
-  Spec extends PrimaryKeySpec | UniqueSpec | ForeignKeySpec
->(option: BaseTable.TableOption<Spec>): BaseTable.TableOption<Spec & {
+  Spec extends PrimaryKeySpec | UniqueSpec | ForeignKeySpec,
+  TableContext extends BaseTable.SchemaTableDefinition
+>(option: BaseTable.TableOption<Spec, TableContext>): BaseTable.TableOption<Spec & {
   readonly deferrable: true
   readonly initiallyDeferred: true
-}> =>
-  mapOption({
-    ...option.option,
+}, TableContext> =>
+  BaseTable.mapOption(option, (spec) => ({
+    ...spec,
     deferrable: true,
     initiallyDeferred: true
-  } as Spec & { readonly deferrable: true; readonly initiallyDeferred: true })
+  } as Spec & { readonly deferrable: true; readonly initiallyDeferred: true }))
 
 /** Adds Postgres NULLS NOT DISTINCT to a standard unique option. */
-export const nullsNotDistinct = <Spec extends UniqueSpec>(
-  option: BaseTable.TableOption<Spec>
-): BaseTable.TableOption<Spec & { readonly nullsNotDistinct: true }> =>
-  mapOption({
-    ...option.option,
+export const nullsNotDistinct = <Spec extends UniqueSpec, TableContext extends BaseTable.SchemaTableDefinition>(
+  option: BaseTable.TableOption<Spec, TableContext>
+): BaseTable.TableOption<Spec & { readonly nullsNotDistinct: true }, TableContext> =>
+  BaseTable.mapOption(option, (spec) => ({
+    ...spec,
     nullsNotDistinct: true
-  } as Spec & { readonly nullsNotDistinct: true })
+  } as Spec & { readonly nullsNotDistinct: true }))
 
 /** Marks a standard index option as a Postgres unique index. */
-export const uniqueIndex = <Spec extends IndexSpec>(
-  option: BaseTable.TableOption<Spec>
-): BaseTable.TableOption<Spec & { readonly unique: true }> =>
-  mapOption({
-    ...option.option,
+export const uniqueIndex = <Spec extends IndexSpec, TableContext extends BaseTable.SchemaTableDefinition>(
+  option: BaseTable.TableOption<Spec, TableContext>
+): BaseTable.TableOption<Spec & { readonly unique: true }, TableContext> =>
+  BaseTable.mapOption(option, (spec) => ({
+    ...spec,
     unique: true
-  } as Spec & { readonly unique: true })
+  } as Spec & { readonly unique: true }))
 
 /** Adds a Postgres index method to a standard index option. */
 export const using = <const Method extends string>(
   method: BaseTable.NonEmptyStringInput<Method>
 ) =>
-  <Spec extends IndexSpec>(option: BaseTable.TableOption<Spec>): BaseTable.TableOption<Spec & { readonly method: Method }> =>
-    mapOption({
-      ...option.option,
+  <Spec extends IndexSpec, TableContext extends BaseTable.SchemaTableDefinition>(
+    option: BaseTable.TableOption<Spec, TableContext>
+  ): BaseTable.TableOption<Spec & { readonly method: Method }, TableContext> =>
+    BaseTable.mapOption(option, (spec) => ({
+      ...spec,
       method
-    } as Spec & { readonly method: Method })
+    } as Spec & { readonly method: Method }))
 
 /** Adds Postgres INCLUDE columns to a standard index option. */
-export const include = <const Include extends readonly string[]>(
-  include: Include & NonEmptyStringArrayInput<Include>
+export const include = <
+  Selection extends BaseTable.AnyColumnSelection
+>(
+  columns: (table: any) => Selection
 ) =>
-  <Spec extends IndexSpec>(option: BaseTable.TableOption<Spec>): BaseTable.TableOption<Spec & { readonly include: Include }> =>
-    mapOption({
+  <Spec extends IndexSpec, TableContext extends BaseTable.SchemaTableDefinition>(
+    option: BaseTable.TableOption<Spec, TableContext>
+  ): BaseTable.TableOption<Spec & { readonly include: BaseTable.SelectedColumns<Selection> }, TableContext> =>
+    BaseTable.optionFromTable({
       ...option.option,
-      include
-    } as Spec & { readonly include: Include })
+      include: [] as unknown as BaseTable.SelectedColumns<Selection>
+    } as Spec & { readonly include: BaseTable.SelectedColumns<Selection> }, (table) => ({
+      ...BaseTable.resolveOption(option, table as TableContext),
+      include: BaseTable.selectedColumnList(columns(table))
+    } as Spec & { readonly include: BaseTable.SelectedColumns<Selection> }))
 
 /** Adds a Postgres partial-index predicate to a standard index option. */
 export const where = <Predicate extends BaseTable.DdlExpressionLike>(
   predicate: Predicate
 ) =>
-  <Spec extends IndexSpec>(option: BaseTable.TableOption<Spec>): BaseTable.TableOption<Spec & { readonly predicate: Predicate }> =>
-    mapOption({
-      ...option.option,
+  <Spec extends IndexSpec, TableContext extends BaseTable.SchemaTableDefinition>(
+    option: BaseTable.TableOption<Spec, TableContext>
+  ): BaseTable.TableOption<Spec & { readonly predicate: Predicate }, TableContext> =>
+    BaseTable.mapOption(option, (spec) => ({
+      ...spec,
       predicate
-    } as Spec & { readonly predicate: Predicate })
+    } as Spec & { readonly predicate: Predicate }))
 
 /** Replaces standard index columns with a single Postgres index key. */
-export const key = <const Key extends IndexKeyInput>(
-  key: Key & NonEmptyIndexKeyInput<Key>
+export const key = <
+  Column extends BaseTable.TableColumn<BaseTable.SchemaTableDefinition>,
+  const Options extends IndexKeyOptions = {}
+>(
+  column: (table: any) => Column,
+  options?: Options & NonEmptyIndexKeyInput<Options>
 ) =>
-  <Spec extends IndexSpec>(option: BaseTable.TableOption<Spec>): BaseTable.TableOption<Spec & {
-    readonly keys: readonly [NormalizedIndexKey<Key>]
-  }> =>
-    mapOption({
+  <Spec extends IndexSpec, TableContext extends BaseTable.SchemaTableDefinition>(
+    option: BaseTable.TableOption<Spec, TableContext>
+  ): BaseTable.TableOption<Spec & {
+    readonly keys: readonly [NormalizedIndexKey<{ readonly column: Column } & Options>]
+  }, TableContext> =>
+    BaseTable.optionFromTable({
       ...option.option,
       columns: undefined,
-      keys: [normalizeIndexKey(key)]
-    } as unknown as Spec & { readonly keys: readonly [NormalizedIndexKey<Key>] })
+      keys: [] as unknown as readonly [NormalizedIndexKey<{ readonly column: Column } & Options>]
+    } as unknown as Spec & { readonly keys: readonly [NormalizedIndexKey<{ readonly column: Column } & Options>] }, (table) => ({
+      ...BaseTable.resolveOption(option, table as TableContext),
+      columns: undefined,
+      keys: [normalizeIndexKey({ column: column(table), ...options })]
+    } as unknown as Spec & { readonly keys: readonly [NormalizedIndexKey<{ readonly column: Column } & Options>] }))
 
 /** Replaces standard index columns with Postgres index keys. */
-export const keys = <const Keys extends readonly [IndexKeyInput, ...IndexKeyInput[]]>(
-  keys: Keys & {
-    readonly [Index in keyof Keys]: Keys[Index] & NonEmptyIndexKeyInput<Keys[Index]>
-  }
+export const keys = (
+  keys: (table: any) => readonly [IndexKeyInput, ...IndexKeyInput[]]
 ) =>
-  <Spec extends IndexSpec>(option: BaseTable.TableOption<Spec>): BaseTable.TableOption<Spec & {
-    readonly keys: NormalizedIndexKeys<Keys>
-  }> =>
-    mapOption({
+  <Spec extends IndexSpec, TableContext extends BaseTable.SchemaTableDefinition>(
+    option: BaseTable.TableOption<Spec, TableContext>
+  ): BaseTable.TableOption<Spec & {
+    readonly keys: readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]]
+  }, TableContext> =>
+    BaseTable.optionFromTable({
       ...option.option,
       columns: undefined,
-      keys: [normalizeIndexKey(keys[0]), ...keys.slice(1).map(normalizeIndexKey)]
-    } as Spec & { readonly keys: NormalizedIndexKeys<Keys> })
-
-/** Adds an ON DELETE action to a standard foreign-key option. */
-export const onDelete = (action: BaseTable.ReferentialAction) =>
-  <Spec extends ForeignKeySpec>(option: BaseTable.TableOption<Spec>): BaseTable.TableOption<Spec & { readonly onDelete: BaseTable.ReferentialAction }> =>
-    mapOption({
-      ...option.option,
-      onDelete: action
-    } as Spec & { readonly onDelete: BaseTable.ReferentialAction })
-
-/** Adds an ON UPDATE action to a standard foreign-key option. */
-export const onUpdate = (action: BaseTable.ReferentialAction) =>
-  <Spec extends ForeignKeySpec>(option: BaseTable.TableOption<Spec>): BaseTable.TableOption<Spec & { readonly onUpdate: BaseTable.ReferentialAction }> =>
-    mapOption({
-      ...option.option,
-      onUpdate: action
-    } as Spec & { readonly onUpdate: BaseTable.ReferentialAction })
+      keys: [] as unknown as readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]]
+    } as Spec & { readonly keys: readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]] }, (table) => {
+      const resolvedKeys = keys(table)
+      return {
+        ...BaseTable.resolveOption(option, table as TableContext),
+        columns: undefined,
+        keys: [normalizeIndexKey(resolvedKeys[0]), ...resolvedKeys.slice(1).map(normalizeIndexKey)]
+      } as Spec & { readonly keys: readonly [BaseTable.IndexKeySpec, ...BaseTable.IndexKeySpec[]] }
+    })
 
 /** Adds Postgres NO INHERIT to a standard check option. */
-export const noInherit = <Spec extends CheckSpec>(
-  option: BaseTable.TableOption<Spec>
-): BaseTable.TableOption<Spec & { readonly noInherit: true }> =>
+export const noInherit = <Spec extends CheckSpec, TableContext extends BaseTable.SchemaTableDefinition>(
+  option: BaseTable.TableOption<Spec, TableContext>
+): BaseTable.TableOption<Spec & { readonly noInherit: true }, TableContext> =>
   BaseTable.mapOption(option, (spec) => ({
     ...spec,
     noInherit: true

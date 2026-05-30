@@ -1245,9 +1245,9 @@ describe("postgres dialect behavior", () => {
     }
     const membershipsBase = StdRoot.Table.make("memberships", membershipsFields)
     const memberships = membershipsBase.pipe(
-      StdRoot.Table.foreignKey("orgId", () => orgs, "id"),
-      StdRoot.Table.unique(["orgId", "role"] as const),
-      StdRoot.Table.index(["role", "orgId"] as const),
+      StdRoot.Table.foreignKey((table) => table.orgId, () => orgs.id),
+      StdRoot.Table.unique((table) => [table.orgId, table.role]),
+      StdRoot.Table.index((table) => [table.role, table.orgId]),
       StdRoot.Table.check("role_not_empty", StdRoot.Query.neq(membershipsBase.role, StdRoot.Query.literal("")))
     )
 

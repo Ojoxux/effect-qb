@@ -14,7 +14,7 @@ const events = Table.make("Events", {
 Pg.Renderer.make().render(Query.select({ id: events.id }).pipe(Query.from(events)))
 
 events.pipe(
-  Index.make("id").pipe(Pg.Index.using("btree"))
+  Index.make((table) => table.id).pipe(Pg.Index.using("btree"))
 )
 
 Pg.Schema.make("analytics").table("events", { id: Column.uuid() })

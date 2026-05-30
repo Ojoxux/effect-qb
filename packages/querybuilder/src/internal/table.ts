@@ -5,18 +5,14 @@ import * as Plan from "./row-set.js"
 import type { Any as AnyExpression } from "./scalar.js"
 import type { TrueFormula } from "./predicate/formula.js"
 import type { BoundColumnFrom } from "./column-state.js"
-import { bindColumn, type AnyColumnDefinition } from "./column-state.js"
+import { bindColumn, BoundColumnTypeId, type AnyBoundColumn, type AnyColumnDefinition } from "./column-state.js"
 import {
   collectInlineOptions,
-  normalizeColumnList,
   resolvePrimaryKeyColumns,
   type DdlExpressionLike,
   type IndexKeySpec,
   type LiteralStringInput,
-  type MatchingColumnArityInput,
-  type NonEmptyColumnInput,
   type NonEmptyStringInput,
-  type NormalizeColumns,
   type ReferentialAction,
   type TableOptionSpec,
   type ValidateForeignKeyOptionColumns,
@@ -64,6 +60,43 @@ type NonEmptyFieldMap<Fields extends TableFieldMap> =
   string extends keyof Fields ? Fields : "" extends keyof Fields ? never : Fields
 type FieldColumnName<Fields extends TableFieldMap> = Extract<keyof Fields, string>
 type FieldColumnList<Fields extends TableFieldMap> = readonly [FieldColumnName<Fields>, ...FieldColumnName<Fields>[]]
+export type SchemaTableDefinition = TableDefinition<any, any, any, "schema", any>
+type LooseTableSelection = any
+type ConcreteSelector<
+  Table extends SchemaTableDefinition,
+  Selection extends AnyColumnSelection
+> = SchemaTableDefinition extends Table ? never : (table: Table) => Selection
+type ColumnNameOfBound<Column> = Column extends {
+  readonly [BoundColumnTypeId]: {
+    readonly columnName: infer ColumnName extends string
+  }
+} ? ColumnName : never
+type BoundColumnTupleNames<Columns extends readonly AnyBoundColumn[]> =
+  Columns extends readonly [infer Head extends AnyBoundColumn, ...infer Tail extends AnyBoundColumn[]]
+    ? readonly [ColumnNameOfBound<Head>, ...BoundColumnTupleNames<Tail>]
+    : readonly []
+type ColumnSelectionNames<Selection> =
+  Selection extends AnyBoundColumn
+    ? readonly [ColumnNameOfBound<Selection>]
+    : Selection extends readonly [infer Head extends AnyBoundColumn, ...infer Tail extends AnyBoundColumn[]]
+      ? readonly [ColumnNameOfBound<Head>, ...BoundColumnTupleNames<Tail>]
+      : never
+export type TableColumnSelection<Table extends SchemaTableDefinition> =
+  TableColumn<Table> | readonly [TableColumn<Table>, ...TableColumn<Table>[]]
+export type TableColumn<Table extends SchemaTableDefinition> =
+  SchemaTableDefinition extends Table ? AnyBoundColumn : Table extends TableDefinition<infer Name, infer Fields, any, "schema", any>
+    ? BoundColumns<Name, Fields>[Extract<keyof Fields, string>]
+    : never
+export type AnyColumnSelection = AnyBoundColumn | readonly [AnyBoundColumn, ...AnyBoundColumn[]]
+export type SelectedColumns<Selection extends AnyColumnSelection> = ColumnSelectionNames<Selection>
+type MatchingSelectionArityInput<
+  Left extends AnyColumnSelection,
+  Right extends AnyColumnSelection
+> = SelectedColumns<Left>["length"] extends SelectedColumns<Right>["length"]
+  ? SelectedColumns<Right>["length"] extends SelectedColumns<Left>["length"]
+    ? unknown
+    : never
+  : never
 type FieldIndexKeySpec<Fields extends TableFieldMap> =
   | (Extract<IndexKeySpec, { readonly kind: "column" }> & { readonly column: FieldColumnName<Fields> })
   | Extract<IndexKeySpec, { readonly kind: "expression" }>
@@ -81,12 +114,16 @@ type ClassOptionSpec<Fields extends TableFieldMap = TableFieldMap> =
     })
   | Extract<TableOptionSpec, { readonly kind: "check" }>
 interface TableOptionBuilderLike<
-  Spec extends TableOptionSpec = TableOptionSpec
+  Spec extends TableOptionSpec = TableOptionSpec,
+  TableContext extends SchemaTableDefinition = SchemaTableDefinition
 > {
   readonly option: Spec
 }
 
-type ClassTableOption<Fields extends TableFieldMap> = TableOptionBuilderLike<ClassOptionSpec<Fields>>
+type ClassTableOption<Fields extends TableFieldMap> = TableOption<
+  ClassOptionSpec<Fields>,
+  TableDefinition<string, Fields, keyof Fields & string, "schema", any>
+>
 type ClassDeclaredTableOptions<Fields extends TableFieldMap> = readonly ClassTableOption<Fields>[]
 type TableNameOf<Table extends TableDefinition<any, any, any, "schema", any>> =
   Table extends TableDefinition<infer Name, any, any, "schema", any> ? Name : never
@@ -96,25 +133,32 @@ type TablePrimaryKeyOf<Table extends TableDefinition<any, any, any, "schema", an
   Table extends TableDefinition<any, any, infer PrimaryKeyColumns, "schema", any> ? PrimaryKeyColumns : never
 type TableSchemaNameOf<Table extends TableDefinition<any, any, any, "schema", any>> =
   Table extends TableDefinition<any, any, any, "schema", infer SchemaName> ? SchemaName : never
+type HasBroadColumns<Columns extends readonly string[]> = string extends Columns[number] ? true : false
 
 type BuildPrimaryKey<
   Table extends TableDefinition<any, any, any, "schema", any>,
   Spec extends TableOptionSpec
 > = Spec extends { readonly kind: "primaryKey"; readonly columns: infer Columns extends readonly string[] }
-  ? Columns[number] & keyof TableFieldsOf<Table> & string
+  ? HasBroadColumns<Columns> extends true
+    ? TablePrimaryKeyOf<Table>
+    : Columns[number] & keyof TableFieldsOf<Table> & string
   : TablePrimaryKeyOf<Table>
 
 type OptionInputConstraint<
   Table extends TableDefinition<any, any, any, "schema", any>,
   Spec extends TableOptionSpec
 > = Spec extends { readonly kind: "primaryKey"; readonly columns: infer Columns extends readonly string[] }
-  ? ValidatePrimaryKeyColumns<Table[typeof TypeId]["fields"], Columns> extends never ? never : unknown
+  ? HasBroadColumns<Columns> extends true ? unknown : ValidatePrimaryKeyColumns<Table[typeof TypeId]["fields"], Columns> extends never ? never : unknown
   : Spec extends { readonly kind: "index" }
-    ? ValidateIndexOptionColumns<Table[typeof TypeId]["fields"], Spec> extends never ? never : unknown
+    ? Spec extends { readonly columns: infer Columns extends readonly string[] }
+      ? HasBroadColumns<Columns> extends true ? unknown : ValidateIndexOptionColumns<Table[typeof TypeId]["fields"], Spec> extends never ? never : unknown
+      : ValidateIndexOptionColumns<Table[typeof TypeId]["fields"], Spec> extends never ? never : unknown
     : Spec extends { readonly kind: "foreignKey" }
-      ? ValidateForeignKeyOptionColumns<Table[typeof TypeId]["fields"], Spec> extends never ? never : unknown
+      ? Spec extends { readonly columns: infer Columns extends readonly string[] }
+        ? HasBroadColumns<Columns> extends true ? unknown : ValidateForeignKeyOptionColumns<Table[typeof TypeId]["fields"], Spec> extends never ? never : unknown
+        : ValidateForeignKeyOptionColumns<Table[typeof TypeId]["fields"], Spec> extends never ? never : unknown
       : Spec extends { readonly columns: infer Columns extends readonly string[] }
-        ? ValidateKnownColumns<Table[typeof TypeId]["fields"], Columns> extends never ? never : unknown
+        ? HasBroadColumns<Columns> extends true ? unknown : ValidateKnownColumns<Table[typeof TypeId]["fields"], Columns> extends never ? never : unknown
         : unknown
 
 type OptionInputTable<
@@ -156,7 +200,7 @@ type TableOptionPipe<
 > = Kind extends "schema"
   ? {
       pipe<Spec extends TableOptionSpec>(
-        option: TableOption<Spec>,
+        option: TableOption<Spec, TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>>,
         ...validation: OptionValidationArgs<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Spec>
       ): ApplyTableOption<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Spec>
     }
@@ -245,7 +289,7 @@ export type TableDefinition<
   PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>,
   Kind extends TableKind = "schema",
   SchemaName extends string | undefined = DefaultSchemaName
-> = TableOptionPipe<Name, Fields, PrimaryKeyColumns, Kind, SchemaName> & Pipeable & {
+> = Pipeable & TableOptionPipe<Name, Fields, PrimaryKeyColumns, Kind, SchemaName> & {
   readonly name: Name
   readonly columns: BoundColumns<Name, Fields>
   readonly schemas: TableSchemas<Name, Fields, PrimaryKeyColumns> & AnyTableSchemas
@@ -303,28 +347,26 @@ export type AnyTable<Dialect extends string = string> = {
   readonly [OptionsSymbol]: readonly TableOptionSpec[]
 } & Plan.RowSet<any, any, Record<string, Plan.AnySource>, Dialect>
 
-type FieldsOfAnyTable<Table extends AnyTable> = Table[typeof TypeId]["fields"]
-
-type ColumnNamesOfAnyTable<Table extends AnyTable> = Extract<keyof FieldsOfAnyTable<Table>, string>
 type CheckPredicateTable = any
 type CheckPredicate = (table: CheckPredicateTable) => DdlExpressionLike
 
 /** Public table-option builder type used by `Table.index`, `Table.primaryKey`, and friends. */
 export type TableOption<
-  Spec extends TableOptionSpec = TableOptionSpec
+  Spec extends TableOptionSpec = TableOptionSpec,
+  TableContext extends SchemaTableDefinition = SchemaTableDefinition
 > = Pipeable & {
   readonly pipe: Pipeable["pipe"]
   readonly option: Spec
   readonly [ResolveOptionSymbol]?: (table: TableDefinition<any, any, any, "schema", any>) => Spec
 } & (Spec extends { readonly kind: "primaryKey" }
   ? {
-  <Table extends TableDefinition<any, any, any, "schema", any>>(
+  <Table extends TableContext>(
     table: Table,
     ...validation: OptionValidationArgs<Table, Spec>
   ): ApplyOption<Table, Spec>
   }
   : {
-    <Table extends TableDefinition<any, any, any, "schema", any>>(
+    <Table extends TableContext>(
       table: Table,
       ...validation: OptionValidationArgs<Table, Spec>
     ): Table
@@ -678,7 +720,10 @@ const appendOption = <
   ) as unknown as ApplyOption<Table, Spec>
 }
 
-const makeOption = <Spec extends TableOptionSpec>(option: Spec): TableOption<Spec> => {
+const makeOption = <
+  Spec extends TableOptionSpec,
+  TableContext extends SchemaTableDefinition = SchemaTableDefinition
+>(option: Spec): TableOption<Spec, TableContext> => {
   return attachPipe(Object.assign(
     <Table extends TableDefinition<any, any, any, "schema", any>>(
       table: Table,
@@ -686,13 +731,16 @@ const makeOption = <Spec extends TableOptionSpec>(option: Spec): TableOption<Spe
     ): ApplyTableOption<Table, Spec> =>
       appendOption(table, option) as unknown as ApplyTableOption<Table, Spec>,
     { option }
-  )) as TableOption<Spec>
+  )) as unknown as TableOption<Spec, TableContext>
 }
 
-const makeResolvedOption = <Spec extends TableOptionSpec>(
+const makeResolvedOption = <
+  Spec extends TableOptionSpec,
+  TableContext extends SchemaTableDefinition = SchemaTableDefinition
+>(
   option: Spec,
   resolve: (table: TableDefinition<any, any, any, "schema", any>) => Spec
-): TableOption<Spec> => {
+): TableOption<Spec, TableContext> => {
   return attachPipe(Object.assign(
     <Table extends TableDefinition<any, any, any, "schema", any>>(
       table: Table,
@@ -706,29 +754,44 @@ const makeResolvedOption = <Spec extends TableOptionSpec>(
       option,
       [ResolveOptionSymbol]: resolve
     }
-  )) as TableOption<Spec>
+  )) as unknown as TableOption<Spec, TableContext>
 }
 
 export const option = <Spec extends TableOptionSpec>(spec: Spec): TableOption<Spec> =>
   makeOption(spec)
 
-export const optionFromTable = <Spec extends TableOptionSpec>(
+export const optionFromTable = <
+  Spec extends TableOptionSpec,
+  TableContext extends SchemaTableDefinition = SchemaTableDefinition
+>(
   spec: Spec,
   resolve: (table: TableDefinition<any, any, any, "schema", any>) => Spec
-): TableOption<Spec> =>
+): TableOption<Spec, TableContext> =>
   makeResolvedOption(spec, resolve)
+
+export const resolveOption = <
+  Spec extends TableOptionSpec,
+  TableContext extends SchemaTableDefinition
+>(
+  option: TableOption<Spec, TableContext>,
+  table: TableContext
+): Spec => {
+  const resolve = option[ResolveOptionSymbol]
+  return resolve === undefined ? option.option : resolve(table)
+}
 
 export const mapOption = <
   Spec extends TableOptionSpec,
-  Next extends TableOptionSpec
+  Next extends TableOptionSpec,
+  TableContext extends SchemaTableDefinition
 >(
-  option: TableOption<Spec>,
+  option: TableOption<Spec, TableContext>,
   map: (spec: Spec) => Next
-): TableOption<Next> => {
+): TableOption<Next, TableContext> => {
   const resolve = option[ResolveOptionSymbol]
   return resolve === undefined
-    ? makeOption(map(option.option))
-    : makeResolvedOption(
+    ? makeOption<Next, TableContext>(map(option.option))
+    : makeResolvedOption<Next, TableContext>(
         map(option.option),
         (table) => map(resolve(table))
       )
@@ -985,74 +1048,182 @@ export function Class<
     }
 }
 
+const selectionArray = (selection: AnyColumnSelection): readonly AnyBoundColumn[] =>
+  (Array.isArray(selection) ? selection : [selection]) as readonly AnyBoundColumn[]
+
+export const selectedColumnList = <Selection extends AnyColumnSelection>(
+  selection: Selection
+): SelectedColumns<Selection> =>
+  selectionArray(selection).map((column) => column[BoundColumnTypeId].columnName) as unknown as SelectedColumns<Selection>
+
+const referenceFromSelection = <Selection extends AnyColumnSelection>(selection: Selection) => {
+  const columns = selectionArray(selection)
+  const first = columns[0]!
+  const bound = first[BoundColumnTypeId]
+  return {
+    tableName: bound.baseTableName,
+    schemaName: bound.schemaName,
+    casing: bound.casing,
+    columns: columns.map((column) => column[BoundColumnTypeId].columnName) as unknown as SelectedColumns<Selection>
+  }
+}
+
 /** Declares a table-level primary key. */
-export const primaryKey = <
-  const Columns extends string | readonly string[]
+export function primaryKey<
+  Table extends SchemaTableDefinition,
+  Selection extends TableColumnSelection<Table> = TableColumnSelection<Table>
 >(
-  columns: Columns & NonEmptyColumnInput<Columns>
+  columns: ConcreteSelector<Table, Selection>
 ): TableOption<{
   readonly kind: "primaryKey"
-  readonly columns: NormalizeColumns<Columns>
-}> => makeOption({
-  kind: "primaryKey",
-  columns: normalizeColumnList(columns) as NormalizeColumns<Columns>
-})
+  readonly columns: SelectedColumns<Selection>
+}, Table>
+export function primaryKey<
+  Selection extends AnyColumnSelection
+>(
+  columns: (table: LooseTableSelection) => Selection
+): TableOption<{
+  readonly kind: "primaryKey"
+  readonly columns: SelectedColumns<Selection>
+}>
+export function primaryKey(
+  columns: (table: any) => AnyColumnSelection
+): TableOption<{
+  readonly kind: "primaryKey"
+  readonly columns: readonly [string, ...string[]]
+}> {
+  return makeResolvedOption({
+    kind: "primaryKey",
+    columns: [] as unknown as readonly [string, ...string[]]
+  }, (table) => ({
+    kind: "primaryKey",
+    columns: selectedColumnList(columns(table))
+  }))
+}
 
 /** Declares a table-level unique constraint. */
-export const unique = <
-  const Columns extends string | readonly string[]
+export function unique<
+  Table extends SchemaTableDefinition,
+  Selection extends TableColumnSelection<Table> = TableColumnSelection<Table>
 >(
-  columns: Columns & NonEmptyColumnInput<Columns>
+  columns: ConcreteSelector<Table, Selection>
 ): TableOption<{
   readonly kind: "unique"
-  readonly columns: NormalizeColumns<Columns>
-}> => makeOption({
-  kind: "unique",
-  columns: normalizeColumnList(columns) as NormalizeColumns<Columns>
-})
+  readonly columns: SelectedColumns<Selection>
+}, Table>
+export function unique<
+  Selection extends AnyColumnSelection
+>(
+  columns: (table: LooseTableSelection) => Selection
+): TableOption<{
+  readonly kind: "unique"
+  readonly columns: SelectedColumns<Selection>
+}>
+export function unique(
+  columns: (table: any) => AnyColumnSelection
+): TableOption<{
+  readonly kind: "unique"
+  readonly columns: readonly [string, ...string[]]
+}> {
+  return makeResolvedOption({
+    kind: "unique",
+    columns: [] as unknown as readonly [string, ...string[]]
+  }, (table) => ({
+    kind: "unique",
+    columns: selectedColumnList(columns(table))
+  }))
+}
 
 /** Declares a table-level index. */
-export const index = <
-  const Columns extends string | readonly string[]
+export function index<
+  Table extends SchemaTableDefinition,
+  Selection extends TableColumnSelection<Table> = TableColumnSelection<Table>
 >(
-  columns: Columns & NonEmptyColumnInput<Columns>
+  columns: ConcreteSelector<Table, Selection>
 ): TableOption<{
   readonly kind: "index"
-  readonly columns: NormalizeColumns<Columns>
-}> => makeOption({
-  kind: "index",
-  columns: normalizeColumnList(columns) as NormalizeColumns<Columns>
-})
+  readonly columns: SelectedColumns<Selection>
+}, Table>
+export function index<
+  Selection extends AnyColumnSelection
+>(
+  columns: (table: LooseTableSelection) => Selection
+): TableOption<{
+  readonly kind: "index"
+  readonly columns: SelectedColumns<Selection>
+}>
+export function index(
+  columns: (table: any) => AnyColumnSelection
+): TableOption<{
+  readonly kind: "index"
+  readonly columns: readonly [string, ...string[]]
+}> {
+  return makeResolvedOption({
+    kind: "index",
+    columns: [] as unknown as readonly [string, ...string[]]
+  }, (table) => ({
+    kind: "index",
+    columns: selectedColumnList(columns(table))
+  }))
+}
 
 /** Declares a table-level foreign key. */
-export const foreignKey = <
-  const LocalColumns extends string | readonly string[],
-  TargetTable extends AnyTable,
-  const TargetColumns extends string | readonly string[]
+export function foreignKey<
+  Table extends SchemaTableDefinition,
+  LocalSelection extends TableColumnSelection<Table> = TableColumnSelection<Table>,
+  TargetSelection extends AnyColumnSelection = AnyColumnSelection
 >(
-  columns: LocalColumns & NonEmptyColumnInput<LocalColumns>,
-  target: () => TargetTable,
-  referencedColumns: TargetColumns & NonEmptyColumnInput<TargetColumns> & MatchingColumnArityInput<LocalColumns, TargetColumns>
+  columns: ConcreteSelector<Table, LocalSelection>,
+  target: () => TargetSelection & MatchingSelectionArityInput<LocalSelection, TargetSelection>
 ): TableOption<{
   readonly kind: "foreignKey"
-  readonly columns: NormalizeColumns<LocalColumns>
+  readonly columns: SelectedColumns<LocalSelection>
   readonly references: () => {
     readonly tableName: string
     readonly schemaName?: string
-    readonly columns: NormalizeColumns<TargetColumns>
-    readonly knownColumns: readonly ColumnNamesOfAnyTable<TargetTable>[]
+    readonly casing?: Casing.Options
+    readonly columns: SelectedColumns<TargetSelection>
   }
-}> => makeOption({
-  kind: "foreignKey",
-  columns: normalizeColumnList(columns) as NormalizeColumns<LocalColumns>,
-  references: () => ({
-    tableName: target()[TypeId].baseName,
-    schemaName: target()[TypeId].schemaName,
-    casing: target()[TypeId].casing,
-    columns: normalizeColumnList(referencedColumns) as NormalizeColumns<TargetColumns>,
-    knownColumns: Object.keys(target()[TypeId].fields).map((key) => key as ColumnNamesOfAnyTable<TargetTable>)
-  })
-})
+}, Table>
+export function foreignKey<
+  LocalSelection extends AnyColumnSelection,
+  TargetSelection extends AnyColumnSelection
+>(
+  columns: (table: LooseTableSelection) => LocalSelection,
+  target: () => TargetSelection
+): TableOption<{
+  readonly kind: "foreignKey"
+  readonly columns: SelectedColumns<LocalSelection>
+  readonly references: () => {
+    readonly tableName: string
+    readonly schemaName?: string
+    readonly casing?: Casing.Options
+    readonly columns: SelectedColumns<TargetSelection>
+  }
+}>
+export function foreignKey(
+  columns: (table: any) => AnyColumnSelection,
+  target: () => AnyColumnSelection
+): TableOption<{
+  readonly kind: "foreignKey"
+  readonly columns: readonly [string, ...string[]]
+  readonly references: () => {
+    readonly tableName: string
+    readonly schemaName?: string
+    readonly casing?: Casing.Options
+    readonly columns: readonly [string, ...string[]]
+  }
+}> {
+  return makeResolvedOption({
+    kind: "foreignKey",
+    columns: [] as unknown as readonly [string, ...string[]],
+    references: () => referenceFromSelection(target())
+  }, (table) => ({
+    kind: "foreignKey",
+    columns: selectedColumnList(columns(table)),
+    references: () => referenceFromSelection(target())
+  }))
+}
 
 /** Declares a check constraint expression. */
 export function check<const Name extends string>(

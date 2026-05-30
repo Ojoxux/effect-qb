@@ -1798,13 +1798,40 @@ const renderIndexKey = (
   context: RenderContext
 ): string | undefined => {
   if (key.kind === "column") {
-    return `{ column: ${renderStringLiteral(key.column)}${key.order ? `, order: ${renderStringLiteral(key.order)}` : ""}${key.nulls ? `, nulls: ${renderStringLiteral(key.nulls)}` : ""}${key.operatorClass ? `, operatorClass: ${renderStringLiteral(key.operatorClass)}` : ""}${key.collation ? `, collation: ${renderStringLiteral(key.collation)}` : ""} }`
+    return `{ column: ${renderColumnAccess("table", key.column)}${key.order ? `, order: ${renderStringLiteral(key.order)}` : ""}${key.nulls ? `, nulls: ${renderStringLiteral(key.nulls)}` : ""}${key.operatorClass ? `, operatorClass: ${renderStringLiteral(key.operatorClass)}` : ""}${key.collation ? `, collation: ${renderStringLiteral(key.collation)}` : ""} }`
   }
   const normalizedExpression = normalizedIndexExpressionSql(key.expression)
   if (normalizedExpression === null) {
     return undefined
   }
   return `{ expression: ${renderDdlExpressionCode(normalizedExpression, renderExpressionContext(table, context))}${key.order ? `, order: ${renderStringLiteral(key.order)}` : ""}${key.nulls ? `, nulls: ${renderStringLiteral(key.nulls)}` : ""}${key.operatorClass ? `, operatorClass: ${renderStringLiteral(key.operatorClass)}` : ""}${key.collation ? `, collation: ${renderStringLiteral(key.collation)}` : ""} }`
+}
+
+const renderColumnSelector = (columns: readonly string[]): string =>
+  columns.length === 1
+    ? `(table) => ${renderColumnAccess("table", columns[0]!)}`
+    : `(table) => [${columns.map((column) => renderColumnAccess("table", column)).join(", ")}]`
+
+const renderExternalColumnSelector = (identifier: string, columns: readonly string[]): string =>
+  columns.length === 1
+    ? `() => ${renderColumnAccess(identifier, columns[0]!)}`
+    : `() => [${columns.map((column) => renderColumnAccess(identifier, column)).join(", ")}]`
+
+const renderIndexKeyOptions = (key: IndexKeySpec): string => {
+  const parts: string[] = []
+  if (key.order !== undefined) {
+    parts.push(`order: ${renderStringLiteral(key.order)}`)
+  }
+  if (key.nulls !== undefined) {
+    parts.push(`nulls: ${renderStringLiteral(key.nulls)}`)
+  }
+  if (key.operatorClass !== undefined) {
+    parts.push(`operatorClass: ${renderStringLiteral(key.operatorClass)}`)
+  }
+  if (key.collation !== undefined) {
+    parts.push(`collation: ${renderStringLiteral(key.collation)}`)
+  }
+  return parts.length === 0 ? "" : `, { ${parts.join(", ")} }`
 }
 
 const renderIndexOption = (
@@ -1821,8 +1848,8 @@ const renderIndexOption = (
     ? option.columns
     : normalizedKeys.length > 0 && normalizedKeys[0]?.kind === "column"
       ? [normalizedKeys[0].column]
-      : ["__expression__"]
-  const base = `${INDEX_ALIAS}.make(${renderStringTuple(baseColumns)})`
+      : [table.columns[0]?.name ?? "__expression__"]
+  const base = `${INDEX_ALIAS}.make(${renderColumnSelector(baseColumns)})`
   const pipes: string[] = []
   if (option.name) {
     pipes.push(`${INDEX_ALIAS}.named(${renderStringLiteral(option.name)})`)
@@ -1834,12 +1861,15 @@ const renderIndexOption = (
     pipes.push(`${POSTGRES_INDEX_ALIAS}.using(${renderStringLiteral(option.method)})`)
   }
   if (includeColumns.length > 0) {
-    pipes.push(`${POSTGRES_INDEX_ALIAS}.include([${includeColumns.map(renderStringLiteral).join(", ")}])`)
+    pipes.push(`${POSTGRES_INDEX_ALIAS}.include(${renderColumnSelector(includeColumns)})`)
   }
   if (renderedKeys.length === 1) {
-    pipes.push(`${POSTGRES_INDEX_ALIAS}.key(${renderedKeys[0]})`)
+    const key = normalizedKeys[0]
+    pipes.push(key?.kind === "column"
+      ? `${POSTGRES_INDEX_ALIAS}.key((table) => ${renderColumnAccess("table", key.column)}${renderIndexKeyOptions(key)})`
+      : `${POSTGRES_INDEX_ALIAS}.keys(() => [${renderedKeys[0]}])`)
   } else if (renderedKeys.length > 1) {
-    pipes.push(`${POSTGRES_INDEX_ALIAS}.keys([${renderedKeys.join(", ")}])`)
+    pipes.push(`${POSTGRES_INDEX_ALIAS}.keys((table) => [${renderedKeys.join(", ")}])`)
   }
   const normalizedPredicate = normalizedPredicateSql(option.predicate)
   if (normalizedPredicate !== null) {
@@ -2067,7 +2097,7 @@ const renderTableOption = (
       if (option.initiallyDeferred === true) {
         pipes.push(`${POSTGRES_PRIMARY_KEY_ALIAS}.initiallyDeferred`)
       }
-      return renderPipeChain(`${PRIMARY_KEY_ALIAS}.make(${renderStringTuple(option.columns)})`, pipes)
+      return renderPipeChain(`${PRIMARY_KEY_ALIAS}.make(${renderColumnSelector(option.columns)})`, pipes)
     }
     case "unique": {
       const pipes: string[] = []
@@ -2083,7 +2113,7 @@ const renderTableOption = (
       if (option.initiallyDeferred === true) {
         pipes.push(`${POSTGRES_UNIQUE_ALIAS}.initiallyDeferred`)
       }
-      return renderPipeChain(`${UNIQUE_ALIAS}.make(${renderStringTuple(option.columns)})`, pipes)
+      return renderPipeChain(`${UNIQUE_ALIAS}.make(${renderColumnSelector(option.columns)})`, pipes)
     }
     case "index":
       return renderIndexOption(table, option, context)
@@ -2112,7 +2142,7 @@ const renderTableOption = (
         pipes.push(`${POSTGRES_FOREIGN_KEY_ALIAS}.initiallyDeferred`)
       }
       return renderPipeChain(
-        `${FOREIGN_KEY_ALIAS}.make(${renderStringTuple(option.columns)}, () => ${target.declaration.identifier}, ${renderStringTuple(reference.columns)})`,
+        `${FOREIGN_KEY_ALIAS}.make(${renderColumnSelector(option.columns)}, ${renderExternalColumnSelector(target.declaration.identifier, reference.columns)})`,
         pipes
       )
     }

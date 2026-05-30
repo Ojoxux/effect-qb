@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 1026-1050
+// Code fences: 383-401
 
-// README.md:1026-1050
+// README.md:383-401
 import { Casing, Column } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
@@ -15,15 +15,9 @@ const Analytics = Pg.Schema.make("analytics").pipe(
   })
 )
 
-const status = Analytics.enum("EventStatus", ["pending", "processed"] as const)
-const sequence = Analytics.sequence("EventIdSeq")
-
-const metrics = Analytics.table("Metrics", {
+const events = Analytics.table("Events", {
   id: Column.uuid().pipe(Column.primaryKey),
-  status: status.column(),
-  sequenceValue: Pg.Column.int8().pipe(
-    Column.default(Pg.Function.nextVal(sequence))
-  )
+  createdAt: Column.datetime()
 })
 
 
