@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema"
-import { Column, Function, Query, Scalar, Table } from "effect-qb"
+import { Column, Function, Index, Query, Scalar, Table } from "effect-qb"
 import * as My from "effect-qb/mysql"
 import * as Pg from "effect-qb/postgres"
 import * as Sq from "effect-qb/sqlite"
@@ -14,7 +14,7 @@ const events = Table.make("Events", {
 Pg.Renderer.make().render(Query.select({ id: events.id }).pipe(Query.from(events)))
 
 events.pipe(
-  Table.index("id").pipe(Pg.Table.using("btree"))
+  Index.make("id").pipe(Pg.Index.using("btree"))
 )
 
 Pg.Schema.make("analytics").table("events", { id: Column.uuid() })

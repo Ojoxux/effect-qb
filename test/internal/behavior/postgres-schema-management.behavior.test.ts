@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test"
 import * as Schema from "effect/Schema"
 
 import * as Pg from "#postgres"
-import { Table } from "#standard"
+import { Check, ForeignKey, Index, PrimaryKey, Table } from "#standard"
 import { Column as C } from "#postgres"
 import * as ExpressionAst from "../../../packages/querybuilder/src/internal/expression-ast.js"
 import { Casing } from "../../../packages/querybuilder/src/index.ts"
@@ -49,8 +49,8 @@ describe("postgres schema management", () => {
       })
     )
     const memberships = membershipsBase.pipe(
-      StdRoot.Table.index("accountStatus"),
-      StdRoot.Table.check("AccountStatusCheck", StdRoot.Query.eq(membershipsBase.accountStatus, "active"))
+      StdRoot.Index.make("accountStatus"),
+      StdRoot.Check.make("AccountStatusCheck", StdRoot.Query.eq(membershipsBase.accountStatus, "active"))
     )
 
     const model = toTableModel(memberships as unknown as Parameters<typeof toTableModel>[0])
@@ -1126,7 +1126,7 @@ describe("postgres schema management", () => {
       email: StdRoot.Column.text(),
       nickname: StdRoot.Column.text().pipe(StdRoot.Column.nullable)
     }).pipe(
-      Table.index("email")
+      Index.make("email")
     )
 
     const status = Pg.Schema.make("public").enum("status", ["pending", "active", "archived"] as const)
@@ -1996,11 +1996,11 @@ const users = Table.make("users", {
 
       expect(plan.updates).toHaveLength(1)
       expect(plan.updates[0]?.after).toContain(`import * as Pg from "effect-qb/postgres"`)
-      expect(plan.updates[0]?.after).toContain(`import { Table, Column } from "effect-qb"`)
+      expect(plan.updates[0]?.after).toContain(`import { Table, Column, PrimaryKey, Unique, Index, ForeignKey, Check } from "effect-qb"`)
       expect(plan.updates[0]?.after).toContain(`import * as Schema from "effect/Schema"`)
       expect(plan.updates[0]?.after).toContain(`const users = Table.make("users"`)
       expect(plan.updates[0]?.after).toContain(`id: Column.uuid()`)
-      expect(plan.updates[0]?.after).toContain(`Table.primaryKey(["id"])`)
+      expect(plan.updates[0]?.after).toContain(`PrimaryKey.make(["id"])`)
     } finally {
       await rm(tempDir, { recursive: true, force: true })
     }
@@ -2037,7 +2037,7 @@ const users = Table.make("users", {
         Pg.Cast.to(Pg.Type.int4()) as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any
       )
       const proposalProducts = proposalProductsBase.pipe(
-        Table.check("quantity_matches_stripe", StdRoot.Query.or(
+        Check.make("quantity_matches_stripe", StdRoot.Query.or(
           StdRoot.Query.isNull(proposalProductsBase.stripe),
           eq(stripeQuantity, proposalProductsBase.quantity as StdRoot.Scalar.Any)
         ))
@@ -2127,15 +2127,15 @@ const users = Table.make("users", {
       const connections = Pg.Schema.make("payment").table("connections", {
         id: StdRoot.Column.uuid()
       }).pipe(
-        Table.primaryKey("id")
+        PrimaryKey.make("id")
       )
 
       const accountMappings = Pg.Schema.make("payment").table("account_mappings", {
         id: StdRoot.Column.uuid(),
         connection_id: StdRoot.Column.uuid()
       }).pipe(
-        Table.primaryKey("id"),
-        Table.foreignKey(["connection_id"], () => connections, ["id"])
+        PrimaryKey.make("id"),
+        ForeignKey.make(["connection_id"], () => connections, ["id"])
       )
 
       const database: SchemaModel = {

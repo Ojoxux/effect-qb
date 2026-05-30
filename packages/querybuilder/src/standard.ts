@@ -14,5 +14,15 @@ export * as RowSet from "./internal/row-set.js"
 export * as Query from "./standard/query.js"
 /** Standard SQL table-definition DSL. */
 export * as Table from "./standard/table.js"
+/** Standard SQL table-level primary-key options. */
+export * as PrimaryKey from "./standard/primary-key.js"
+/** Standard SQL table-level unique-constraint options. */
+export * as Unique from "./standard/unique.js"
+/** Standard SQL table-level index options. */
+export * as Index from "./standard/index.js"
+/** Standard SQL table-level foreign-key options. */
+export * as ForeignKey from "./standard/foreign-key.js"
+/** Standard SQL table-level check-constraint options. */
+export * as Check from "./standard/check.js"
 /** Standard SQL built-in renderer entrypoint. */
 export * as Renderer from "./standard/renderer.js"

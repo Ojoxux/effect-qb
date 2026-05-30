@@ -12,7 +12,16 @@ import { parse, type Expr as PgSqlExpr } from "pgsql-ast-parser"
 const TABLE_ALIAS = "Table"
 const COLUMN_ALIAS = "Column"
 const PG_ALIAS = "Pg"
-const POSTGRES_TABLE_ALIAS = `${PG_ALIAS}.Table`
+const PRIMARY_KEY_ALIAS = "PrimaryKey"
+const UNIQUE_ALIAS = "Unique"
+const INDEX_ALIAS = "Index"
+const FOREIGN_KEY_ALIAS = "ForeignKey"
+const CHECK_ALIAS = "Check"
+const POSTGRES_PRIMARY_KEY_ALIAS = `${PG_ALIAS}.PrimaryKey`
+const POSTGRES_UNIQUE_ALIAS = `${PG_ALIAS}.Unique`
+const POSTGRES_INDEX_ALIAS = `${PG_ALIAS}.Index`
+const POSTGRES_FOREIGN_KEY_ALIAS = `${PG_ALIAS}.ForeignKey`
+const POSTGRES_CHECK_ALIAS = `${PG_ALIAS}.Check`
 const POSTGRES_COLUMN_ALIAS = `${PG_ALIAS}.Column`
 const SCHEMA_ALIAS = "Schema"
 const TABLE_COLUMNS_ALIAS = "t"
@@ -1747,28 +1756,28 @@ const renderIndexOption = (
     : normalizedKeys.length > 0 && normalizedKeys[0]?.kind === "column"
       ? [normalizedKeys[0].column]
       : ["__expression__"]
-  const base = `${TABLE_ALIAS}.index(${renderStringTuple(baseColumns)})`
+  const base = `${INDEX_ALIAS}.make(${renderStringTuple(baseColumns)})`
   const pipes: string[] = []
   if (option.name) {
-    pipes.push(`${POSTGRES_TABLE_ALIAS}.named(${renderStringLiteral(option.name)})`)
+    pipes.push(`${POSTGRES_INDEX_ALIAS}.named(${renderStringLiteral(option.name)})`)
   }
   if (option.unique === true) {
-    pipes.push(`${POSTGRES_TABLE_ALIAS}.uniqueIndex`)
+    pipes.push(`${POSTGRES_INDEX_ALIAS}.uniqueIndex`)
   }
   if (option.method) {
-    pipes.push(`${POSTGRES_TABLE_ALIAS}.using(${renderStringLiteral(option.method)})`)
+    pipes.push(`${POSTGRES_INDEX_ALIAS}.using(${renderStringLiteral(option.method)})`)
   }
   if (includeColumns.length > 0) {
-    pipes.push(`${POSTGRES_TABLE_ALIAS}.include([${includeColumns.map(renderStringLiteral).join(", ")}])`)
+    pipes.push(`${POSTGRES_INDEX_ALIAS}.include([${includeColumns.map(renderStringLiteral).join(", ")}])`)
   }
   if (renderedKeys.length === 1) {
-    pipes.push(`${POSTGRES_TABLE_ALIAS}.key(${renderedKeys[0]})`)
+    pipes.push(`${POSTGRES_INDEX_ALIAS}.key(${renderedKeys[0]})`)
   } else if (renderedKeys.length > 1) {
-    pipes.push(`${POSTGRES_TABLE_ALIAS}.keys([${renderedKeys.join(", ")}])`)
+    pipes.push(`${POSTGRES_INDEX_ALIAS}.keys([${renderedKeys.join(", ")}])`)
   }
   const normalizedPredicate = normalizedPredicateSql(option.predicate)
   if (normalizedPredicate !== null) {
-    pipes.push(`${POSTGRES_TABLE_ALIAS}.where(${renderTableScopedDdlExpressionCode(table, normalizedPredicate, context)})`)
+    pipes.push(`${POSTGRES_INDEX_ALIAS}.where(${renderTableScopedDdlExpressionCode(table, normalizedPredicate, context)})`)
   }
   return renderPipeChain(base, pipes)
 }
@@ -1984,31 +1993,31 @@ const renderTableOption = (
     case "primaryKey": {
       const pipes: string[] = []
       if (option.name) {
-        pipes.push(`${POSTGRES_TABLE_ALIAS}.named(${renderStringLiteral(option.name)})`)
+        pipes.push(`${POSTGRES_PRIMARY_KEY_ALIAS}.named(${renderStringLiteral(option.name)})`)
       }
       if (option.deferrable === true) {
-        pipes.push(`${POSTGRES_TABLE_ALIAS}.deferrable`)
+        pipes.push(`${POSTGRES_PRIMARY_KEY_ALIAS}.deferrable`)
       }
       if (option.initiallyDeferred === true) {
-        pipes.push(`${POSTGRES_TABLE_ALIAS}.initiallyDeferred`)
+        pipes.push(`${POSTGRES_PRIMARY_KEY_ALIAS}.initiallyDeferred`)
       }
-      return renderPipeChain(`${TABLE_ALIAS}.primaryKey(${renderStringTuple(option.columns)})`, pipes)
+      return renderPipeChain(`${PRIMARY_KEY_ALIAS}.make(${renderStringTuple(option.columns)})`, pipes)
     }
     case "unique": {
       const pipes: string[] = []
       if (option.name) {
-        pipes.push(`${POSTGRES_TABLE_ALIAS}.named(${renderStringLiteral(option.name)})`)
+        pipes.push(`${POSTGRES_UNIQUE_ALIAS}.named(${renderStringLiteral(option.name)})`)
       }
       if (option.nullsNotDistinct === true) {
-        pipes.push(`${POSTGRES_TABLE_ALIAS}.nullsNotDistinct`)
+        pipes.push(`${POSTGRES_UNIQUE_ALIAS}.nullsNotDistinct`)
       }
       if (option.deferrable === true) {
-        pipes.push(`${POSTGRES_TABLE_ALIAS}.deferrable`)
+        pipes.push(`${POSTGRES_UNIQUE_ALIAS}.deferrable`)
       }
       if (option.initiallyDeferred === true) {
-        pipes.push(`${POSTGRES_TABLE_ALIAS}.initiallyDeferred`)
+        pipes.push(`${POSTGRES_UNIQUE_ALIAS}.initiallyDeferred`)
       }
-      return renderPipeChain(`${TABLE_ALIAS}.unique(${renderStringTuple(option.columns)})`, pipes)
+      return renderPipeChain(`${UNIQUE_ALIAS}.make(${renderStringTuple(option.columns)})`, pipes)
     }
     case "index":
       return renderIndexOption(table, option, context)
@@ -2022,29 +2031,29 @@ const renderTableOption = (
       }
       const pipes: string[] = []
       if (option.name) {
-        pipes.push(`${POSTGRES_TABLE_ALIAS}.named(${renderStringLiteral(option.name)})`)
+        pipes.push(`${POSTGRES_FOREIGN_KEY_ALIAS}.named(${renderStringLiteral(option.name)})`)
       }
       if (option.onUpdate) {
-        pipes.push(`${POSTGRES_TABLE_ALIAS}.onUpdate(${renderStringLiteral(option.onUpdate)})`)
+        pipes.push(`${POSTGRES_FOREIGN_KEY_ALIAS}.onUpdate(${renderStringLiteral(option.onUpdate)})`)
       }
       if (option.onDelete) {
-        pipes.push(`${POSTGRES_TABLE_ALIAS}.onDelete(${renderStringLiteral(option.onDelete)})`)
+        pipes.push(`${POSTGRES_FOREIGN_KEY_ALIAS}.onDelete(${renderStringLiteral(option.onDelete)})`)
       }
       if (option.deferrable === true) {
-        pipes.push(`${POSTGRES_TABLE_ALIAS}.deferrable`)
+        pipes.push(`${POSTGRES_FOREIGN_KEY_ALIAS}.deferrable`)
       }
       if (option.initiallyDeferred === true) {
-        pipes.push(`${POSTGRES_TABLE_ALIAS}.initiallyDeferred`)
+        pipes.push(`${POSTGRES_FOREIGN_KEY_ALIAS}.initiallyDeferred`)
       }
       return renderPipeChain(
-        `${TABLE_ALIAS}.foreignKey(${renderStringTuple(option.columns)}, () => ${target.declaration.identifier}, ${renderStringTuple(reference.columns)})`,
+        `${FOREIGN_KEY_ALIAS}.make(${renderStringTuple(option.columns)}, () => ${target.declaration.identifier}, ${renderStringTuple(reference.columns)})`,
         pipes
       )
     }
     case "check":
       return renderPipeChain(
-        `${TABLE_ALIAS}.check(${renderStringLiteral(option.name)}, ${renderTableScopedDdlExpressionCode(table, renderDdlExpressionSql(option.predicate), context)})`,
-        option.noInherit === true ? [`${POSTGRES_TABLE_ALIAS}.noInherit`] : []
+        `${CHECK_ALIAS}.make(${renderStringLiteral(option.name)}, ${renderTableScopedDdlExpressionCode(table, renderDdlExpressionSql(option.predicate), context)})`,
+        option.noInherit === true ? [`${POSTGRES_CHECK_ALIAS}.noInherit`] : []
       )
   }
 }
@@ -2252,7 +2261,7 @@ const ensureImports = (contents: string): string => {
     .trimStart()
   const required = [
     `import * as ${PG_ALIAS} from "effect-qb/postgres"`,
-    `import { ${TABLE_ALIAS}, ${COLUMN_ALIAS} } from "effect-qb"`,
+    `import { ${TABLE_ALIAS}, ${COLUMN_ALIAS}, ${PRIMARY_KEY_ALIAS}, ${UNIQUE_ALIAS}, ${INDEX_ALIAS}, ${FOREIGN_KEY_ALIAS}, ${CHECK_ALIAS} } from "effect-qb"`,
     `import * as ${SCHEMA_ALIAS} from "effect/Schema"`
   ]
   const missing = required.filter((line) => !cleaned.includes(line))
@@ -2625,7 +2634,7 @@ const renderCanonicalNewModule = (
 
   const lines: string[] = [
     `import * as ${PG_ALIAS} from "effect-qb/postgres"`,
-    `import { ${TABLE_ALIAS}, ${COLUMN_ALIAS} } from "effect-qb"`,
+    `import { ${TABLE_ALIAS}, ${COLUMN_ALIAS}, ${PRIMARY_KEY_ALIAS}, ${UNIQUE_ALIAS}, ${INDEX_ALIAS}, ${FOREIGN_KEY_ALIAS}, ${CHECK_ALIAS} } from "effect-qb"`,
     `import * as ${SCHEMA_ALIAS} from "effect/Schema"`
   ]
   const body: string[] = []

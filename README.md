@@ -82,8 +82,8 @@ Runtime requirements:
 
 Public query-builder import paths:
 
-- `effect-qb` - portable table, column, query, function, renderer, and casing modules
-- `effect-qb/postgres` - Postgres extensions, renderer, executor, schema helpers
+- `effect-qb` - portable table, column, table-option, query, function, renderer, and casing modules
+- `effect-qb/postgres` - Postgres column extensions, option modifiers, renderer, executor, schema helpers
 - `effect-qb/mysql` - MySQL extensions, renderer, executor
 - `effect-qb/sqlite` - SQLite extensions, renderer, executor
 
@@ -180,7 +180,7 @@ A plan that only uses `effect-qb` root modules has the standard dialect tag.
 Standard plans can render through Postgres, MySQL, and SQLite renderers.
 
 If a plan uses `Pg.Column.jsonb(...)`, `Pg.Jsonb.*`, or a standard table
-option piped through a Postgres modifier such as `Pg.Table.using("btree")`,
+option piped through a Postgres modifier such as `Pg.Index.using("btree")`,
 it becomes a Postgres plan. Render and execute that plan with the Postgres
 renderer or executor.
 
@@ -194,7 +194,7 @@ concrete modules only when the query depends on concrete SQL.
 `Table.make` is the primary table factory.
 
 ```ts
-import { Column, Table } from "effect-qb"
+import { Check, Column, ForeignKey, Index, PrimaryKey, Query, Table, Unique } from "effect-qb"
 
 const organizations = Table.make("organizations", {
   id: Column.uuid().pipe(Column.primaryKey),
@@ -202,13 +202,21 @@ const organizations = Table.make("organizations", {
   archivedAt: Column.datetime().pipe(Column.nullable)
 })
 
-const memberships = Table.make("memberships", {
+const membershipsBase = Table.make("memberships", {
   orgId: Column.uuid(),
   userId: Column.uuid(),
   role: Column.text()
-}).pipe(
-  Table.primaryKey(["orgId", "userId"] as const),
-  Table.index("userId")
+})
+
+const memberships = membershipsBase.pipe(
+  ForeignKey.make("orgId", () => organizations, "id"),
+  PrimaryKey.make(["orgId", "userId"] as const),
+  Unique.make(["orgId", "role"] as const),
+  Check.make(
+    "memberships_role_check",
+    Query.neq(membershipsBase.role, "")
+  ),
+  Index.make("userId")
 )
 
 type Organization = Table.SelectOf<typeof organizations>
@@ -217,13 +225,16 @@ type OrganizationPatch = Table.UpdateOf<typeof organizations>
 
 ```
 
-Root table helpers cover portable constraints and metadata:
+Root option modules cover portable constraints and metadata:
 
-- `Table.primaryKey(...)`
-- `Table.unique(...)`
-- `Table.index(...)`
-- `Table.foreignKey(...)`
-- `Table.check(...)`
+- `PrimaryKey.make(...)`
+- `Unique.make(...)`
+- `Index.make(...)`
+- `ForeignKey.make(...)`
+- `Check.make(...)`
+
+`Table` keeps table construction and row/schema helpers:
+
 - `Table.alias(...)`
 - `Table.selectSchema(...)`, `Table.insertSchema(...)`, `Table.updateSchema(...)`
 
@@ -403,7 +414,6 @@ become optional for inserts, and primary keys are omitted from updates.
 ```ts
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
-import * as Pg from "effect-qb/postgres"
 
 const users = Table.make("users", {
   id: Column.uuid().pipe(
@@ -924,7 +934,7 @@ Dialect modules expose:
 
 | Module | Adds |
 | --- | --- |
-| `effect-qb/postgres` | Postgres column/table extensions, JSON/jsonb helpers, casts, types, schemas, enums, sequences, renderer, executor |
+| `effect-qb/postgres` | Postgres column extensions, option modifiers, JSON/jsonb helpers, casts, types, schemas, enums, sequences, renderer, executor |
 | `effect-qb/mysql` | MySQL column extensions, JSON helpers, renderer, executor |
 | `effect-qb/sqlite` | SQLite column extensions, JSON helpers, renderer, executor |
 
@@ -940,7 +950,7 @@ custom types, schemas, enums, and sequences.
 
 ```ts
 import * as Schema from "effect/Schema"
-import { Column, Query, Table } from "effect-qb"
+import { Column, Index, Query, Table } from "effect-qb"
 import * as Pg from "effect-qb/postgres"
 
 const payloadSchema = Schema.Union(
@@ -959,9 +969,9 @@ const events = Table.make("events", {
   payload: Pg.Column.jsonb(payloadSchema),
   createdAt: Column.datetime()
 }).pipe(
-  Table.index("createdAt").pipe(
-    Pg.Table.named("events_created_at_idx"),
-    Pg.Table.using("btree")
+  Index.make("createdAt").pipe(
+    Pg.Index.named("events_created_at_idx"),
+    Pg.Index.using("btree")
   )
 )
 
@@ -1181,7 +1191,8 @@ Root modules:
 | Module | Purpose |
 | --- | --- |
 | `Column` | portable column definitions and modifiers |
-| `Table` | portable table definitions, aliases, constraints, derived schemas |
+| `Table` | portable table definitions, aliases, derived schemas |
+| `PrimaryKey`, `Unique`, `Index`, `ForeignKey`, `Check` | portable table-level options |
 | `Query` | portable query construction DSL |
 | `Function` | portable SQL function expressions |
 | `Renderer` | standard renderer |
@@ -1192,7 +1203,7 @@ Concrete modules:
 
 | Module | Purpose |
 | --- | --- |
-| `effect-qb/postgres` | Postgres-specific columns, table options, query helpers, JSON/jsonb, schemas, renderer, executor |
+| `effect-qb/postgres` | Postgres-specific columns, option modifiers, query helpers, JSON/jsonb, schemas, renderer, executor |
 | `effect-qb/mysql` | MySQL-specific helpers, renderer, executor |
 | `effect-qb/sqlite` | SQLite-specific helpers, renderer, executor |
 | `effect-qb/postgres/metadata` | Postgres metadata normalization helpers |

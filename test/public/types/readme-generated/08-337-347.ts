@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 326-336
+// Code fences: 337-347
 
-// README.md:326-336
+// README.md:337-347
 import { Casing, Column } from "effect-qb"
 
 const Snake = Casing.make("snake_case")

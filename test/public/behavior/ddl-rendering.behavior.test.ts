@@ -50,7 +50,7 @@ describe("ddl rendering behavior", () => {
       email: StdRoot.Column.text()
     })
     const users = usersBase.pipe(
-      StdRoot.Table.check("email_not_empty", StdRoot.Query.neq(usersBase.email, ""))
+      StdRoot.Check.make("email_not_empty", StdRoot.Query.neq(usersBase.email, ""))
     )
 
     const rendered = Postgres.Renderer.make().render(StdRoot.Query.createTable(users))
@@ -67,7 +67,7 @@ describe("ddl rendering behavior", () => {
       email: StdRoot.Column.text()
     })
     const users = usersBase.pipe(
-      StdRoot.Table.check("email_not_empty", StdRoot.Query.neq(usersBase.email, ""))
+      StdRoot.Check.make("email_not_empty", StdRoot.Query.neq(usersBase.email, ""))
     )
 
     const rendered = Mysql.Renderer.make().render(StdRoot.Query.createTable(users))
@@ -89,7 +89,7 @@ describe("ddl rendering behavior", () => {
         indexes: "snake_case",
         constraints: "snake_case"
       }),
-      StdRoot.Table.check("AccountStatusCheck", StdRoot.Query.eq(usersBase.accountStatus, "active"))
+      StdRoot.Check.make("AccountStatusCheck", StdRoot.Query.eq(usersBase.accountStatus, "active"))
     )
 
     expect(Postgres.Renderer.make().render(StdRoot.Query.createTable(users)).sql).toContain(
@@ -209,7 +209,7 @@ describe("ddl rendering behavior", () => {
       email: StdRoot.Column.text().pipe(StdRoot.Column.default(StdRoot.Query.literal("guest@example.com")))
     })
     const postgresUsers = postgresUsersBase.pipe(
-      StdRoot.Table.check("email_not_empty", StdRoot.Query.neq(postgresUsersBase.email, ""))
+      StdRoot.Check.make("email_not_empty", StdRoot.Query.neq(postgresUsersBase.email, ""))
     )
 
     const mysqlUsersBase = StdRoot.Table.make("users", {
@@ -217,7 +217,7 @@ describe("ddl rendering behavior", () => {
       email: StdRoot.Column.text().pipe(StdRoot.Column.default(StdRoot.Query.literal("guest@example.com")))
     })
     const mysqlUsers = mysqlUsersBase.pipe(
-      StdRoot.Table.check("email_not_empty", StdRoot.Query.neq(mysqlUsersBase.email, ""))
+      StdRoot.Check.make("email_not_empty", StdRoot.Query.neq(mysqlUsersBase.email, ""))
     )
 
     const renderedPostgres = Postgres.Renderer.make().render(StdRoot.Query.createTable(postgresUsers))
@@ -313,7 +313,7 @@ describe("ddl rendering behavior", () => {
         tables: "snake_case",
         columns: "snake_case"
       }),
-      StdRoot.Table.foreignKey("organizationSlug", () => organizations, "accountSlug")
+      StdRoot.ForeignKey.make("organizationSlug", () => organizations, "accountSlug")
     )
 
     const rendered = Postgres.Renderer.make().render(StdRoot.Query.createTable(memberships))
@@ -352,7 +352,7 @@ describe("ddl rendering behavior", () => {
       })
     )
     const memberships = membershipsBase.pipe(
-      StdRoot.Table.foreignKey("organizationSlug", () => organizations, "accountSlug")
+      StdRoot.ForeignKey.make("organizationSlug", () => organizations, "accountSlug")
     )
 
     expect(Mysql.Renderer.make().render(StdRoot.Query.createTable(memberships)).sql).toContain(
@@ -526,7 +526,7 @@ describe("ddl rendering behavior", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       orgId: StdRoot.Column.uuid()
     }).pipe(
-      StdRoot.Table.foreignKey("orgId", () => orgs, "id")
+      StdRoot.ForeignKey.make("orgId", () => orgs, "id")
     )
     ;(users as any)[StdRoot.Table.OptionsSymbol] = (users as any)[StdRoot.Table.OptionsSymbol].map((option: any) =>
       option.kind === "foreignKey"
@@ -677,10 +677,10 @@ describe("ddl rendering behavior", () => {
       email: StdRoot.Column.text()
     })
     const standardUsers = standardUsersBase.pipe(
-      StdRoot.Table.check(
+      StdRoot.Check.make(
         "email_not_empty",
         Standard.Query.neq(standardUsersBase.email, "")
-      ).pipe(Postgres.Table.noInherit)
+      ).pipe(Postgres.Check.noInherit)
     )
 
     const mysqlUsersBase = StdRoot.Table.make("users", {
@@ -688,10 +688,10 @@ describe("ddl rendering behavior", () => {
       email: StdRoot.Column.text()
     })
     const mysqlUsers = mysqlUsersBase.pipe(
-      StdRoot.Table.check(
+      StdRoot.Check.make(
         "email_not_empty",
         StdRoot.Query.neq(mysqlUsersBase.email, "")
-      ).pipe(Postgres.Table.noInherit)
+      ).pipe(Postgres.Check.noInherit)
     )
 
     const sqliteUsersBase = StdRoot.Table.make("users", {
@@ -699,10 +699,10 @@ describe("ddl rendering behavior", () => {
       email: StdRoot.Column.text()
     })
     const sqliteUsers = sqliteUsersBase.pipe(
-      StdRoot.Table.check(
+      StdRoot.Check.make(
         "email_not_empty",
         StdRoot.Query.neq(sqliteUsersBase.email, "")
-      ).pipe(Postgres.Table.noInherit)
+      ).pipe(Postgres.Check.noInherit)
     )
 
     expect(() =>
@@ -721,31 +721,31 @@ describe("ddl rendering behavior", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       email: StdRoot.Column.text()
     }).pipe(
-      StdRoot.Table.unique("email").pipe(Postgres.Table.nullsNotDistinct)
+      StdRoot.Unique.make("email").pipe(Postgres.Unique.nullsNotDistinct)
     )
     const standardPrimaryUsers = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid(),
       email: StdRoot.Column.text()
     }).pipe(
-      StdRoot.Table.primaryKey("id").pipe(
-        Postgres.Table.deferrable,
-        Postgres.Table.initiallyDeferred
+      StdRoot.PrimaryKey.make("id").pipe(
+        Postgres.PrimaryKey.deferrable,
+        Postgres.PrimaryKey.initiallyDeferred
       )
     )
     const mysqlUsers = StdRoot.Table.make("users", {
       id: StdRoot.Column.uuid()
     }).pipe(
-      StdRoot.Table.primaryKey("id").pipe(
-        Postgres.Table.deferrable,
-        Postgres.Table.initiallyDeferred
+      StdRoot.PrimaryKey.make("id").pipe(
+        Postgres.PrimaryKey.deferrable,
+        Postgres.PrimaryKey.initiallyDeferred
       )
     )
     const sqliteUsers = StdRoot.Table.make("users", {
       id: StdRoot.Column.text()
     }).pipe(
-      StdRoot.Table.primaryKey("id").pipe(
-        Postgres.Table.deferrable,
-        Postgres.Table.initiallyDeferred
+      StdRoot.PrimaryKey.make("id").pipe(
+        Postgres.PrimaryKey.deferrable,
+        Postgres.PrimaryKey.initiallyDeferred
       )
     )
     const orgs = StdRoot.Table.make("orgs", {
@@ -755,18 +755,18 @@ describe("ddl rendering behavior", () => {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       orgId: StdRoot.Column.uuid()
     }).pipe(
-      StdRoot.Table.foreignKey("orgId", () => orgs, "id").pipe(
-        Postgres.Table.deferrable,
-        Postgres.Table.initiallyDeferred
+      StdRoot.ForeignKey.make("orgId", () => orgs, "id").pipe(
+        Postgres.ForeignKey.deferrable,
+        Postgres.ForeignKey.initiallyDeferred
       )
     )
     const standardMemberships = StdRoot.Table.make("memberships", {
       id: StdRoot.Column.uuid().pipe(StdRoot.Column.primaryKey),
       orgId: StdRoot.Column.uuid()
     }).pipe(
-      StdRoot.Table.foreignKey("orgId", () => orgs, "id").pipe(
-        Postgres.Table.deferrable,
-        Postgres.Table.initiallyDeferred
+      StdRoot.ForeignKey.make("orgId", () => orgs, "id").pipe(
+        Postgres.ForeignKey.deferrable,
+        Postgres.ForeignKey.initiallyDeferred
       )
     )
 

@@ -1,11 +1,10 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 403-453
+// Code fences: 414-463
 
-// README.md:403-453
+// README.md:414-463
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
-import * as Pg from "effect-qb/postgres"
 
 const users = Table.make("users", {
   id: Column.uuid().pipe(

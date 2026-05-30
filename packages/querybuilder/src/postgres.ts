@@ -30,5 +30,15 @@ export { enumType as enum, sequence } from "./postgres/schema-management.js"
 export type { EnumDefinition, SequenceDefinition } from "./postgres/schema-management.js"
 /** Postgres-specific table-option extensions. Portable tables are exported from `effect-qb`. */
 export * as Table from "./postgres/table.js"
+/** Postgres-specific primary-key option modifiers. */
+export * as PrimaryKey from "./postgres/primary-key.js"
+/** Postgres-specific unique-constraint option modifiers. */
+export * as Unique from "./postgres/unique.js"
+/** Postgres-specific index option modifiers. */
+export * as Index from "./postgres/index.js"
+/** Postgres-specific foreign-key option modifiers. */
+export * as ForeignKey from "./postgres/foreign-key.js"
+/** Postgres-specific check-constraint option modifiers. */
+export * as Check from "./postgres/check.js"
 /** Postgres-specialized built-in renderer entrypoint. */
 export * as Renderer from "./postgres/renderer.js"

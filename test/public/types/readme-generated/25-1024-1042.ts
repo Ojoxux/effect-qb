@@ -1,29 +1,24 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 1044-1067
+// Code fences: 1024-1042
 
-// README.md:1044-1067
+// README.md:1024-1042
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
-import * as Sq from "effect-qb/sqlite"
+import * as My from "effect-qb/mysql"
 
 const docs = Table.make("docs", {
-  id: Column.text().pipe(Column.primaryKey),
+  id: Column.uuid().pipe(Column.primaryKey),
   payload: Column.json(Schema.Struct({
-    profile: Schema.Struct({
-      city: Schema.String
-    })
+    title: Schema.String
   }))
 })
 
 const readDocs = Query.select({
   id: docs.id,
-  city: Sq.Json.text(
-    docs.payload,
-    Sq.Json.path(Sq.Json.key("profile"), Sq.Json.key("city"))
-  )
+  title: My.Json.text(docs.payload, My.Json.key("title"))
 }).pipe(Query.from(docs))
 
-Sq.Renderer.make().render(readDocs)
+My.Renderer.make().render(readDocs)
 
 export {};

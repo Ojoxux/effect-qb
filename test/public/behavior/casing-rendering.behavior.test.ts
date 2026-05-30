@@ -47,7 +47,7 @@ describe("casing rendering behavior", () => {
       createdAt: Column.datetime(),
       displayName: Column.text()
     }).pipe(
-      StdRoot.Table.index("displayName").pipe(Pg.Table.named("DisplayNameLookup"))
+      StdRoot.Index.make("displayName").pipe(Pg.Index.named("DisplayNameLookup"))
     )
 
     const plan = StdRoot.Query.createIndex(users, ["displayName"] as const, {
