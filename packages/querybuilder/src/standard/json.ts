@@ -10,6 +10,7 @@ import type {
   JsonValueAtPath
 } from "../internal/json/types.js"
 import type { LiteralStringInput } from "../internal/table-options.js"
+import type { JsonObjectKeyOf, WithJsonPathAccess } from "../internal/json/path-access.js"
 import type { standardDatatypes } from "./datatypes/index.js"
 import { json as standardJson } from "../internal/standard-dsl.js"
 
@@ -195,14 +196,14 @@ type JsonGetResultExpression<
   Base extends JsonExpression<any>,
   Target extends JsonPathInput,
   Operation extends string
-> = JsonResultExpression<
+> = WithJsonPathAccess<JsonResultExpression<
   JsonPathOutputOf<Expression.RuntimeOf<Base>, Target, Operation>,
   JsonDbOf<Base>,
   Expression.KindOf<Base>,
   Expression.DependenciesOf<Base>,
   ExpressionAst.JsonAccessNode<JsonAccessKind<Target>, Base, JsonPathSegmentsOf<Target>>,
   DialectOf<Base>
->
+>>
 
 type JsonTextRuntime<
   Base extends JsonExpression<any>,
@@ -239,25 +240,25 @@ type JsonTextTerminalExpression<
 type JsonDeleteResultExpression<
   Base extends JsonExpression<any>,
   Target extends JsonPathInput
-> = JsonResultExpression<
+> = WithJsonPathAccess<JsonResultExpression<
   JsonDeleteOutputOf<Expression.RuntimeOf<Base>, Target, "json.delete">,
   JsonDbOf<Base>,
   JsonKindOf<Base>,
   Expression.DependenciesOf<Base>,
   never,
   DialectOf<Base>
->
+>>
 
 type JsonDeleteTerminalExpression<
   Base extends JsonExpression<any>
-> = JsonResultExpression<
+> = WithJsonPathAccess<JsonResultExpression<
   unknown,
   JsonDbOf<Base>,
   JsonKindOf<Base>,
   Expression.DependenciesOf<Base>,
   never,
   DialectOf<Base>
->
+>>
 
 type JsonPredicateExpression<
   Base extends Expression.Any
@@ -286,7 +287,9 @@ type JsonAccessParts<
   Depth extends readonly unknown[] = []
 > =
   Depth["length"] extends 8 ? readonly [Value, readonly JsonPath.CanonicalSegment[]] :
-    JsonAccessAst<Value> extends ExpressionAst.JsonAccessNode<any, infer Base extends Expression.Any, infer Segments>
+    [JsonAccessAst<Value>] extends [never]
+      ? Acc extends readonly [] ? never : readonly [Value, Acc]
+      : JsonAccessAst<Value> extends ExpressionAst.JsonAccessNode<any, infer Base extends Expression.Any, infer Segments>
       ? JsonAccessParts<Base, readonly [...SegmentTuple<Segments>, ...Acc], readonly [...Depth, unknown]>
       : Acc extends readonly [] ? never : readonly [Value, Acc]
 
@@ -350,14 +353,14 @@ type JsonAccessDeleteResultExpression<
   Operation extends string
 > = Value extends JsonAccessExpression
   ? JsonAccessRoot<Value> extends JsonExpression<any>
-    ? JsonResultExpression<
+      ? WithJsonPathAccess<JsonResultExpression<
         JsonDeleteOutputOf<Expression.RuntimeOf<JsonAccessRoot<Value>>, JsonAccessPath<Value>, Operation>,
         JsonDbOf<JsonAccessRoot<Value>>,
         JsonKindOf<JsonAccessRoot<Value>>,
         Expression.DependenciesOf<JsonAccessRoot<Value>>,
         never,
         DialectOf<JsonAccessRoot<Value>>
-      >
+      >>
     : never
   : JsonDeleteTerminalExpression<Value>
 
@@ -367,23 +370,23 @@ type JsonAccessSetResultExpression<
   CreateMissing extends boolean
 > = Value extends JsonAccessExpression
   ? JsonAccessRoot<Value> extends JsonExpression<any>
-    ? JsonResultExpression<
+    ? WithJsonPathAccess<JsonResultExpression<
         JsonSetOutputWithCreateMissing<Expression.RuntimeOf<JsonAccessRoot<Value>>, JsonAccessPath<Value>, Next, "json.set", CreateMissing>,
         JsonDbOf<JsonAccessRoot<Value>>,
         JsonKindOf<JsonAccessRoot<Value>>,
         Expression.DependenciesOf<JsonAccessRoot<Value>>,
         never,
         DialectOf<JsonAccessRoot<Value>>
-      >
+      >>
     : never
-  : JsonResultExpression<
+  : WithJsonPathAccess<JsonResultExpression<
       unknown,
       JsonDbOf<Value>,
       JsonKindOf<Value>,
       Expression.DependenciesOf<Value>,
       never,
       DialectOf<Value>
-    >
+    >>
 
 type JsonAccessInsertResultExpression<
   Value extends JsonExpression<any>,
@@ -391,23 +394,23 @@ type JsonAccessInsertResultExpression<
   InsertAfter extends boolean
 > = Value extends JsonAccessExpression
   ? JsonAccessRoot<Value> extends JsonExpression<any>
-    ? JsonResultExpression<
+    ? WithJsonPathAccess<JsonResultExpression<
         JsonInsertOutputOf<Expression.RuntimeOf<JsonAccessRoot<Value>>, JsonAccessPath<Value>, Next, InsertAfter, "json.insert">,
         JsonDbOf<JsonAccessRoot<Value>>,
         JsonKindOf<JsonAccessRoot<Value>>,
         Expression.DependenciesOf<JsonAccessRoot<Value>>,
         never,
         DialectOf<JsonAccessRoot<Value>>
-      >
+      >>
     : never
-  : JsonResultExpression<
+  : WithJsonPathAccess<JsonResultExpression<
       unknown,
       JsonDbOf<Value>,
       JsonKindOf<Value>,
       Expression.DependenciesOf<Value>,
       never,
       DialectOf<Value>
-    >
+    >>
 
 type JsonAccessDeleteGuard<
   Value,
@@ -645,6 +648,8 @@ export const text = (((...args: readonly [unknown] | readonly [unknown, unknown]
   return standardJson.text(base as never, normalizeTarget(target as JsonPathInput) as never)
 }) as unknown) as Text
 
+export const asText = text
+
 type DeletePipe = <Base extends JsonExpression<any> & JsonAccessExpression>(
   base: Base & JsonAccessDeleteGuard<Base, "json.delete">
 ) => JsonAccessDeleteResultExpression<Base, "json.delete">
@@ -675,10 +680,43 @@ export const accessText = standardJson.accessText
 export const traverseText = standardJson.traverseText
 export const contains = standardJson.contains
 export const containedBy = standardJson.containedBy
-export const hasKey = standardJson.hasKey
-export const keyExists = standardJson.keyExists
-export const hasAnyKeys = standardJson.hasAnyKeys
-export const hasAllKeys = standardJson.hasAllKeys
+
+export const hasKey = ((...args: readonly [unknown] | readonly [unknown, unknown]) => {
+  if (args.length === 1) {
+    const [key] = args
+    return (base: JsonExpression<any>) => standardJson.hasKey(base as never, key as never)
+  }
+  const [base, key] = args
+  return standardJson.hasKey(base as never, key as never)
+}) as {
+  <Base extends JsonExpression<any>, Key extends JsonObjectKeyOf<Base>>(
+    base: Base,
+    key: Key
+  ): JsonPredicateExpression<Base>
+  <Key extends string>(
+    key: Key
+  ): <Base extends JsonExpression<any>>(
+    base: Base & (Key extends JsonObjectKeyOf<Base> ? unknown : never)
+  ) => JsonPredicateExpression<Base>
+}
+
+export const keyExists = hasKey
+
+export const hasAnyKeys = ((base: JsonExpression<any>, ...keys: readonly string[]) =>
+  standardJson.hasAnyKeys(base as never, ...(keys as [string, ...string[]]) as never)) as {
+  <Base extends JsonExpression<any>, Keys extends readonly [JsonObjectKeyOf<Base>, ...JsonObjectKeyOf<Base>[]]>(
+    base: Base,
+    ...keys: Keys
+  ): JsonPredicateExpression<Base>
+}
+
+export const hasAllKeys = ((base: JsonExpression<any>, ...keys: readonly string[]) =>
+  standardJson.hasAllKeys(base as never, ...(keys as [string, ...string[]]) as never)) as {
+  <Base extends JsonExpression<any>, Keys extends readonly [JsonObjectKeyOf<Base>, ...JsonObjectKeyOf<Base>[]]>(
+    base: Base,
+    ...keys: Keys
+  ): JsonPredicateExpression<Base>
+}
 
 type RemovePipe = <Base extends JsonExpression<any> & JsonAccessExpression>(
   base: Base & JsonAccessDeleteGuard<Base, "json.remove">

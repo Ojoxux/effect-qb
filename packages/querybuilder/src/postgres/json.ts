@@ -10,6 +10,7 @@ import type {
   JsonValueAtPath
 } from "../internal/json/types.js"
 import type { LiteralStringInput } from "../internal/table-options.js"
+import type { JsonObjectKeyOf, WithJsonPathAccess } from "../internal/json/path-access.js"
 import type { postgresDatatypes } from "./datatypes/index.js"
 import { json as postgresJson, jsonb as postgresJsonb } from "./internal/dsl.js"
 
@@ -224,14 +225,14 @@ type JsonGetResultExpression<
   Base extends PostgresJsonExpression<any>,
   Target extends JsonPath.Path<any> | JsonPath.CanonicalSegment,
   Operation extends string
-> = JsonResultExpression<
+> = WithJsonPathAccess<JsonResultExpression<
   JsonPathOutputOf<Expression.RuntimeOf<Base>, Target, Operation>,
   JsonDbOf<Base>,
   Expression.KindOf<Base>,
   Expression.DependenciesOf<Base>,
   ExpressionAst.JsonAccessNode<JsonGetAccessKind<Target>, Base, JsonPathSegmentsOf<Target>>,
   DialectOf<Base>
->
+>>
 
 type JsonTextRuntime<
   Base extends AnyJsonExpression<any>,
@@ -272,7 +273,9 @@ type JsonAccessParts<
   Depth extends readonly unknown[] = []
 > =
   Depth["length"] extends 8 ? readonly [Value, readonly JsonPath.CanonicalSegment[]] :
-    JsonAccessAst<Value> extends ExpressionAst.JsonAccessNode<any, infer Base extends Expression.Any, infer Segments>
+    [JsonAccessAst<Value>] extends [never]
+      ? Acc extends readonly [] ? never : readonly [Value, Acc]
+      : JsonAccessAst<Value> extends ExpressionAst.JsonAccessNode<any, infer Base extends Expression.Any, infer Segments>
       ? JsonAccessParts<Base, readonly [...SegmentTuple<Segments>, ...Acc], readonly [...Depth, unknown]>
       : Acc extends readonly [] ? never : readonly [Value, Acc]
 
@@ -327,23 +330,23 @@ type JsonAccessDeleteResultExpression<
   Operation extends string
 > = Value extends JsonAccessExpression
   ? JsonAccessRoot<Value> extends PostgresJsonExpression<any>
-  ? JsonResultExpression<
+  ? WithJsonPathAccess<JsonResultExpression<
       JsonDeleteOutputOf<Expression.RuntimeOf<JsonAccessRoot<Value>>, JsonAccessPath<Value>, Operation>,
       Expression.DbTypeOf<JsonAccessRoot<Value>>,
       Expression.KindOf<JsonAccessRoot<Value>>,
       Expression.DependenciesOf<JsonAccessRoot<Value>>,
       never,
       DialectOf<JsonAccessRoot<Value>>
-    >
+    >>
   : never
-  : JsonResultExpression<
+  : WithJsonPathAccess<JsonResultExpression<
       unknown,
       Expression.DbTypeOf<Value>,
       Expression.KindOf<Value>,
       Expression.DependenciesOf<Value>,
       never,
       DialectOf<Value>
-    >
+    >>
 
 type JsonAccessSetResultExpression<
   Value extends PostgresJsonExpression<any>,
@@ -351,23 +354,23 @@ type JsonAccessSetResultExpression<
   CreateMissing extends boolean
 > = Value extends JsonAccessExpression
   ? JsonAccessRoot<Value> extends PostgresJsonExpression<any>
-  ? JsonResultExpression<
+  ? WithJsonPathAccess<JsonResultExpression<
       JsonSetOutputWithCreateMissing<Expression.RuntimeOf<JsonAccessRoot<Value>>, JsonAccessPath<Value>, Next, "json.set", CreateMissing>,
       Expression.DbTypeOf<JsonAccessRoot<Value>>,
       Expression.KindOf<JsonAccessRoot<Value>>,
       Expression.DependenciesOf<JsonAccessRoot<Value>>,
       never,
       DialectOf<JsonAccessRoot<Value>>
-    >
+    >>
   : never
-  : JsonResultExpression<
+  : WithJsonPathAccess<JsonResultExpression<
       unknown,
       Expression.DbTypeOf<Value>,
       Expression.KindOf<Value>,
       Expression.DependenciesOf<Value>,
       never,
       DialectOf<Value>
-    >
+    >>
 
 type JsonAccessInsertResultExpression<
   Value extends PostgresJsonExpression<any>,
@@ -375,23 +378,23 @@ type JsonAccessInsertResultExpression<
   InsertAfter extends boolean
 > = Value extends JsonAccessExpression
   ? JsonAccessRoot<Value> extends PostgresJsonExpression<any>
-  ? JsonResultExpression<
+  ? WithJsonPathAccess<JsonResultExpression<
       JsonInsertOutputOf<Expression.RuntimeOf<JsonAccessRoot<Value>>, JsonAccessPath<Value>, Next, InsertAfter, "json.insert">,
       Expression.DbTypeOf<JsonAccessRoot<Value>>,
       Expression.KindOf<JsonAccessRoot<Value>>,
       Expression.DependenciesOf<JsonAccessRoot<Value>>,
       never,
       DialectOf<JsonAccessRoot<Value>>
-    >
+    >>
   : never
-  : JsonResultExpression<
+  : WithJsonPathAccess<JsonResultExpression<
       unknown,
       Expression.DbTypeOf<Value>,
       Expression.KindOf<Value>,
       Expression.DependenciesOf<Value>,
       never,
       DialectOf<Value>
-    >
+    >>
 
 type JsonTextTerminalExpression<
   Base extends AnyJsonExpression<any>
@@ -415,6 +418,17 @@ type JsonPredicateExpression<
   Expression.DependenciesOf<Base>
 >
 
+type JsonNullablePredicateExpression<
+  Base extends PostgresJsonExpression<any>
+> = Expression.Scalar<
+  boolean | null,
+  PostgresBoolDb,
+  "maybe",
+  DialectOf<Base>,
+  Expression.KindOf<Base>,
+  Expression.DependenciesOf<Base>
+>
+
 type JsonbDeleteCallResult<
   First,
   Second,
@@ -423,26 +437,26 @@ type JsonbDeleteCallResult<
   First extends JsonPath.CanonicalSegment | JsonPath.Path<any>
     ? <Base extends PostgresJsonbExpression<any>>(
         base: Base
-      ) => JsonResultExpression<
+      ) => WithJsonPathAccess<JsonResultExpression<
         JsonDeleteOutputOf<Expression.RuntimeOf<Base>, First, Operation>,
         Expression.DbTypeOf<Base>,
         Expression.KindOf<Base>,
         Expression.DependenciesOf<Base>,
         never,
         DialectOf<Base>
-      >
+      >>
     : First extends PostgresJsonbExpression<any>
       ? [Second] extends [undefined]
         ? JsonAccessDeleteResultExpression<First, Operation>
         : Second extends JsonPath.CanonicalSegment | JsonPath.Path<any>
-          ? JsonResultExpression<
+          ? WithJsonPathAccess<JsonResultExpression<
               JsonDeleteOutputOf<Expression.RuntimeOf<First>, Second, Operation>,
               Expression.DbTypeOf<First>,
               Expression.KindOf<First>,
               Expression.DependenciesOf<First>,
               never,
               DialectOf<First>
-            >
+            >>
           : never
       : never
 
@@ -687,6 +701,7 @@ const json = {
     }
     return jsonTextDirect(args[0] as never, args[1] as never)
   }) as unknown as <Base extends PostgresJsonExpression<any>>(base: Base) => JsonAccessTextResultExpression<Base>,
+  asText: undefined as unknown as <Base extends PostgresJsonExpression<any>>(base: Base) => JsonAccessTextResultExpression<Base>,
   accessText: <
     Base extends PostgresJsonExpression<any>,
     Target extends ExactJsonPathInput
@@ -714,7 +729,7 @@ const json = {
   >(
     base: Base,
     query: JsonPathPredicateQueryInput<Query>
-  ) => postgresJson.pathMatch(base, query),
+  ) => postgresJson.pathMatch(base, query) as unknown as JsonNullablePredicateExpression<Base>,
   delete: <
     Base extends PostgresJsonExpression<any>,
     Target extends JsonPath.CanonicalSegment | JsonPath.Path<any>
@@ -813,6 +828,7 @@ const jsonb = {
     }
     return jsonbTextDirect(args[0] as never, args[1] as never)
   }) as unknown as <Base extends PostgresJsonbExpression<any>>(base: Base) => JsonAccessTextResultExpression<Base>,
+  asText: undefined as unknown as <Base extends PostgresJsonbExpression<any>>(base: Base) => JsonAccessTextResultExpression<Base>,
   accessText: <
     Base extends PostgresJsonExpression<any>,
     Target extends JsonPath.CanonicalSegment | JsonPath.Path<any>
@@ -841,34 +857,56 @@ const jsonb = {
     left: Left & JsonbBaseGuard<Left, "jsonb.containedBy">,
     right: Right
   ) => postgresJsonb.containedBy(left as Left, right),
-  hasKey: <
-    Base extends PostgresJsonExpression<any>,
-    Key extends string
-  >(
-    base: Base & JsonbBaseGuard<Base, "jsonb.hasKey">,
-    key: Key
-  ) => postgresJsonb.hasKey(base as Base, key),
-  keyExists: <
-    Base extends PostgresJsonExpression<any>,
-    Key extends string
-  >(
-    base: Base & JsonbBaseGuard<Base, "jsonb.keyExists">,
-    key: Key
-  ) => postgresJsonb.keyExists(base as Base, key),
-  hasAnyKeys: <
-    Base extends PostgresJsonExpression<any>,
-    Keys extends readonly [string, ...string[]]
-  >(
-    base: Base & JsonbBaseGuard<Base, "jsonb.hasAnyKeys">,
-    ...keys: Keys
-  ) => postgresJsonb.hasAnyKeys(base as Base, ...keys),
-  hasAllKeys: <
-    Base extends PostgresJsonExpression<any>,
-    Keys extends readonly [string, ...string[]]
-  >(
-    base: Base & JsonbBaseGuard<Base, "jsonb.hasAllKeys">,
-    ...keys: Keys
-  ) => postgresJsonb.hasAllKeys(base as Base, ...keys),
+  hasKey: ((...args: readonly [unknown] | readonly [unknown, unknown]) => {
+    if (args.length === 1) {
+      const [key] = args
+      return (base: PostgresJsonExpression<any>) => postgresJsonb.hasKey(base as never, key as never)
+    }
+    const [base, key] = args
+    return postgresJsonb.hasKey(base as never, key as never)
+  }) as {
+    <Base extends PostgresJsonExpression<any>, Key extends JsonObjectKeyOf<Base>>(
+      base: Base & JsonbBaseGuard<Base, "jsonb.hasKey">,
+      key: Key
+    ): JsonPredicateExpression<Base>
+    <Key extends string>(
+      key: Key
+    ): <Base extends PostgresJsonExpression<any>>(
+      base: Base & JsonbBaseGuard<Base, "jsonb.hasKey"> & (Key extends JsonObjectKeyOf<Base> ? unknown : never)
+    ) => JsonPredicateExpression<Base>
+  },
+  keyExists: ((...args: readonly [unknown] | readonly [unknown, unknown]) => {
+    if (args.length === 1) {
+      const [key] = args
+      return (base: PostgresJsonExpression<any>) => postgresJsonb.keyExists(base as never, key as never)
+    }
+    const [base, key] = args
+    return postgresJsonb.keyExists(base as never, key as never)
+  }) as {
+    <Base extends PostgresJsonExpression<any>, Key extends JsonObjectKeyOf<Base>>(
+      base: Base & JsonbBaseGuard<Base, "jsonb.keyExists">,
+      key: Key
+    ): JsonPredicateExpression<Base>
+    <Key extends string>(
+      key: Key
+    ): <Base extends PostgresJsonExpression<any>>(
+      base: Base & JsonbBaseGuard<Base, "jsonb.keyExists"> & (Key extends JsonObjectKeyOf<Base> ? unknown : never)
+    ) => JsonPredicateExpression<Base>
+  },
+  hasAnyKeys: ((base: PostgresJsonExpression<any>, ...keys: readonly string[]) =>
+    postgresJsonb.hasAnyKeys(base as never, ...(keys as [string, ...string[]]))) as {
+    <Base extends PostgresJsonExpression<any>, Keys extends readonly [JsonObjectKeyOf<Base>, ...JsonObjectKeyOf<Base>[]]>(
+      base: Base & JsonbBaseGuard<Base, "jsonb.hasAnyKeys">,
+      ...keys: Keys
+    ): JsonPredicateExpression<Base>
+  },
+  hasAllKeys: ((base: PostgresJsonExpression<any>, ...keys: readonly string[]) =>
+    postgresJsonb.hasAllKeys(base as never, ...(keys as [string, ...string[]]))) as {
+    <Base extends PostgresJsonExpression<any>, Keys extends readonly [JsonObjectKeyOf<Base>, ...JsonObjectKeyOf<Base>[]]>(
+      base: Base & JsonbBaseGuard<Base, "jsonb.hasAllKeys">,
+      ...keys: Keys
+    ): JsonPredicateExpression<Base>
+  },
   delete: ((...args: readonly [unknown] | readonly [unknown, unknown]) => {
     if (args.length === 1) {
       const [first] = args
@@ -1060,8 +1098,11 @@ const jsonb = {
   >(
     base: Base & JsonbBaseGuard<Base, "jsonb.pathMatch">,
     query: JsonPathPredicateQueryInput<Query>
-  ) => postgresJsonb.pathMatch(base as Base, query)
+  ) => postgresJsonb.pathMatch(base as Base, query) as unknown as JsonNullablePredicateExpression<Base>
 }
+
+json.asText = json.text
+jsonb.asText = jsonb.text
 
 /** Postgres shared JSON helpers for exact paths and functions that work on both json and jsonb. */
 export { json }
@@ -1069,6 +1110,7 @@ export const get = json.get
 export const access = json.access
 export const traverse = json.traverse
 export const text = json.text
+export const asText = json.asText
 export const accessText = json.accessText
 export const traverseText = json.traverseText
 export const buildObject = json.buildObject

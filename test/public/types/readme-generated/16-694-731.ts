@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 700-737
+// Code fences: 694-731
 
-// README.md:700-737
+// README.md:694-731
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
 import { Jsonb } from "effect-qb/postgres"
@@ -32,7 +32,7 @@ const docs = Table.make("docs", {
 })
 
 const postgresOnly = Query.select({
-  kind: docs.payload.pipe(Jsonb.key("kind"), Jsonb.text)
+  kind: docs.payload.kind.pipe(Jsonb.asText)
 }).pipe(Query.from(docs))
 
 Pg.Renderer.make().render(postgresOnly)

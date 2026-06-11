@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema"
 
 import * as Expression from "./scalar.js"
 import * as ExpressionAst from "./expression-ast.js"
+import { withJsonPathAccess, type WithJsonPathAccess } from "./json/path-access.js"
 import type * as Casing from "./casing.js"
 import type * as SchemaExpression from "./schema-expression.js"
 
@@ -273,7 +274,7 @@ export const makeColumnDefinition = <
     Ref,
     Dependencies
   >["metadata"]
-): ColumnDefinition<
+): WithJsonPathAccess<ColumnDefinition<
   Select,
   Insert,
   Update,
@@ -285,7 +286,7 @@ export const makeColumnDefinition = <
   Unique,
   Ref,
   Dependencies
-> => {
+>> => {
   const column = attachPipe(Object.create(ColumnProto))
   column.schema = schema
   column.metadata = metadata
@@ -317,7 +318,7 @@ export const makeColumnDefinition = <
     identity: metadata.identity,
     enum: metadata.enum
   }
-  return column
+  return withJsonPathAccess(column)
 }
 
 export const remapColumnDefinition = <
@@ -362,7 +363,7 @@ export const remapColumnDefinition = <
       Dependencies
     >["metadata"]
   } = {}
-): ColumnDefinition<
+): WithJsonPathAccess<ColumnDefinition<
   Select,
   Insert,
   Update,
@@ -374,7 +375,7 @@ export const remapColumnDefinition = <
   Unique,
   Ref,
   Dependencies
-> => {
+>> => {
   const schema = options.schema ?? column.schema
   const metadata = options.metadata ?? column.metadata
   const next = attachPipe(Object.create(ColumnProto))
@@ -424,7 +425,7 @@ export const remapColumnDefinition = <
       }
     })[BoundColumnTypeId]
   }
-  return next
+  return withJsonPathAccess(next)
 }
 
 /** Attaches table/column provenance to an existing column definition. */
@@ -474,7 +475,7 @@ export const bindColumn = <
     schemaName,
     casing
   }
-  return bound
+  return withJsonPathAccess(bound) as BoundColumnFrom<Column, TableName, ColumnName, BaseTableName>
 }
 
 /** Extracts the internal state record for a column. */
@@ -513,7 +514,7 @@ export type BoundColumnFrom<
   TableName extends string,
   ColumnName extends string,
   BaseTableName extends string = TableName
-> = BoundColumn<
+> = WithJsonPathAccess<BoundColumn<
   Column["metadata"]["brand"] extends true
     ? BrandedValue<SelectType<Column>, `${TableName}.${ColumnName}`>
     : SelectType<Column>,
@@ -533,4 +534,4 @@ export type BoundColumnFrom<
   TableName,
   ColumnName,
   BaseTableName
->
+>>

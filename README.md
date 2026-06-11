@@ -566,7 +566,7 @@ const events = Table.make("events", {
   payload: Pg.Column.jsonb(payloadSchema)
 })
 
-const kind = events.payload.pipe(Jsonb.key("kind"), Jsonb.text)
+const kind = events.payload.kind.pipe(Jsonb.asText)
 
 const createdEvents = Query.select({
   payload: events.payload,
@@ -611,7 +611,9 @@ const payloadSchema = Schema.Struct({
       city: Schema.String,
       postcode: Schema.NullOr(Schema.String)
     }),
-    tags: Schema.Array(Schema.String)
+    tags: Schema.Array(Schema.String),
+    legacyName: Schema.optional(Schema.String),
+    legacySlug: Schema.optional(Schema.String)
   }),
   note: Schema.NullOr(Schema.String)
 })
@@ -621,12 +623,7 @@ const docs = Table.make("docs", {
   payload: Pg.Column.jsonb(payloadSchema)
 })
 
-const missingRequiredCity = docs.payload.pipe(
-  Jsonb.key("profile"),
-  Jsonb.key("address"),
-  Jsonb.key("city"),
-  Jsonb.delete
-)
+const missingRequiredCity = docs.payload.profile.address.city.pipe(Jsonb.delete)
 
 Query.update(docs, {
   // @ts-expect-error payload no longer satisfies payloadSchema
@@ -639,17 +636,14 @@ start the next path from the updated JSON value.
 
 ```ts
 const withoutLegacyFields = docs.payload.pipe(
-  Jsonb.key("profile"),
-  Jsonb.key("legacyName"),
-  Jsonb.delete,
-  Jsonb.key("profile"),
-  Jsonb.key("legacySlug"),
-  Jsonb.delete
+  (payload) => payload.profile.legacyName.pipe(Jsonb.delete),
+  (payload) => payload.profile.legacySlug.pipe(Jsonb.delete)
 )
 ```
 
-Use the same shape with root `Json.key(...)` and `Json.delete` for portable
-`Column.json(...)` values.
+Use the same property-path shape with root `Json.delete` for portable
+`Column.json(...)` values. Keep `Json.key(...)` / `Jsonb.key(...)` for dynamic,
+invalid-identifier, or reserved JSON keys.
 
 ### Source Completeness and Aliases
 
@@ -727,7 +721,7 @@ const docs = Table.make("docs", {
 })
 
 const postgresOnly = Query.select({
-  kind: docs.payload.pipe(Jsonb.key("kind"), Jsonb.text)
+  kind: docs.payload.kind.pipe(Jsonb.asText)
 }).pipe(Query.from(docs))
 
 Pg.Renderer.make().render(postgresOnly)
@@ -1028,7 +1022,7 @@ const events = Table.make("events", {
 
 const eventKinds = Query.select({
   id: events.id,
-  kind: events.payload.pipe(Jsonb.key("kind"), Jsonb.text)
+  kind: events.payload.kind.pipe(Jsonb.asText)
 }).pipe(Query.from(events))
 
 Pg.Renderer.make().render(eventKinds)
@@ -1086,7 +1080,7 @@ const docs = Table.make("docs", {
 
 const readDocs = Query.select({
   id: docs.id,
-  title: docs.payload.pipe(Json.key("title"), Json.text)
+  title: docs.payload.title.pipe(Json.asText)
 }).pipe(Query.from(docs))
 
 My.Renderer.make().render(readDocs)
@@ -1122,7 +1116,7 @@ const docs = Table.make("docs", {
 
 const readDocs = Query.select({
   id: docs.id,
-  city: docs.payload.pipe(Json.key("profile"), Json.key("city"), Json.text)
+  city: docs.payload.profile.city.pipe(Json.asText)
 }).pipe(Query.from(docs))
 
 Sq.Renderer.make().render(readDocs)
@@ -1204,12 +1198,7 @@ const docs = Table.make("docs", {
   }))
 })
 
-const city = docs.payload.pipe(
-  Jsonb.key("profile"),
-  Jsonb.key("address"),
-  Jsonb.key("city"),
-  Jsonb.text
-)
+const city = docs.payload.profile.address.city.pipe(Jsonb.asText)
 
 const plan = Query.select({ city }).pipe(Query.from(docs))
 

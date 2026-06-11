@@ -89,6 +89,29 @@ describe("json behavior", () => {
     ])
   })
 
+  test("postgres renders schema-backed shared json property paths", () => {
+    const docs = makeJsonTable(Postgres)
+
+    const plan = StdRoot.Query.select({
+      city: docs.payload.profile.address.city,
+      cityText: docs.payload.profile.address.city.pipe(StdRoot.Json.asText)
+    }).pipe(StdRoot.Query.from(docs))
+
+    const rendered = Postgres.Renderer.make().render(plan)
+
+    expect(rendered.sql).toBe(
+      'select ("docs"."payload" #> array[$1, $2, $3]) as "city", ("docs"."payload" #>> array[$4, $5, $6]) as "cityText" from "docs"'
+    )
+    expect(rendered.params).toEqual([
+      "profile",
+      "address",
+      "city",
+      "profile",
+      "address",
+      "city"
+    ])
+  })
+
   test("postgres shared json helpers still accept jsonb columns for exact paths", () => {
     const docs = makeJsonbTable(Postgres)
 
@@ -114,6 +137,40 @@ describe("json behavior", () => {
       "profile",
       "address",
       "city",
+      "profile",
+      "address",
+      "city"
+    ])
+  })
+
+  test("postgres renders schema-backed jsonb property paths", () => {
+    const docs = makeJsonbTable(Postgres)
+
+    const plan = StdRoot.Query.select({
+      profile: docs.payload.profile,
+      city: docs.payload.profile.address.city,
+      cityText: docs.payload.profile.address.city.pipe(Postgres.Jsonb.asText),
+      hasAddress: Postgres.Jsonb.hasKey(docs.payload.profile, "address"),
+      hasCityPath: docs.payload.profile.address.city.pipe(Postgres.Jsonb.pathExists),
+      withoutCity: docs.payload.profile.address.city.pipe(Postgres.Jsonb.delete)
+    }).pipe(StdRoot.Query.from(docs))
+
+    const rendered = Postgres.Renderer.make().render(plan)
+
+    expect(rendered.sql).toBe(
+      'select ("docs"."payload" -> $1) as "profile", ("docs"."payload" #> array[$2, $3, $4]) as "city", ("docs"."payload" #>> array[$5, $6, $7]) as "cityText", (("docs"."payload" -> $8) ? cast($9 as text)) as "hasAddress", ("docs"."payload" @? $10) as "hasCityPath", ("docs"."payload" #- array[$11, $12, $13]) as "withoutCity" from "docs"'
+    )
+    expect(rendered.params).toEqual([
+      "profile",
+      "profile",
+      "address",
+      "city",
+      "profile",
+      "address",
+      "city",
+      "profile",
+      "address",
+      "$.profile.address.city",
       "profile",
       "address",
       "city"

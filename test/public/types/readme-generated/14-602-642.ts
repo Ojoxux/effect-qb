@@ -1,8 +1,8 @@
 // Generated from README.md.
 // Do not edit directly; update README.md and rerun `bun run generate:readme-types`.
-// Code fences: 602-635, 640-649
+// Code fences: 602-632, 637-642
 
-// README.md:602-635
+// README.md:602-632
 import * as Schema from "effect/Schema"
 import { Column, Query, Table } from "effect-qb"
 import { Jsonb } from "effect-qb/postgres"
@@ -14,7 +14,9 @@ const payloadSchema = Schema.Struct({
       city: Schema.String,
       postcode: Schema.NullOr(Schema.String)
     }),
-    tags: Schema.Array(Schema.String)
+    tags: Schema.Array(Schema.String),
+    legacyName: Schema.optional(Schema.String),
+    legacySlug: Schema.optional(Schema.String)
   }),
   note: Schema.NullOr(Schema.String)
 })
@@ -24,12 +26,7 @@ const docs = Table.make("docs", {
   payload: Pg.Column.jsonb(payloadSchema)
 })
 
-const missingRequiredCity = docs.payload.pipe(
-  Jsonb.key("profile"),
-  Jsonb.key("address"),
-  Jsonb.key("city"),
-  Jsonb.delete
-)
+const missingRequiredCity = docs.payload.profile.address.city.pipe(Jsonb.delete)
 
 Query.update(docs, {
   // @ts-expect-error payload no longer satisfies payloadSchema
@@ -37,14 +34,10 @@ Query.update(docs, {
 })
 
 {
-  // README.md:640-649
+  // README.md:637-642
   const withoutLegacyFields = docs.payload.pipe(
-    Jsonb.key("profile"),
-    Jsonb.key("legacyName"),
-    Jsonb.delete,
-    Jsonb.key("profile"),
-    Jsonb.key("legacySlug"),
-    Jsonb.delete
+    (payload) => payload.profile.legacyName.pipe(Jsonb.delete),
+    (payload) => payload.profile.legacySlug.pipe(Jsonb.delete)
   )
 }
 

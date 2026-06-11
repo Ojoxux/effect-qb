@@ -11,6 +11,7 @@ export const get = jsonb.get
 export const access = jsonb.access
 export const traverse = jsonb.traverse
 export const text = jsonb.text
+export const asText = jsonb.asText
 export const accessText = jsonb.accessText
 export const traverseText = jsonb.traverseText
 export const contains = jsonb.contains

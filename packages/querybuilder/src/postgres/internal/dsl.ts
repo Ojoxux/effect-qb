@@ -114,6 +114,7 @@ import * as ExpressionAst from "../../internal/expression-ast.js"
 import { presenceWitnessesOfSourceLike } from "../../internal/implication-runtime.js"
 import type { JsonNode } from "../../internal/json/ast.js"
 import type { JsonPathUsageError } from "../../internal/json/errors.js"
+import { withJsonPathAccess } from "../../internal/json/path-access.js"
 import * as JsonPath from "../../internal/json/path.js"
 import type {
   JsonConcatResult,
@@ -2402,7 +2403,7 @@ type BinaryPredicateExpression<
     MergeAggregationTuple<typeof expressions>,
     TupleDependencies<typeof expressions>,
     Ast
-  > => makeExpression({
+  > => withJsonPathAccess(makeExpression({
     runtime: state.runtime,
     dbType: state.dbType,
     nullability: state.nullability,
@@ -2410,7 +2411,7 @@ type BinaryPredicateExpression<
     kind: mergeAggregationManyRuntime(expressions) as MergeAggregationTuple<typeof expressions>,
 
     dependencies: mergeManyDependencies(expressions)
-  }, ast) as AstBackedExpression<
+  }, ast)) as AstBackedExpression<
     Runtime,
     Db,
     Nullability,
@@ -2431,7 +2432,7 @@ type BinaryPredicateExpression<
   const makeJsonLiteralExpression = <Value extends JsonLiteralInput>(
     value: Value,
     dbType: Expression.DbType.Json<any, any> = jsonDb
-  ) => makeExpression({
+  ) => withJsonPathAccess(makeExpression({
     runtime: value as JsonRuntime<Value>,
     dbType,
     nullability: (value === null ? "always" : "never") as JsonNullabilityOf<Value>,
@@ -2442,7 +2443,7 @@ type BinaryPredicateExpression<
   }, {
     kind: "literal",
     value
-  })
+  }))
 
   const wrapJsonExpression = (
     value: Expression.Any,
