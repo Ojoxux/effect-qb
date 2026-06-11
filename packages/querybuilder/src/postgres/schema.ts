@@ -27,14 +27,21 @@ type ApplySchemaTableOptions<
 > = BaseTable.ApplyDeclaredOptions<
   BaseTable.TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>,
   Options
-> extends BaseTable.TableDefinition<any, any, infer AppliedPrimaryKeyColumns extends keyof Fields & string, "schema", any>
-  ? BaseTable.TableDefinition<Name, Fields, AppliedPrimaryKeyColumns, "schema", SchemaName>
+> extends BaseTable.TableDefinition<
+  any,
+  any,
+  infer AppliedPrimaryKeyColumns extends keyof Fields & string,
+  "schema",
+  any,
+  infer AppliedConflictArbiters extends BaseTable.ConflictArbiter
+>
+  ? BaseTable.TableDefinition<Name, Fields, AppliedPrimaryKeyColumns, "schema", SchemaName, AppliedConflictArbiters>
   : BaseTable.TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>
 
 type ValidatePostgresSchemaTable<
-  Table extends BaseTable.TableDefinition<any, any, any, any, any>
-> = Table extends BaseTable.TableDefinition<any, infer Fields extends TableFieldMap, any, any, any>
-  ? BaseTable.TableDefinition<any, Fields & ValidatePostgresSchemaFields<Fields>, any, any, any>
+  Table extends BaseTable.TableDefinition<any, any, any, any, any, any>
+> = Table extends BaseTable.TableDefinition<any, infer Fields extends TableFieldMap, any, any, any, any>
+  ? BaseTable.TableDefinition<any, Fields & ValidatePostgresSchemaFields<Fields>, any, any, any, any>
   : never
 
 export type SchemaNamespace<SchemaName extends string> = Pipeable & {
@@ -62,13 +69,14 @@ export type SchemaNamespace<SchemaName extends string> = Pipeable & {
     name: BaseTable.NonEmptyStringInput<Name>
   ) => SequenceDefinition<Name, SchemaName>
   readonly withSchema: <
-    Table extends BaseTable.TableDefinition<any, any, any, any, any>
+    Table extends BaseTable.TableDefinition<any, any, any, any, any, any>
   >(table: Table & ValidatePostgresSchemaTable<Table>) => BaseTable.TableDefinition<
     Table[typeof BaseTable.TypeId]["name"],
     Table[typeof BaseTable.TypeId]["fields"],
     Table[typeof BaseTable.TypeId]["primaryKey"][number],
     Table[typeof BaseTable.TypeId]["kind"],
-    SchemaName
+    SchemaName,
+    Table[typeof BaseTable.TypeId]["conflictArbiters"][number]
   >
   readonly [Casing.TypeId]: Casing.State
   readonly withCasing: (options: Casing.Options) => SchemaNamespace<SchemaName>
@@ -107,7 +115,7 @@ export const make = <SchemaName extends string>(
     name: BaseTable.NonEmptyStringInput<Name>
   ) => sequence(Casing.applyCategory(options.casing, "sequences", name), physicalSchemaName) as SequenceDefinition<Name, SchemaName>
   namespace.withSchema = <
-    Table extends BaseTable.TableDefinition<any, any, any, any, any>
+    Table extends BaseTable.TableDefinition<any, any, any, any, any, any>
   >(table: Table & ValidatePostgresSchemaTable<Table>) => BaseTable.withSchema(table, schemaName, options.casing)
   namespace[Casing.TypeId] = {
     casing: options.casing

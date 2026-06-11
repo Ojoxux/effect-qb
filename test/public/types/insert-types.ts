@@ -6,7 +6,7 @@ import { Function as F, Query as Q } from "effect-qb"
 
 const users = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),
-  email: Std.Column.text(),
+  email: Std.Column.text().pipe(Std.Column.unique),
   bio: Std.Column.text().pipe(Std.Column.nullable)
 })
 
@@ -17,9 +17,40 @@ const auditLogs = Std.Table.make("audit_logs", {
 
 const mysqlUsers = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),
+  email: Std.Column.text().pipe(Std.Column.unique),
+  bio: Std.Column.text().pipe(Std.Column.nullable)
+})
+
+const nonUniqueUsers = Std.Table.make("non_unique_users", {
+  id: Std.Column.uuid().pipe(Std.Column.primaryKey),
   email: Std.Column.text(),
   bio: Std.Column.text().pipe(Std.Column.nullable)
 })
+
+const uniqueIndexUsersBase = Std.Table.make("unique_index_users", {
+  id: Std.Column.uuid().pipe(Std.Column.primaryKey),
+  email: Std.Column.text(),
+  bio: Std.Column.text().pipe(Std.Column.nullable)
+})
+const uniqueIndexUsers = uniqueIndexUsersBase.pipe(
+  Std.Table.index<
+    typeof uniqueIndexUsersBase,
+    typeof uniqueIndexUsersBase.email
+  >((table) => table.email).pipe(Pg.Index.uniqueIndex)
+)
+
+const membershipsBase = Std.Table.make("memberships", {
+  id: Std.Column.uuid().pipe(Std.Column.primaryKey),
+  orgId: Std.Column.uuid(),
+  role: Std.Column.text(),
+  note: Std.Column.text().pipe(Std.Column.nullable)
+})
+const memberships = membershipsBase.pipe(
+  Std.Table.unique<
+    typeof membershipsBase,
+    readonly [typeof membershipsBase.orgId, typeof membershipsBase.role]
+  >((table) => [table.orgId, table.role] as const)
+)
 
 const seedRows = [
   {
@@ -107,6 +138,19 @@ const insertStringConflictPlan = Q.insert(users, {
   }
 }))
 
+Q.insert(nonUniqueUsers, {
+  id: "user-id",
+  email: "alice@example.com",
+  bio: "writer"
+}).pipe(
+  // @ts-expect-error postgres conflict targets must match a primary key, unique constraint, or unique index
+  Q.onConflict("email", {
+    update: {
+      bio: Q.excluded(nonUniqueUsers.bio)
+    }
+  })
+)
+
 Q.insert(users, {
   id: "user-id",
   email: "alice@example.com",
@@ -159,6 +203,46 @@ Q.upsert(users, {
 }, ["email"] as const,
   // @ts-expect-error upsert update values require at least one assignment
   {})
+
+Q.upsert(nonUniqueUsers, {
+  id: "user-id",
+  email: "alice@example.com",
+  bio: "writer"
+},
+// @ts-expect-error upsert conflict targets must match a primary key, unique constraint, or unique index
+["email"] as const, {
+  bio: "writer"
+})
+
+Q.upsert(uniqueIndexUsers, {
+  id: "user-id",
+  email: "alice@example.com",
+  bio: "writer"
+}, "email", {
+  bio: "writer"
+})
+
+Q.insert(memberships, {
+  id: "membership-id",
+  orgId: "org-id",
+  role: "admin",
+  note: null
+}).pipe(Q.onConflict(["role", "orgId"] as const, {
+  update: {
+    note: "updated"
+  }
+}))
+
+Q.upsert(memberships, {
+  id: "membership-id",
+  orgId: "org-id",
+  role: "admin",
+  note: null
+},
+// @ts-expect-error composite conflict targets must match the full unique column set
+["orgId"] as const, {
+  note: "updated"
+})
 
 const invalidConflictTargetPredicatePlan = Q.insert(users, {
   id: "user-id",

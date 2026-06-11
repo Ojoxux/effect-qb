@@ -4529,6 +4529,83 @@ type ValidateTargetColumnInput<
   Columns extends DdlColumnInput
 > = ValidateTargetColumns<Target, NormalizeDdlColumns<Columns>> extends never ? never : Columns
 
+type SameColumnSet<
+  Left extends readonly string[],
+  Right extends readonly string[]
+> = string extends Left[number] | Right[number]
+  ? false
+  : Exclude<Left[number], Right[number]> extends never
+    ? Exclude<Right[number], Left[number]> extends never
+      ? true
+      : false
+    : false
+
+type ConflictArbitersOf<Target extends MutationTargetLike> =
+  Target[typeof Table.TypeId]["conflictArbiters"][number]
+
+type MatchingConflictArbiter<
+  Target extends MutationTargetLike,
+  Columns extends readonly string[],
+  AllowPartial extends boolean
+> = ConflictArbitersOf<Target> extends infer Arbiter extends Table.ConflictArbiter
+  ? Arbiter extends Table.ConflictArbiter
+    ? SameColumnSet<Arbiter["columns"], Columns> extends true
+      ? Arbiter["scope"] extends "unconditional"
+        ? true
+        : AllowPartial extends true ? true : never
+      : never
+    : never
+  : never
+
+type HasInlineConflictArbiter<
+  Target extends MutationTargetLike,
+  Columns extends readonly string[]
+> = Columns extends readonly [infer Column extends Extract<keyof Target[typeof Table.TypeId]["fields"], string>]
+  ? Target[typeof Table.TypeId]["fields"][Column] extends { readonly metadata: { readonly primaryKey: true } | { readonly unique: true } }
+    ? true
+    : false
+  : false
+
+type HasConflictArbiter<
+  Target extends MutationTargetLike,
+  Columns extends readonly string[],
+  AllowPartial extends boolean
+> = string extends Extract<keyof Target[typeof Table.TypeId]["fields"], string>
+  ? true
+  : HasInlineConflictArbiter<Target, Columns> extends true
+    ? true
+  : true extends MatchingConflictArbiter<Target, Columns, AllowPartial> ? true : false
+
+type ConflictTargetArbiterError<
+  Columns,
+  AllowPartial extends boolean
+> = {
+  readonly __effect_qb_error__: "effect-qb: conflict target columns must match a primary key, unique constraint, or unique index"
+  readonly __effect_qb_conflict_columns__: Columns
+  readonly __effect_qb_partial_target__: AllowPartial
+  readonly __effect_qb_hint__: "Declare the target columns as primaryKey/unique, add a table-level Unique.make(...), or use a simple Pg.Index.uniqueIndex(...)"
+}
+
+type ValidateConflictColumnInput<
+  Target extends MutationTargetLike,
+  Columns extends DdlColumnInput,
+  AllowPartial extends boolean
+> = ValidateTargetColumnInput<Target, Columns> extends never
+  ? never
+  : HasConflictArbiter<Target, NormalizeDdlColumns<Columns>, AllowPartial> extends true
+    ? Columns
+    : ConflictTargetArbiterError<NormalizeDdlColumns<Columns>, AllowPartial>
+
+type ConflictColumnPlanConstraint<
+  Target extends MutationTargetLike,
+  Columns extends DdlColumnInput,
+  AllowPartial extends boolean
+> = ValidateTargetColumnInput<Target, Columns> extends never
+  ? never
+  : HasConflictArbiter<Target, NormalizeDdlColumns<Columns>, AllowPartial> extends true
+    ? unknown
+    : ConflictTargetArbiterError<NormalizeDdlColumns<Columns>, AllowPartial>
+
 type CreateIndexOptions<Name extends string = string> = {
   readonly name?: NonEmptyStringInput<Name>
   readonly unique?: boolean
@@ -4968,6 +5045,21 @@ type ConflictConstraintNameConstraint<Target> =
   Target extends { readonly constraint: infer Constraint extends string }
     ? { readonly constraint: NonEmptyStringInput<Constraint> }
     : unknown
+
+type ConflictTargetHasPredicate<Target> =
+  Target extends { readonly where: PredicateInput } ? true : false
+
+type ConflictTargetPlanConstraint<
+  Target extends MutationTargetLike,
+  ConflictTarget
+> =
+  ConflictTarget extends { readonly constraint: string }
+    ? unknown
+    : ConflictTarget extends { readonly columns: infer Columns extends DdlColumnInput }
+      ? ConflictColumnPlanConstraint<Target, Columns, ConflictTargetHasPredicate<ConflictTarget>>
+      : ConflictTarget extends DdlColumnInput
+        ? ConflictColumnPlanConstraint<Target, ConflictTarget, false>
+        : unknown
 
 type ConflictActionInput<
   Target extends MutationTargetLike,
@@ -6300,7 +6392,7 @@ type AsCurriedResult<
     options?: Options & ConflictActionUpdateNonEmptyConstraint<Options>
   ) =>
     <PlanValue extends QueryPlan<any, any, any, any, any, any, any, any, any, any>>(
-      plan: PlanValue & RequireInsertStatement<PlanValue>
+      plan: PlanValue & RequireInsertStatement<PlanValue> & ConflictTargetPlanConstraint<MutationTargetOfPlan<PlanValue>, ConflictTarget>
     ) => QueryPlan<
       SelectionOfPlan<PlanValue>,
       Exclude<RequiredOfPlan<PlanValue> | ConflictRequired<UpdateValues, Options, ConflictTarget>, AvailableNames<AvailableOfPlan<PlanValue>>>,
@@ -6364,7 +6456,7 @@ type AsCurriedResult<
   >(
     target: Target,
     values: Values & MutationValuesDialectConstraint<Values, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>,
-    conflictColumns: ValidateTargetColumnInput<Target, Columns>,
+    conflictColumns: ValidateConflictColumnInput<Target, Columns, false>,
     updateValues?: UpdateValues & UpdateValuesNonEmptyConstraint<Exclude<UpdateValues, undefined>> & MutationValuesDialectConstraint<Exclude<UpdateValues, undefined>, Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb>
   ) => QueryPlan<
     {},

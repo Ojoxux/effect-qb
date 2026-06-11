@@ -8,6 +8,15 @@ import { Executor as PostgresExecutor } from "effect-qb/postgres"
 
 const users = Std.Table.make("users", {
   id: Std.Column.text().pipe(Std.Column.primaryKey),
+  email: Std.Column.text().pipe(Std.Column.unique),
+  visits: Std.Column.int(),
+  payload: Std.Column.json(Schema.Struct({
+    tags: Schema.Array(Schema.String)
+  }))
+})
+
+const nonUniqueUsers = Std.Table.make("non_unique_users", {
+  id: Std.Column.text().pipe(Std.Column.primaryKey),
   email: Std.Column.text(),
   visits: Std.Column.int(),
   payload: Std.Column.json(Schema.Struct({
@@ -114,6 +123,15 @@ Q.insert(users, userInsert).pipe(
   })
 )
 
+Q.insert(nonUniqueUsers, userInsert).pipe(
+  // @ts-expect-error sqlite conflict targets must match a primary key, unique constraint, or unique index
+  Q.onConflict("email", {
+    update: {
+      visits: Q.excluded(nonUniqueUsers.visits)
+    }
+  })
+)
+
 Q.insert(users, userInsert).pipe(
   // @ts-expect-error sqlite returning selections require at least one selected expression
   Q.returning({})
@@ -167,6 +185,12 @@ Q.upsert(users, userInsert,
 
 Q.upsert(users, userInsert, "id", {
   email: Q.excluded(users.email)
+})
+
+Q.upsert(nonUniqueUsers, userInsert,
+// @ts-expect-error sqlite upsert conflict targets must match a primary key, unique constraint, or unique index
+"email", {
+  visits: Q.excluded(nonUniqueUsers.visits)
 })
 
 Q.insert(users, userInsert).pipe(

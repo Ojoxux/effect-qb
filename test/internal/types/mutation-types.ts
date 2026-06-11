@@ -13,7 +13,7 @@ import { Cast, Executor, Renderer, Type } from "#postgres"
 
 const users = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),
-  email: Std.Column.text(),
+  email: Std.Column.text().pipe(Std.Column.unique),
   bio: Std.Column.text().pipe(Std.Column.nullable)
 })
 const auditLogs = Std.Table.make("audit_logs", {
@@ -22,7 +22,7 @@ const auditLogs = Std.Table.make("audit_logs", {
 })
 const mysqlUsers = Std.Table.make("users", {
   id: Mysql.Column.custom(Schema.UUID, Mysql.Datatypes.mysqlDatatypes.uuid()).pipe(Std.Column.primaryKey),
-  email: Mysql.Column.custom(Schema.String, Mysql.Datatypes.mysqlDatatypes.text()),
+  email: Mysql.Column.custom(Schema.String, Mysql.Datatypes.mysqlDatatypes.text()).pipe(Std.Column.unique),
   bio: Mysql.Column.custom(Schema.String, Mysql.Datatypes.mysqlDatatypes.text()).pipe(Std.Column.nullable)
 })
 

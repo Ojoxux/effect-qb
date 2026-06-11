@@ -16,15 +16,28 @@ export type TableDefinition<
   Fields extends DialectFieldMap,
   PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>,
   Kind extends "schema" | "alias" = "schema",
-  SchemaName extends string = "public"
-> = BaseTable.TableDefinition<Name, Fields, PrimaryKeyColumns, Kind, SchemaName>
+  SchemaName extends string = "public",
+  ConflictArbiters extends BaseTable.ConflictArbiter = BaseTable.TableDefinition<
+    Name,
+    Fields,
+    PrimaryKeyColumns,
+    Kind,
+    SchemaName
+  >[typeof BaseTable.TypeId]["conflictArbiters"][number]
+> = BaseTable.TableDefinition<Name, Fields, PrimaryKeyColumns, Kind, SchemaName, ConflictArbiters>
 
 export type TableClassStatic<
   Name extends string,
   Fields extends DialectFieldMap,
   PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>,
-  SchemaName extends string = "public"
-> = BaseTable.TableClassStatic<Name, Fields, PrimaryKeyColumns, SchemaName>
+  SchemaName extends string = "public",
+  ConflictArbiters extends BaseTable.ConflictArbiter = BaseTable.TableClassStatic<
+    Name,
+    Fields,
+    PrimaryKeyColumns,
+    SchemaName
+  >[typeof BaseTable.TypeId]["conflictArbiters"][number]
+> = BaseTable.TableClassStatic<Name, Fields, PrimaryKeyColumns, SchemaName, ConflictArbiters>
 
 export type AnyTable = BaseTable.AnyTable<Dialect>
 
@@ -36,6 +49,8 @@ type PrimaryKeyOfTable<Table extends BaseTable.AnyTable> = Table[typeof BaseTabl
 
 type SchemaNameOfTable<Table extends BaseTable.AnyTable> =
   Table[typeof BaseTable.TypeId]["schemaName"] extends infer SchemaName extends string ? SchemaName : "public"
+
+type ConflictArbiterOfTable<Table extends BaseTable.AnyTable> = Table[typeof BaseTable.TypeId]["conflictArbiters"][number]
 
 export type TableOption = BaseTable.TableOption
 
@@ -64,7 +79,7 @@ export function make(
   name: string,
   fields: DialectFieldMap,
   schemaName?: string
-): TableDefinition<string, DialectFieldMap, string, "schema", string> {
+): any {
   return arguments.length >= 3
     ? BaseTable.make(name, fields, schemaName as string) as TableDefinition<string, DialectFieldMap, string, "schema", string>
     : BaseTable.make(name, fields) as TableDefinition<string, DialectFieldMap, string, "schema", string>
@@ -81,14 +96,16 @@ export const alias = <
   FieldsOfTable<Table>,
   PrimaryKeyOfTable<Table>,
   "alias",
-  SchemaNameOfTable<Table>
+  SchemaNameOfTable<Table>,
+  ConflictArbiterOfTable<Table>
 > =>
   BaseTable.alias(table as any, aliasName) as TableDefinition<
     AliasName,
     FieldsOfTable<Table>,
     PrimaryKeyOfTable<Table>,
     "alias",
-    SchemaNameOfTable<Table>
+    SchemaNameOfTable<Table>,
+    ConflictArbiterOfTable<Table>
   >
 
 type ClassApi = {

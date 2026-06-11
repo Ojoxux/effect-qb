@@ -9,6 +9,7 @@ import { bindColumn, BoundColumnTypeId, type AnyBoundColumn, type AnyColumnDefin
 import {
   collectInlineOptions,
   resolvePrimaryKeyColumns,
+  type ColumnList,
   type DdlExpressionLike,
   type IndexKeySpec,
   type LiteralStringInput,
@@ -60,7 +61,7 @@ type NonEmptyFieldMap<Fields extends TableFieldMap> =
   string extends keyof Fields ? Fields : "" extends keyof Fields ? never : Fields
 type FieldColumnName<Fields extends TableFieldMap> = Extract<keyof Fields, string>
 type FieldColumnList<Fields extends TableFieldMap> = readonly [FieldColumnName<Fields>, ...FieldColumnName<Fields>[]]
-export type SchemaTableDefinition = TableDefinition<any, any, any, "schema", any>
+export type SchemaTableDefinition = TableDefinition<any, any, any, "schema", any, any>
 type LooseTableSelection = any
 type ConcreteSelector<
   Table extends SchemaTableDefinition,
@@ -135,8 +136,63 @@ type TableSchemaNameOf<Table extends TableDefinition<any, any, any, "schema", an
   Table extends TableDefinition<any, any, any, "schema", infer SchemaName> ? SchemaName : never
 type HasBroadColumns<Columns extends readonly string[]> = string extends Columns[number] ? true : false
 
+export type ConflictArbiterScope = "unconditional" | "partial"
+export type ConflictArbiter<
+  Columns extends ColumnList = ColumnList,
+  Scope extends ConflictArbiterScope = ConflictArbiterScope,
+  Name extends string | undefined = string | undefined,
+  Constraint extends boolean = boolean
+> = {
+  readonly columns: Columns
+  readonly scope: Scope
+  readonly name?: Name
+  readonly constraint: Constraint
+}
+
+type InlineConflictArbiters<Fields extends TableFieldMap> = Extract<{
+  [K in keyof Fields]: Fields[K] extends AnyColumnDefinition
+    ? Fields[K]["metadata"]["primaryKey"] extends true
+      ? ConflictArbiter<readonly [Extract<K, string>], "unconditional", undefined, true>
+      : Fields[K]["metadata"]["unique"] extends true
+        ? ConflictArbiter<
+          readonly [Extract<K, string>],
+          "unconditional",
+          Fields[K]["metadata"]["uniqueConstraint"] extends { readonly name?: infer Name extends string } ? Name : undefined,
+          true
+        >
+        : never
+    : never
+}[keyof Fields], ConflictArbiter>
+
+type TableConflictArbitersOf<Table extends TableDefinition<any, any, any, any, any, any>> =
+  Table extends TableDefinition<any, any, any, any, any, infer ConflictArbiters> ? ConflictArbiters : never
+
+type NormalizeArbiterColumns<Columns> =
+  Columns extends readonly [infer Head extends string, ...infer Tail extends string[]]
+    ? readonly [Head, ...Tail]
+    : Columns extends string
+      ? readonly [Columns]
+      : never
+
+type OptionColumns<Spec extends TableOptionSpec> =
+  Spec extends { readonly columns?: infer Columns } ? NormalizeArbiterColumns<Columns> : never
+
+type OptionName<Spec extends TableOptionSpec> =
+  Spec extends { readonly name: infer Name extends string } ? Name : undefined
+
+type ConflictArbiterFromOption<Spec extends TableOptionSpec> =
+  OptionColumns<Spec> extends infer Columns extends ColumnList
+    ? HasBroadColumns<Columns> extends true
+      ? never
+      : Spec extends { readonly kind: "primaryKey" | "unique" }
+        ? ConflictArbiter<Columns, "unconditional", OptionName<Spec>, true>
+        : Spec extends { readonly kind: "index"; readonly unique: true }
+          ? ConflictArbiter<Columns, Spec extends { readonly predicate: DdlExpressionLike } ? "partial" : "unconditional", OptionName<Spec>, false>
+          : never
+    : never
+
 type BuildPrimaryKey<
-  Table extends TableDefinition<any, any, any, "schema", any>,
+  Table extends TableDefinition<any, any, any, "schema", any, any>,
   Spec extends TableOptionSpec
 > = Spec extends { readonly kind: "primaryKey"; readonly columns: infer Columns extends readonly string[] }
   ? HasBroadColumns<Columns> extends true
@@ -145,7 +201,7 @@ type BuildPrimaryKey<
   : TablePrimaryKeyOf<Table>
 
 type OptionInputConstraint<
-  Table extends TableDefinition<any, any, any, "schema", any>,
+  Table extends TableDefinition<any, any, any, "schema", any, any>,
   Spec extends TableOptionSpec
 > = Spec extends { readonly kind: "primaryKey"; readonly columns: infer Columns extends readonly string[] }
   ? HasBroadColumns<Columns> extends true ? unknown : ValidatePrimaryKeyColumns<Table[typeof TypeId]["fields"], Columns> extends never ? never : unknown
@@ -162,17 +218,17 @@ type OptionInputConstraint<
         : unknown
 
 type OptionInputTable<
-  Table extends TableDefinition<any, any, any, "schema", any>,
+  Table extends TableDefinition<any, any, any, "schema", any, any>,
   Spec extends TableOptionSpec
 > = Table & OptionInputConstraint<Table, Spec>
 
 type OptionValidationArgs<
-  Table extends TableDefinition<any, any, any, "schema", any>,
+  Table extends TableDefinition<any, any, any, "schema", any, any>,
   Spec extends TableOptionSpec
 > = OptionInputConstraint<Table, Spec> extends never ? [never] : []
 
 type ApplyOption<
-  Table extends TableDefinition<any, any, any, "schema", any>,
+  Table extends TableDefinition<any, any, any, "schema", any, any>,
   Spec extends TableOptionSpec
 > = Spec extends { readonly kind: "primaryKey" }
   ? TableDefinition<
@@ -180,34 +236,41 @@ type ApplyOption<
     TableFieldsOf<Table>,
     BuildPrimaryKey<Table, Spec>,
     "schema",
-    TableSchemaNameOf<Table>
+    TableSchemaNameOf<Table>,
+    TableConflictArbitersOf<Table> | ConflictArbiterFromOption<Spec>
   >
-  : Table
+  : TableDefinition<
+    TableNameOf<Table>,
+    TableFieldsOf<Table>,
+    TablePrimaryKeyOf<Table>,
+    "schema",
+    TableSchemaNameOf<Table>,
+    TableConflictArbitersOf<Table> | ConflictArbiterFromOption<Spec>
+  >
 
 type ApplyTableOption<
-  Table extends TableDefinition<any, any, any, "schema", any>,
+  Table extends TableDefinition<any, any, any, "schema", any, any>,
   Spec extends TableOptionSpec
-> = Spec extends { readonly kind: "primaryKey" }
-  ? ApplyOption<Table, Spec>
-  : Table
+> = ApplyOption<Table, Spec>
 
 type TableOptionPipe<
   Name extends string,
   Fields extends TableFieldMap,
   PrimaryKeyColumns extends keyof Fields & string,
   Kind extends TableKind,
-  SchemaName extends string | undefined
+  SchemaName extends string | undefined,
+  ConflictArbiters extends ConflictArbiter
 > = Kind extends "schema"
   ? {
       pipe<Spec extends TableOptionSpec>(
-        option: TableOption<Spec, TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>>,
-        ...validation: OptionValidationArgs<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Spec>
-      ): ApplyTableOption<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>, Spec>
+        option: TableOption<Spec, TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName, ConflictArbiters>>,
+        ...validation: OptionValidationArgs<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName, ConflictArbiters>, Spec>
+      ): ApplyTableOption<TableDefinition<Name, Fields, PrimaryKeyColumns, "schema", SchemaName, ConflictArbiters>, Spec>
     }
   : {}
 
 export type ValidateDeclaredOptions<
-  Table extends TableDefinition<any, any, any, "schema", any>,
+  Table extends TableDefinition<any, any, any, "schema", any, any>,
   Options extends DeclaredTableOptions
 > = {
   readonly [K in keyof Options]: Options[K] extends TableOptionBuilderLike<infer Spec>
@@ -216,7 +279,7 @@ export type ValidateDeclaredOptions<
 }
 
 export type ApplyDeclaredOptions<
-  Table extends TableDefinition<any, any, any, "schema", any>,
+  Table extends TableDefinition<any, any, any, "schema", any, any>,
   Options extends DeclaredTableOptions
 > = Options extends readonly [infer Head, ...infer Tail]
   ? Head extends TableOptionBuilderLike<infer Spec>
@@ -266,13 +329,15 @@ interface TableState<
   Fields extends TableFieldMap,
   PrimaryKeyColumns extends keyof Fields & string,
   Kind extends TableKind = "schema",
-  SchemaName extends string | undefined = DefaultSchemaName
+  SchemaName extends string | undefined = DefaultSchemaName,
+  ConflictArbiters extends ConflictArbiter = InlineConflictArbiters<Fields>
 > {
   readonly name: Name
   readonly baseName: string
   readonly schemaName: SchemaName
   readonly fields: Fields
   readonly primaryKey: readonly PrimaryKeyColumns[]
+  readonly conflictArbiters: readonly ConflictArbiters[]
   readonly kind: Kind
   readonly casing?: Casing.Options
 }
@@ -288,12 +353,13 @@ export type TableDefinition<
   Fields extends TableFieldMap,
   PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>,
   Kind extends TableKind = "schema",
-  SchemaName extends string | undefined = DefaultSchemaName
-> = Pipeable & TableOptionPipe<Name, Fields, PrimaryKeyColumns, Kind, SchemaName> & {
+  SchemaName extends string | undefined = DefaultSchemaName,
+  ConflictArbiters extends ConflictArbiter = InlineConflictArbiters<Fields>
+> = Pipeable & TableOptionPipe<Name, Fields, PrimaryKeyColumns, Kind, SchemaName, ConflictArbiters> & {
   readonly name: Name
   readonly columns: BoundColumns<Name, Fields>
   readonly schemas: TableSchemas<Name, Fields, PrimaryKeyColumns> & AnyTableSchemas
-  readonly [TypeId]: TableState<Name, Fields, PrimaryKeyColumns, Kind, SchemaName>
+  readonly [TypeId]: TableState<Name, Fields, PrimaryKeyColumns, Kind, SchemaName, ConflictArbiters>
   readonly [Plan.TypeId]: Plan.State<
     BoundColumns<Name, Fields>,
     never,
@@ -319,11 +385,12 @@ export type TableClassStatic<
   Name extends string,
   Fields extends TableFieldMap,
   PrimaryKeyColumns extends keyof Fields & string = InlinePrimaryKeyKeys<Fields>,
-  SchemaName extends string | undefined = DefaultSchemaName
+  SchemaName extends string | undefined = DefaultSchemaName,
+  ConflictArbiters extends ConflictArbiter = InlineConflictArbiters<Fields>
 > = (abstract new (...args: any[]) => any) & Pipeable & {
   readonly columns: BoundColumns<Name, Fields>
   readonly schemas: TableSchemas<Name, Fields, PrimaryKeyColumns>
-  readonly [TypeId]: TableState<Name, Fields, PrimaryKeyColumns, "schema", SchemaName>
+  readonly [TypeId]: TableState<Name, Fields, PrimaryKeyColumns, "schema", SchemaName, ConflictArbiters>
   readonly [Plan.TypeId]: Plan.State<
     BoundColumns<Name, Fields>,
     never,
@@ -343,7 +410,7 @@ export type TableClassStatic<
 
 /** Minimal structural table-like contract used across helper APIs. */
 export type AnyTable<Dialect extends string = string> = {
-  readonly [TypeId]: TableState<string, TableFieldMap, string, TableKind, string | undefined>
+  readonly [TypeId]: TableState<string, TableFieldMap, string, TableKind, string | undefined, ConflictArbiter>
   readonly [OptionsSymbol]: readonly TableOptionSpec[]
 } & Plan.RowSet<any, any, Record<string, Plan.AnySource>, Dialect>
 
@@ -369,7 +436,7 @@ export type TableOption<
     <Table extends TableContext>(
       table: Table,
       ...validation: OptionValidationArgs<Table, Spec>
-    ): Table
+    ): ApplyOption<Table, Spec>
   })
 
 const TableProto = {
@@ -397,7 +464,41 @@ type BuildArtifacts<
   readonly columns: BoundColumns<Name, Fields>
   readonly normalizedOptions: readonly TableOptionSpec[]
   readonly primaryKey: readonly PrimaryKeyColumns[]
+  readonly conflictArbiters: readonly ConflictArbiter[]
 }
+
+const conflictArbitersFromOptions = (
+  options: readonly TableOptionSpec[]
+): readonly ConflictArbiter[] =>
+  options.flatMap((option): readonly ConflictArbiter[] => {
+    if (typeof option !== "object" || option === null) {
+      return []
+    }
+    if (!("columns" in option) || !Array.isArray(option.columns) || option.columns.length === 0) {
+      return []
+    }
+    switch (option.kind) {
+      case "primaryKey":
+      case "unique":
+        return [{
+          columns: option.columns as ColumnList,
+          scope: "unconditional",
+          name: option.name,
+          constraint: true
+        }]
+      case "index":
+        return option.unique === true
+          ? [{
+            columns: option.columns as ColumnList,
+            scope: option.predicate === undefined ? "unconditional" : "partial",
+            name: option.name,
+            constraint: false
+          }]
+          : []
+      default:
+        return []
+    }
+  })
 
 const buildArtifacts = <
   Name extends string,
@@ -414,13 +515,15 @@ const buildArtifacts = <
   validateFieldDialects(name, fields)
   validateOptions(name, fields, declaredOptions)
   const primaryKey = resolvePrimaryKeyColumns(fields, declaredOptions) as readonly (keyof Fields & string)[]
+  const conflictArbiters = conflictArbitersFromOptions(normalizedOptions)
   const columns = Object.fromEntries(
     Object.entries(fields).map(([key, column]) => [key, bindColumn(name, key, column, name, schemaName, casing)])
   ) as BoundColumns<Name, Fields>
   return {
     columns,
     normalizedOptions,
-    primaryKey
+    primaryKey,
+    conflictArbiters
   }
 }
 
@@ -565,7 +668,8 @@ const makeTable = <
   Fields extends TableFieldMap,
   PrimaryKeyColumns extends keyof Fields & string,
   Kind extends TableKind = "schema",
-  SchemaName extends string | undefined = DefaultSchemaName
+  SchemaName extends string | undefined = DefaultSchemaName,
+  ConflictArbiters extends ConflictArbiter = InlineConflictArbiters<Fields>
 >(
   name: Name,
   fields: Fields,
@@ -575,7 +679,7 @@ const makeTable = <
   schemaName?: SchemaName,
   schemaMode: "default" | "explicit" = "default",
   casing?: Casing.Options
-): TableDefinition<Name, Fields, PrimaryKeyColumns, Kind, SchemaName> => {
+): TableDefinition<Name, Fields, PrimaryKeyColumns, Kind, SchemaName, ConflictArbiters> => {
   const resolvedSchemaName = schemaMode === "explicit"
     ? schemaName
     : ("public" as SchemaName)
@@ -591,6 +695,7 @@ const makeTable = <
     schemaName: resolvedSchemaName,
     fields,
     primaryKey: artifacts.primaryKey,
+    conflictArbiters: artifacts.conflictArbiters as readonly ConflictArbiters[],
     kind,
     casing
   }
@@ -691,7 +796,8 @@ const ensureClassArtifacts = <
   const artifacts = {
     columns: table.columns,
     normalizedOptions: table[OptionsSymbol],
-    primaryKey: table[TypeId].primaryKey as readonly PrimaryKeyColumns[]
+    primaryKey: table[TypeId].primaryKey as readonly PrimaryKeyColumns[],
+    conflictArbiters: table[TypeId].conflictArbiters
   } satisfies BuildArtifacts<Name, Fields, PrimaryKeyColumns>
   Object.defineProperty(self, CacheSymbol, {
     configurable: true,
@@ -818,7 +924,7 @@ export function make(
   name: string,
   fields: TableFieldMap,
   schemaName?: string
-): TableDefinition<string, TableFieldMap, string, "schema", string | undefined> {
+): any {
   const resolvedSchemaName = arguments.length >= 3
     ? schemaName
     : "public"
@@ -864,7 +970,8 @@ export const withSchema = <
   Table[typeof TypeId]["fields"],
   Table[typeof TypeId]["primaryKey"][number],
   Table[typeof TypeId]["kind"],
-  SchemaName
+  SchemaName,
+  Table[typeof TypeId]["conflictArbiters"][number]
 > => {
   const state = table[TypeId]
   return makeTable(
@@ -881,7 +988,8 @@ export const withSchema = <
     Table[typeof TypeId]["fields"],
     Table[typeof TypeId]["primaryKey"][number],
     Table[typeof TypeId]["kind"],
-    SchemaName
+    SchemaName,
+    Table[typeof TypeId]["conflictArbiters"][number]
   >
 }
 
@@ -897,16 +1005,18 @@ export const alias = <
   Fields extends TableFieldMap,
   PrimaryKeyColumns extends keyof Fields & string,
   SchemaName extends string,
+  ConflictArbiters extends ConflictArbiter,
   AliasName extends string
 >(
-  table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, SchemaName> | TableClassStatic<Name, Fields, PrimaryKeyColumns, SchemaName>,
+  table: TableDefinition<Name, Fields, PrimaryKeyColumns, any, SchemaName, ConflictArbiters> | TableClassStatic<Name, Fields, PrimaryKeyColumns, SchemaName, ConflictArbiters>,
   aliasName: LiteralStringInput<AliasName>
 ): TableDefinition<
   AliasName,
   Fields,
   PrimaryKeyColumns,
   "alias",
-  SchemaName
+  SchemaName,
+  ConflictArbiters
 > => {
   const state = table[TypeId]
   const columns = Object.fromEntries(
@@ -922,6 +1032,7 @@ export const alias = <
     schemaName: state.schemaName,
     fields: state.fields,
     primaryKey: state.primaryKey,
+    conflictArbiters: state.conflictArbiters,
     kind: "alias",
     casing: state.casing
   }
@@ -999,12 +1110,14 @@ export function Class<
 
         static get [TypeId]() {
           const declaredOptions = extractDeclaredOptions((this as unknown as TableClassStatic<Name, Fields>)[options])
+          const normalizedOptions = [...collectInlineOptions(fields), ...declaredOptions]
           return {
             name,
             baseName: name,
             schemaName: resolvedSchemaName,
             fields,
             primaryKey: resolvePrimaryKeyColumns(fields, collectInlineOptions(fields)),
+            conflictArbiters: conflictArbitersFromOptions(normalizedOptions),
             kind: "schema"
           }
         }
