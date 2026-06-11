@@ -52,6 +52,10 @@ Pg.Json.key("profile")
 Json.path(Json.key("profile"))
 // @ts-expect-error Jsonb.path has been replaced by successive Jsonb.key/Jsonb.index pipes
 Jsonb.path(Jsonb.key("profile"))
+// @ts-expect-error Json.asText was removed; use Json.text
+Json.asText
+// @ts-expect-error Jsonb.asText was removed; use Jsonb.text
+Jsonb.asText
 
 PgQuery.update(jsonbDocs, {
   // @ts-expect-error jsonb update values must still satisfy the target column schema

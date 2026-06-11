@@ -701,7 +701,6 @@ const json = {
     }
     return jsonTextDirect(args[0] as never, args[1] as never)
   }) as unknown as <Base extends PostgresJsonExpression<any>>(base: Base) => JsonAccessTextResultExpression<Base>,
-  asText: undefined as unknown as <Base extends PostgresJsonExpression<any>>(base: Base) => JsonAccessTextResultExpression<Base>,
   accessText: <
     Base extends PostgresJsonExpression<any>,
     Target extends ExactJsonPathInput
@@ -828,7 +827,6 @@ const jsonb = {
     }
     return jsonbTextDirect(args[0] as never, args[1] as never)
   }) as unknown as <Base extends PostgresJsonbExpression<any>>(base: Base) => JsonAccessTextResultExpression<Base>,
-  asText: undefined as unknown as <Base extends PostgresJsonbExpression<any>>(base: Base) => JsonAccessTextResultExpression<Base>,
   accessText: <
     Base extends PostgresJsonExpression<any>,
     Target extends JsonPath.CanonicalSegment | JsonPath.Path<any>
@@ -1101,16 +1099,12 @@ const jsonb = {
   ) => postgresJsonb.pathMatch(base as Base, query) as unknown as JsonNullablePredicateExpression<Base>
 }
 
-json.asText = json.text
-jsonb.asText = jsonb.text
-
 /** Postgres shared JSON helpers for exact paths and functions that work on both json and jsonb. */
 export { json }
 export const get = json.get
 export const access = json.access
 export const traverse = json.traverse
 export const text = json.text
-export const asText = json.asText
 export const accessText = json.accessText
 export const traverseText = json.traverseText
 export const buildObject = json.buildObject

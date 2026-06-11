@@ -36,14 +36,14 @@ const docs = Table.make("docs", {
 
 const profile = docs.payloadJsonb.profile
 const city = docs.payloadJsonb.profile.address.city
-const cityText = docs.payloadJsonb.profile.address.city.pipe(Jsonb.asText)
-const countText = docs.payloadJsonb.profile.metrics.count.pipe(Jsonb.asText)
+const cityText = docs.payloadJsonb.profile.address.city.pipe(Jsonb.text)
+const countText = docs.payloadJsonb.profile.metrics.count.pipe(Jsonb.text)
 const count = Cast.to(countText, Type.float8())
 const firstTag = docs.payloadJsonb.profile.tags[0]!
 const pairHead = docs.payloadJsonb.profile.pair[0]!
 const pairTail = docs.payloadJsonb.profile.pair[1]!
 const sharedJsonCity = docs.payload.profile.address.city
-const sharedJsonCityText = docs.payload.profile.address.city.pipe(Json.asText)
+const sharedJsonCityText = docs.payload.profile.address.city.pipe(Json.text)
 
 type ProfileRuntime = Scalar.RuntimeOf<typeof profile>
 type CityRuntime = Scalar.RuntimeOf<typeof city>
@@ -127,9 +127,9 @@ const collisionDocs = Table.make("collision_docs", {
   }))
 })
 
-const escapedPipe = collisionDocs.payload.pipe(Jsonb.key("pipe"), Jsonb.asText)
-const escapedNumericKey = collisionDocs.payload.pipe(Jsonb.key("0"), Jsonb.asText)
-const bracketedLegacyName = collisionDocs.payload["legacy-name"].pipe(Jsonb.asText)
+const escapedPipe = collisionDocs.payload.pipe(Jsonb.key("pipe"), Jsonb.text)
+const escapedNumericKey = collisionDocs.payload.pipe(Jsonb.key("0"), Jsonb.text)
+const bracketedLegacyName = collisionDocs.payload["legacy-name"].pipe(Jsonb.text)
 
 type EscapedPipeRuntime = Scalar.RuntimeOf<typeof escapedPipe>
 type EscapedNumericKeyRuntime = Scalar.RuntimeOf<typeof escapedNumericKey>
@@ -155,7 +155,7 @@ const optionalDocs = Table.make("optional_docs", {
 
 const optionalProfile = optionalDocs.payload.profile
 const optionalProfileName = optionalDocs.payload.profile.pipe(Jsonb.key("name"))
-const optionalProfileNameText = optionalDocs.payload.profile.pipe(Jsonb.key("name"), Jsonb.asText)
+const optionalProfileNameText = optionalDocs.payload.profile.pipe(Jsonb.key("name"), Jsonb.text)
 const withoutOptionalLegacyFields = optionalDocs.payload.pipe(
   (payload) => payload.profile.legacyName.pipe(Jsonb.delete),
   (payload) => payload.profile.legacySlug.pipe(Jsonb.delete)
@@ -205,7 +205,7 @@ const variantDocs = Table.make("variant_docs", {
 
 // @ts-expect-error variant-specific fields are rejected until narrowed or accessed via an explicit key escape hatch
 variantDocs.payload.aValue
-const variantKind = variantDocs.payload.kind.pipe(Jsonb.asText)
+const variantKind = variantDocs.payload.kind.pipe(Jsonb.text)
 const narrowedVariantPlan = Q.select({
   payload: variantDocs.payload,
   kind: variantKind

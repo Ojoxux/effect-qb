@@ -32,7 +32,7 @@ const events = Table.make("events", {
 
 const eventKinds = Query.select({
   id: events.id,
-  kind: events.payload.kind.pipe(Jsonb.asText)
+  kind: events.payload.kind.pipe(Jsonb.text)
 }).pipe(Query.from(events))
 
 Pg.Renderer.make().render(eventKinds)

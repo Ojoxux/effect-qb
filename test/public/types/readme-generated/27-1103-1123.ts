@@ -18,7 +18,7 @@ const docs = Table.make("docs", {
 
 const readDocs = Query.select({
   id: docs.id,
-  city: docs.payload.profile.city.pipe(Json.asText)
+  city: docs.payload.profile.city.pipe(Json.text)
 }).pipe(Query.from(docs))
 
 Sq.Renderer.make().render(readDocs)

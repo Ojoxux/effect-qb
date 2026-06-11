@@ -94,7 +94,7 @@ describe("json behavior", () => {
 
     const plan = StdRoot.Query.select({
       city: docs.payload.profile.address.city,
-      cityText: docs.payload.profile.address.city.pipe(StdRoot.Json.asText)
+      cityText: docs.payload.profile.address.city.pipe(StdRoot.Json.text)
     }).pipe(StdRoot.Query.from(docs))
 
     const rendered = Postgres.Renderer.make().render(plan)
@@ -149,7 +149,7 @@ describe("json behavior", () => {
     const plan = StdRoot.Query.select({
       profile: docs.payload.profile,
       city: docs.payload.profile.address.city,
-      cityText: docs.payload.profile.address.city.pipe(Postgres.Jsonb.asText),
+      cityText: docs.payload.profile.address.city.pipe(Postgres.Jsonb.text),
       hasAddress: Postgres.Jsonb.hasKey(docs.payload.profile, "address"),
       hasCityPath: docs.payload.profile.address.city.pipe(Postgres.Jsonb.pathExists),
       withoutCity: docs.payload.profile.address.city.pipe(Postgres.Jsonb.delete)

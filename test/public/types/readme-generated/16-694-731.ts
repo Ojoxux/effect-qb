@@ -32,7 +32,7 @@ const docs = Table.make("docs", {
 })
 
 const postgresOnly = Query.select({
-  kind: docs.payload.kind.pipe(Jsonb.asText)
+  kind: docs.payload.kind.pipe(Jsonb.text)
 }).pipe(Query.from(docs))
 
 Pg.Renderer.make().render(postgresOnly)

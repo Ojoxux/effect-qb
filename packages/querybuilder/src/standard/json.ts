@@ -648,8 +648,6 @@ export const text = (((...args: readonly [unknown] | readonly [unknown, unknown]
   return standardJson.text(base as never, normalizeTarget(target as JsonPathInput) as never)
 }) as unknown) as Text
 
-export const asText = text
-
 type DeletePipe = <Base extends JsonExpression<any> & JsonAccessExpression>(
   base: Base & JsonAccessDeleteGuard<Base, "json.delete">
 ) => JsonAccessDeleteResultExpression<Base, "json.delete">

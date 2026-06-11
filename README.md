@@ -566,7 +566,7 @@ const events = Table.make("events", {
   payload: Pg.Column.jsonb(payloadSchema)
 })
 
-const kind = events.payload.kind.pipe(Jsonb.asText)
+const kind = events.payload.kind.pipe(Jsonb.text)
 
 const createdEvents = Query.select({
   payload: events.payload,
@@ -721,7 +721,7 @@ const docs = Table.make("docs", {
 })
 
 const postgresOnly = Query.select({
-  kind: docs.payload.kind.pipe(Jsonb.asText)
+  kind: docs.payload.kind.pipe(Jsonb.text)
 }).pipe(Query.from(docs))
 
 Pg.Renderer.make().render(postgresOnly)
@@ -1022,7 +1022,7 @@ const events = Table.make("events", {
 
 const eventKinds = Query.select({
   id: events.id,
-  kind: events.payload.kind.pipe(Jsonb.asText)
+  kind: events.payload.kind.pipe(Jsonb.text)
 }).pipe(Query.from(events))
 
 Pg.Renderer.make().render(eventKinds)
@@ -1080,7 +1080,7 @@ const docs = Table.make("docs", {
 
 const readDocs = Query.select({
   id: docs.id,
-  title: docs.payload.title.pipe(Json.asText)
+  title: docs.payload.title.pipe(Json.text)
 }).pipe(Query.from(docs))
 
 My.Renderer.make().render(readDocs)
@@ -1116,7 +1116,7 @@ const docs = Table.make("docs", {
 
 const readDocs = Query.select({
   id: docs.id,
-  city: docs.payload.profile.city.pipe(Json.asText)
+  city: docs.payload.profile.city.pipe(Json.text)
 }).pipe(Query.from(docs))
 
 Sq.Renderer.make().render(readDocs)
@@ -1198,7 +1198,7 @@ const docs = Table.make("docs", {
   }))
 })
 
-const city = docs.payload.profile.address.city.pipe(Jsonb.asText)
+const city = docs.payload.profile.address.city.pipe(Jsonb.text)
 
 const plan = Query.select({ city }).pipe(Query.from(docs))
 

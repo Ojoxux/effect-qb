@@ -19,7 +19,7 @@ const docs = Table.make("docs", {
   }))
 })
 
-const city = docs.payload.profile.address.city.pipe(Jsonb.asText)
+const city = docs.payload.profile.address.city.pipe(Jsonb.text)
 
 const plan = Query.select({ city }).pipe(Query.from(docs))
 

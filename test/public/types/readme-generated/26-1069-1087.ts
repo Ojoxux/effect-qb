@@ -16,7 +16,7 @@ const docs = Table.make("docs", {
 
 const readDocs = Query.select({
   id: docs.id,
-  title: docs.payload.title.pipe(Json.asText)
+  title: docs.payload.title.pipe(Json.text)
 }).pipe(Query.from(docs))
 
 My.Renderer.make().render(readDocs)
