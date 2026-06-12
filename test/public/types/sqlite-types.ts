@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect"
 import * as Schema from "effect/Schema"
 
 import { Json, Query as Q } from "effect-qb"
-import { Executor, Json as SqliteJson, Query as SqliteQuery, Renderer } from "effect-qb/sqlite"
+import { Executor, Json as SqliteJson, Query as SqliteQuery, Renderer, Type as SqliteType } from "effect-qb/sqlite"
 import { Executor as PostgresExecutor } from "effect-qb/postgres"
 
 const users = Std.Table.make("users", {
@@ -31,6 +31,16 @@ const posts = Std.Table.make("posts", {
 
 // @ts-expect-error sqlite custom db type names must be non-empty
 Q.type.custom("")
+
+// @ts-expect-error portable text types come from the standard Query.type namespace
+SqliteType.text()
+// @ts-expect-error portable json types come from the standard Query.type namespace
+SqliteType.json()
+// @ts-expect-error portable datetime types come from the standard Query.type namespace
+SqliteType.datetime()
+
+SqliteType.clob()
+SqliteType.double()
 
 Q.select({})
 

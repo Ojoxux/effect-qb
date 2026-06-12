@@ -41,12 +41,12 @@ const badInsertUnknownColumn = Q.insert(users, {
 void badInsertUnknownColumn
 const seedRows = [
   {
-    id: Cast.to(Q.literal("user-id"), Type.uuid()),
+    id: Cast.to(Q.literal("user-id"), Q.type.uuid()),
     email: "alice@example.com",
     bio: null
   },
   {
-    id: Cast.to(Q.literal("user-id-2"), Type.uuid()),
+    id: Cast.to(Q.literal("user-id-2"), Q.type.uuid()),
     email: "bob@example.com",
     bio: "writer"
   }
@@ -152,11 +152,11 @@ const updatePlan = Q.update(users, {
 })
 const updateSeedRows = [
   {
-    id: Cast.to(Q.literal("user-id"), Type.uuid()),
+    id: Cast.to(Q.literal("user-id"), Q.type.uuid()),
     email: Q.literal("updated@example.com")
   },
   {
-    id: Cast.to(Q.literal("user-id-2"), Type.uuid()),
+    id: Cast.to(Q.literal("user-id-2"), Q.type.uuid()),
     email: Q.literal("bob@example.com")
   }
 ] as any
@@ -336,14 +336,14 @@ const postgresMutationRow: PostgresMutationRow = { id: "user-id" }
 void postgresMutationRow
 
 const pgUsers = Std.Table.make("users", {
-  id: Postgres.Column.custom(Schema.UUID, Postgres.Type.uuid()).pipe(Std.Column.primaryKey),
-  email: Postgres.Column.custom(Schema.String, Postgres.Type.text())
+  id: Postgres.Column.custom(Schema.UUID, Postgres.Type.custom("uuid")).pipe(Std.Column.primaryKey),
+  email: Postgres.Column.custom(Schema.String, Postgres.Type.custom("text"))
 })
 
 const pgPosts = Std.Table.make("posts", {
-  id: Postgres.Column.custom(Schema.UUID, Postgres.Type.uuid()).pipe(Std.Column.primaryKey),
-  userId: Postgres.Column.custom(Schema.UUID, Postgres.Type.uuid()),
-  title: Postgres.Column.custom(Schema.String, Postgres.Type.text()).pipe(Std.Column.nullable)
+  id: Postgres.Column.custom(Schema.UUID, Postgres.Type.custom("uuid")).pipe(Std.Column.primaryKey),
+  userId: Postgres.Column.custom(Schema.UUID, Postgres.Type.custom("uuid")),
+  title: Postgres.Column.custom(Schema.String, Postgres.Type.custom("text")).pipe(Std.Column.nullable)
 })
 
 const mysqlMutationUsers = Std.Table.make("users", {

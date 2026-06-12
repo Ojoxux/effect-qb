@@ -38,6 +38,19 @@ const blobValue = Q.cast("deadbeef", Q.type.blob())
 const blobRuntime: E.RuntimeOf<typeof blobValue> = new Uint8Array()
 void blobRuntime
 
+// @ts-expect-error float8 is postgres-specific
+Q.type.float8()
+// @ts-expect-error clob is not portable across supported dialect renderers
+Q.type.clob()
+// @ts-expect-error double is not portable across supported dialect renderers
+Q.type.double()
+// @ts-expect-error arrays are dialect-specific
+Q.type.array(Q.type.text())
+// @ts-expect-error enum types are dialect-specific
+Q.type.enum("status")
+// @ts-expect-error set types are dialect-specific
+Q.type.set("set('admin')")
+
 // @ts-expect-error custom db type names must be non-empty
 Q.type.custom("")
 

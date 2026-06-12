@@ -131,7 +131,7 @@ describe("table definitions", () => {
 
   test("mixed-dialect table fields are rejected", () => {
     expect(() => StdRoot.Table.make("mixed_users", {
-      id: Postgres.Column.custom(Schema.UUID, Postgres.Type.uuid()),
+      id: Postgres.Column.custom(Schema.UUID, Postgres.Type.custom("uuid")),
       email: Mysql.Column.custom(Schema.String, Mysql.Datatypes.mysqlDatatypes.text())
     })).toThrow("Invalid dialects for table 'mixed_users': Mixed table dialects are not supported: postgres, mysql")
   })

@@ -2034,7 +2034,7 @@ const users = Table.make("users", {
         StdRoot.Json.key("line_item") as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any,
         StdRoot.Json.key("quantity") as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any,
         StdRoot.Json.text as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any,
-        StdRoot.Cast.to(Pg.Type.text()) as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any,
+        StdRoot.Cast.to(StdRoot.Query.type.text()) as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any,
         StdRoot.Cast.to(Pg.Type.int4()) as (value: StdRoot.Scalar.Any) => StdRoot.Scalar.Any
       )
       const proposalProducts = proposalProductsBase.pipe(
@@ -2056,7 +2056,7 @@ const users = Table.make("users", {
       expect(after).toContain(`Json.key("line_item")`)
       expect(after).toContain(`Json.key("quantity")`)
       expect(after).toContain(`Json.text`)
-      expect(after).toContain(`StdRoot.Cast.to(Pg.Type.text())`)
+      expect(after).toContain(`StdRoot.Cast.to(StdRoot.Query.type.text())`)
       expect(after).toContain(`StdRoot.Cast.to(Pg.Type.int4())`)
     } finally {
       await rm(tempDir, { recursive: true, force: true })
@@ -2068,7 +2068,7 @@ const users = Table.make("users", {
 
     const stripe = StdRoot.Query.column("stripe", Pg.Type.jsonb(), true) as StdRoot.Scalar.Any
     const quantity = StdRoot.Query.column("quantity", Pg.Type.int4()) as StdRoot.Scalar.Any
-    const viewedAt = StdRoot.Query.column("viewed_at", Pg.Type.timestamp(), true) as StdRoot.Scalar.Any
+    const viewedAt = StdRoot.Query.column("viewed_at", StdRoot.Query.type.timestamp(), true) as StdRoot.Scalar.Any
     const zero = StdRoot.Query.literal(0) as StdRoot.Scalar.Any
     const threshold = StdRoot.Query.literal(new Date("2024-01-01T00:00:00.000Z")) as StdRoot.Scalar.Any
     const and = StdRoot.Query.and as (

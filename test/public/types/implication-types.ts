@@ -19,18 +19,18 @@ const posts = Std.Table.make("posts", {
 
 const articles = Std.Table.make("articles", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),
-  status: PgColumn.custom(Schema.Literal("draft", "published", "archived"), Type.text()),
-  previousStatus: PgColumn.custom(Schema.Literal("draft", "published", "archived"), Type.text())
+  status: PgColumn.custom(Schema.Literal("draft", "published", "archived"), Q.type.text()),
+  previousStatus: PgColumn.custom(Schema.Literal("draft", "published", "archived"), Q.type.text())
 })
 
-const articleStatusText = Cast.to(articles.status, Type.text())
+const articleStatusText = Cast.to(articles.status, Q.type.text())
 
 const dottedPredicateTable = Std.Table.make("a.b", {
-  status: PgColumn.custom(Schema.Literal("left", "right"), Type.text())
+  status: PgColumn.custom(Schema.Literal("left", "right"), Q.type.text())
 })
 
 const splitPredicateTable = Std.Table.make("a", {
-  "b.status": PgColumn.custom(Schema.Literal("left", "right"), Type.text())
+  "b.status": PgColumn.custom(Schema.Literal("left", "right"), Q.type.text())
 })
 
 const nullFiltered = Q.select({

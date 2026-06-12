@@ -13,6 +13,7 @@ const TABLE_ALIAS = "Table"
 const COLUMN_ALIAS = "Column"
 const CAST_ALIAS = "Cast"
 const JSON_ALIAS = "Json"
+const STD_ROOT_ALIAS = "StdRoot"
 const PG_ALIAS = "Pg"
 const PRIMARY_KEY_ALIAS = "PrimaryKey"
 const UNIQUE_ALIAS = "Unique"
@@ -338,7 +339,7 @@ const renderQueryTypeName = (
     case "bool":
       return `${PG_ALIAS}.Type.bool()`
     case "date":
-      return `${PG_ALIAS}.Type.date()`
+      return `${STD_ROOT_ALIAS}.Query.type.date()`
     case "int2":
       return `${PG_ALIAS}.Type.int2()`
     case "int4":
@@ -346,28 +347,28 @@ const renderQueryTypeName = (
     case "int8":
       return `${PG_ALIAS}.Type.int8()`
     case "numeric":
-      return `${PG_ALIAS}.Type.numeric()`
+      return `${STD_ROOT_ALIAS}.Query.type.numeric()`
     case "float4":
       return `${PG_ALIAS}.Type.float4()`
     case "float8":
       return `${PG_ALIAS}.Type.float8()`
     case "time":
-      return `${PG_ALIAS}.Type.time()`
+      return `${STD_ROOT_ALIAS}.Query.type.time()`
     case "timetz":
       return `${PG_ALIAS}.Type.timetz()`
     case "timestamp":
-      return `${PG_ALIAS}.Type.timestamp()`
+      return `${STD_ROOT_ALIAS}.Query.type.timestamp()`
     case "timestamptz":
       return `${PG_ALIAS}.Type.timestamptz()`
     case "uuid":
-      return `${PG_ALIAS}.Type.uuid()`
+      return `${STD_ROOT_ALIAS}.Query.type.uuid()`
     case "text":
-      return `${PG_ALIAS}.Type.text()`
+      return `${STD_ROOT_ALIAS}.Query.type.text()`
     case "varchar":
-      return `${PG_ALIAS}.Type.varchar()`
+      return `${STD_ROOT_ALIAS}.Query.type.varchar()`
     case "char":
     case "bpchar":
-      return `${PG_ALIAS}.Type.char()`
+      return `${STD_ROOT_ALIAS}.Query.type.char()`
     case "name":
       return `${PG_ALIAS}.Type.name()`
     case "interval":
@@ -375,7 +376,7 @@ const renderQueryTypeName = (
     case "bytea":
       return `${PG_ALIAS}.Type.bytea()`
     case "json":
-      return `${PG_ALIAS}.Type.json()`
+      return `${STD_ROOT_ALIAS}.Query.type.json()`
     case "jsonb":
       return `${PG_ALIAS}.Type.jsonb()`
     case "regclass":
@@ -2351,12 +2352,14 @@ const renderSequenceDeclaration = (
 
 const ensureImports = (contents: string): string => {
   const cleaned = contents
+    .replace(new RegExp(`^import \\* as ${STD_ROOT_ALIAS} from "effect-qb"\\n?`, "gm"), "")
     .replace(/^import \* as [A-Za-z0-9_$]+ from "effect-qb\/postgres"\n?/gm, "")
     .replace(/^import \{[^}]+\} from "effect-qb\/postgres"\n?/gm, "")
     .replace(/^import \{[^}]+\} from "effect-qb"\n?/gm, "")
     .replace(/^import \* as [A-Za-z0-9_$]+ from "effect\/Schema"\n?/gm, "")
     .trimStart()
   const required = [
+    `import * as ${STD_ROOT_ALIAS} from "effect-qb"`,
     `import * as ${PG_ALIAS} from "effect-qb/postgres"`,
     `import { ${TABLE_ALIAS}, ${COLUMN_ALIAS}, ${CAST_ALIAS}, ${JSON_ALIAS}, ${PRIMARY_KEY_ALIAS}, ${UNIQUE_ALIAS}, ${INDEX_ALIAS}, ${FOREIGN_KEY_ALIAS}, ${CHECK_ALIAS} } from "effect-qb"`,
     `import * as ${SCHEMA_ALIAS} from "effect/Schema"`
@@ -2730,6 +2733,7 @@ const renderCanonicalNewModule = (
   const orderedTables = sortTableAdditionsByDependency(tables)
 
   const lines: string[] = [
+    `import * as ${STD_ROOT_ALIAS} from "effect-qb"`,
     `import * as ${PG_ALIAS} from "effect-qb/postgres"`,
     `import { ${TABLE_ALIAS}, ${COLUMN_ALIAS}, ${CAST_ALIAS}, ${JSON_ALIAS}, ${PRIMARY_KEY_ALIAS}, ${UNIQUE_ALIAS}, ${INDEX_ALIAS}, ${FOREIGN_KEY_ALIAS}, ${CHECK_ALIAS} } from "effect-qb"`,
     `import * as ${SCHEMA_ALIAS} from "effect/Schema"`

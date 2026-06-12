@@ -77,8 +77,7 @@ export const standardDatatypes = {
   > & {
     readonly uuid: () => StandardUuidWitness
     readonly json: () => StandardJsonWitness
-  }),
-  float8: () => withMetadata("real")
+  })
 }
 
 export type StandardDatatypeModule = typeof standardDatatypes

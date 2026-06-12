@@ -1524,7 +1524,7 @@ type NumberWindowExpression<
  */
 type Dialect = "standard"
 type TextDb = ReturnType<typeof standardDatatypes.text>
-type NumericDb = ReturnType<typeof standardDatatypes.float8>
+type NumericDb = ReturnType<typeof standardDatatypes.real>
 type BoolDb = ReturnType<typeof standardDatatypes.boolean>
 type TimestampDb = ReturnType<typeof standardDatatypes.timestamp>
 type NullDb = Expression.DbType.Base<"standard", "null"> & {
@@ -1538,7 +1538,7 @@ type TypeWitnesses = typeof standardDatatypes
 const profile: QueryDialectProfile<Dialect, TextDb, NumericDb, BoolDb, TimestampDb, NullDb, TypeWitnesses> = {
   dialect: "standard",
   textDb: standardDatatypes.text() as TextDb,
-  numericDb: standardDatatypes.float8() as NumericDb,
+  numericDb: standardDatatypes.real() as NumericDb,
   boolDb: standardDatatypes.boolean() as BoolDb,
   timestampDb: standardDatatypes.timestamp() as TimestampDb,
   nullDb: {
@@ -2344,13 +2344,6 @@ type BinaryPredicateExpression<
 
   const type = {
     ...profile.type,
-    array,
-    range,
-    multirange,
-    record,
-    domain,
-    enum: enum_,
-    set,
     custom,
     driverValueMapping
   }

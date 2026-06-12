@@ -23,7 +23,7 @@ type StandardNullDb = Expression.DbType.Base<"standard", "null"> & {
 
 type LiteralDbType<Value> =
   Value extends string ? ReturnType<typeof standardDatatypes.text> :
-    Value extends number ? ReturnType<typeof standardDatatypes.float8> :
+    Value extends number ? ReturnType<typeof standardDatatypes.real> :
       Value extends boolean ? ReturnType<typeof standardDatatypes.boolean> :
         Value extends Date ? ReturnType<typeof standardDatatypes.timestamp> :
           StandardNullDb

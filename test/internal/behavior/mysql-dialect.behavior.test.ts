@@ -138,11 +138,11 @@ describe("mysql dialect behavior", () => {
     const plan = StdRoot.Query.select({
       enumValue: StdRoot.Query.cast(
         StdRoot.Query.literal("draft"),
-        StdRoot.Query.type.enum("enum('draft','published')")
+        Mysql.Type.enum("enum('draft','published')")
       ),
       setValue: StdRoot.Query.cast(
         StdRoot.Query.literal("admin"),
-        StdRoot.Query.type.set("set('admin','editor')")
+        Mysql.Type.set("set('admin','editor')")
       )
     })
 

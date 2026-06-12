@@ -1,10 +1,18 @@
 import * as Std from "effect-qb"
+import * as My from "effect-qb/mysql"
 import { Query as Q, Scalar as E } from "effect-qb"
 
 const users = Std.Table.make("users", {
   id: Std.Column.uuid().pipe(Std.Column.primaryKey),
   email: Std.Column.text()
 })
+
+// @ts-expect-error portable text types come from the standard Query.type namespace
+My.Type.text()
+// @ts-expect-error portable json types come from the standard Query.type namespace
+My.Type.json()
+// @ts-expect-error portable datetime types come from the standard Query.type namespace
+My.Type.datetime()
 
 const plan = Q.select({
   varcharEmail: Q.cast(users.email, Q.type.varchar()),
@@ -49,11 +57,11 @@ type TemporalRow = Q.ResultRow<typeof temporalPlan>
 const sameTemporal: TemporalRow["sameTemporal"] = true
 void sameTemporal
 
-const decimalLeft = Q.cast(1, Q.type.custom("decimal(10,2)"))
-const decimalRight = Q.cast(2, Q.type.custom("decimal(10,2)"))
+const decimalLeft = Q.cast(1, My.Type.custom("decimal(10,2)"))
+const decimalRight = Q.cast(2, My.Type.custom("decimal(10,2)"))
 
 // @ts-expect-error MySQL custom db type names must be non-empty
-Q.type.custom("")
+My.Type.custom("")
 
 const customPlan = Q.select({
   scaledValue: decimalLeft,
@@ -66,17 +74,17 @@ const scaledMatch: CustomRow["scaledMatch"] = true
 void scaledValue
 void scaledMatch
 
-const enumLeft = Q.cast("draft", Q.type.enum("enum('draft','published')"))
-const enumRight = Q.cast("published", Q.type.enum("enum('draft','published')"))
+const enumLeft = Q.cast("draft", My.Type.enum("enum('draft','published')"))
+const enumRight = Q.cast("published", My.Type.enum("enum('draft','published')"))
 
 // @ts-expect-error MySQL enum db type names must be non-empty
-Q.type.enum("")
+My.Type.enum("")
 // @ts-expect-error MySQL set db type names must be non-empty
-Q.type.set("")
+My.Type.set("")
 
 const customEnumPlan = Q.select({
   enumMatch: Q.eq(enumLeft, enumRight),
-  setValue: Q.cast("admin", Q.type.set("set('admin','editor')"))
+  setValue: Q.cast("admin", My.Type.set("set('admin','editor')"))
 })
 
 type CustomEnumRow = Q.ResultRow<typeof customEnumPlan>
@@ -86,4 +94,4 @@ void enumMatch
 void setValue
 
 // @ts-expect-error incompatible enum kinds should be rejected
-Q.eq(Q.cast("draft", Q.type.enum("enum('draft','published')")), Q.cast("published", Q.type.enum("enum('review','archived')")))
+Q.eq(Q.cast("draft", My.Type.enum("enum('draft','published')")), Q.cast("published", My.Type.enum("enum('review','archived')")))

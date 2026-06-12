@@ -29,9 +29,9 @@ const invalidPgMapping: StdRoot.Scalar.DriverValueMapping = {
 
 void invalidPgMapping
 
-const mappedTextType = Pg.Type.driverValueMapping(Pg.Type.text(), pgMapping)
+const mappedTextType = Pg.Type.driverValueMapping(StdRoot.Query.type.text(), pgMapping)
 type _AssertMappedTextKind = Assert<IsEqual<typeof mappedTextType.kind, "text">>
-type _AssertMappedTextDialect = Assert<IsEqual<typeof mappedTextType.dialect, "postgres">>
+type _AssertMappedTextDialect = Assert<IsEqual<typeof mappedTextType.dialect, "standard">>
 
 const mappedTextColumn = Pg.Column.custom(Schema.String, mappedTextType)
 const mappedTextCast = StdRoot.Cast.to("mapped", mappedTextType)

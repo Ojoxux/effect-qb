@@ -683,8 +683,8 @@ const badMysqlForeignKeyReferencedColumn = Std.Table.foreignKey((table) => table
 void badMysqlForeignKeyReferencedColumn
 
 const postgresUsers = Std.Table.make("postgres_users", {
-  id: Postgres.Column.custom(Schema.UUID, Postgres.Type.uuid()),
-  email: Postgres.Column.custom(Schema.String, Postgres.Type.text())
+  id: Postgres.Column.custom(Schema.UUID, Postgres.Type.custom("uuid")),
+  email: Postgres.Column.custom(Schema.String, Postgres.Type.citext())
 })
 
 const badPostgresFromMysql = StdRoot.Query.select({

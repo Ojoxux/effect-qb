@@ -37,8 +37,8 @@ type _AssertNormalizeConflict = Assert<IsExact<
 >>
 
 const pgUsers = Std.Table.make("users", {
-  id: Postgres.Column.custom(Schema.UUID, Postgres.Type.uuid()).pipe(Std.Column.primaryKey),
-  email: Postgres.Column.custom(Schema.String, Postgres.Type.text())
+  id: Postgres.Column.custom(Schema.UUID, Postgres.Type.custom("uuid")).pipe(Std.Column.primaryKey),
+  email: Postgres.Column.custom(Schema.String, Postgres.Type.citext())
 })
 
 const myUsers = Std.Table.make("users", {
