@@ -79,7 +79,7 @@ export const varchar = (length?: number) =>
     primaryKey: false,
     unique: false,
     references: undefined,
-    ddlType: length === undefined ? "varchar" : `varchar(${length})`,
+    ddlType: length === undefined ? undefined : `varchar(${length})`,
     identity: undefined
   })
 export const char = (length = 1) =>

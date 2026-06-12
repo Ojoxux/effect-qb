@@ -19,7 +19,8 @@
     "test:pack": "bun scripts/check-packed-querybuilder.ts",
     "test": "bun --config ./bunfig.test.toml test",
     "test:types": "bun run generate:readme-types && bunx tsgo -p tsconfig.type-tests.json",
-    "test:integration": "bun scripts/test-integration.ts"
+    "test:integration": "bun scripts/test-integration.ts",
+    "test:integration:datatypes": "bun scripts/test-datatype-matrix-integration.ts"
   },
   "devDependencies": {
     "@effect/cli": "^0.75.0",

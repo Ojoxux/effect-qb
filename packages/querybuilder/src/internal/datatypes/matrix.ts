@@ -171,7 +171,7 @@ export const portableDatatypeDdlTypeByDialect = {
   mysql: {
     uuid: "char(36)",
     text: "text",
-    varchar: "varchar",
+    varchar: "varchar(255)",
     char: "char",
     int: "int",
     integer: "integer",
@@ -213,13 +213,19 @@ export const portableDatatypeCastTypeByDialect = {
   postgres: portableDatatypeDdlTypeByDialect.postgres,
   mysql: {
     ...portableDatatypeDdlTypeByDialect.mysql,
+    uuid: "char(36)",
     text: "char",
     varchar: "char",
     char: "char",
+    int: "signed",
+    integer: "signed",
+    bigint: "signed",
     numeric: "decimal",
     decimal: "decimal",
+    boolean: "unsigned",
     datetime: "datetime",
-    timestamp: "datetime"
+    timestamp: "datetime",
+    blob: "binary"
   },
   sqlite: {
     ...portableDatatypeDdlTypeByDialect.sqlite,
